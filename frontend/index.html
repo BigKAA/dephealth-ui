@@ -9,9 +9,6 @@
   <header id="header">
     <span class="header-title">dephealth-ui</span>
     <div class="toolbar">
-      <select id="namespace-select" title="Filter by namespace">
-        <option value="">All namespaces</option>
-      </select>
       <button id="btn-filter" title="Toggle filters">Filter</button>
       <button id="btn-refresh" title="Refresh now">Refresh</button>
       <button id="btn-fit" title="Fit graph to screen">Fit</button>
@@ -30,16 +27,24 @@
   </div>
 
   <div id="filter-panel" class="hidden">
-    <div class="filter-group" id="filter-type">
-      <span class="filter-label">Type:</span>
+    <div class="filter-column" id="filter-namespace">
+      <span class="filter-label">Namespace</span>
+      <select id="namespace-select" placeholder="All namespaces"></select>
     </div>
-    <div class="filter-group" id="filter-state">
-      <span class="filter-label">State:</span>
+    <div class="filter-column" id="filter-type">
+      <span class="filter-label">Type</span>
+      <select id="type-select" multiple placeholder="All types"></select>
     </div>
-    <div class="filter-group" id="filter-job">
-      <span class="filter-label">Service:</span>
+    <div class="filter-column" id="filter-state">
+      <span class="filter-label">State</span>
+      <div class="filter-chips" id="state-chips"></div>
     </div>
-    <div class="filter-actions">
+    <div class="filter-column" id="filter-job">
+      <span class="filter-label">Service</span>
+      <select id="job-select" multiple placeholder="All services"></select>
+    </div>
+    <div class="filter-column filter-actions">
+      <span class="filter-label">&nbsp;</span>
       <button id="btn-reset-filters" title="Reset all filters">Reset</button>
     </div>
   </div>

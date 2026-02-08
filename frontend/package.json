@@ -11,7 +11,8 @@
   "dependencies": {
     "cytoscape": "^3.28.0",
     "cytoscape-dagre": "^2.5.0",
-    "dagre": "^0.8.5"
+    "dagre": "^0.8.5",
+    "tom-select": "^2.4.6"
   },
   "devDependencies": {
     "vite": "^6.0.0"

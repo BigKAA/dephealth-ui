@@ -1,3 +1,5 @@
+import TomSelect from 'tom-select';
+
 const STORAGE_KEY = 'dephealth-filters';
 const STATES = ['ok', 'degraded', 'down', 'unknown'];
 
@@ -17,25 +19,145 @@ let knownValues = {
   job: [],
 };
 
+// Tom Select instances.
+let tsType = null;
+let tsJob = null;
+let tsNamespace = null;
+
+// --- Tom Select initialization ---
+
+function initNamespaceSelect() {
+  const el = $('#namespace-select');
+  tsNamespace = new TomSelect(el, {
+    create: false,
+    sortField: { field: 'text', direction: 'asc' },
+    placeholder: 'All namespaces',
+    allowEmptyOption: true,
+    onChange(value) {
+      window.dispatchEvent(new CustomEvent('namespace-changed', { detail: value }));
+    },
+  });
+}
+
+function initTypeSelect() {
+  const el = $('#type-select');
+  tsType = new TomSelect(el, {
+    create: false,
+    plugins: ['remove_button'],
+    placeholder: 'All types',
+    onChange(values) {
+      activeFilters.type = new Set(values);
+      saveToStorage();
+      window.dispatchEvent(new CustomEvent('filters-changed'));
+    },
+  });
+}
+
+function initJobSelect() {
+  const el = $('#job-select');
+  tsJob = new TomSelect(el, {
+    create: false,
+    plugins: ['remove_button'],
+    placeholder: 'All services',
+    onChange(values) {
+      activeFilters.job = new Set(values);
+      saveToStorage();
+      window.dispatchEvent(new CustomEvent('filters-changed'));
+    },
+  });
+}
+
+// --- Dynamic option sync ---
+
+function syncTomSelectOptions(instance, newValues, activeSet) {
+  if (!instance) return;
+
+  instance.clearOptions();
+  for (const val of newValues) {
+    instance.addOption({ value: val, text: val });
+  }
+
+  // Prune active selections that no longer exist in data.
+  for (const val of activeSet) {
+    if (!newValues.includes(val)) {
+      activeSet.delete(val);
+    }
+  }
+
+  // Restore active selections without triggering onChange.
+  instance.setValue([...activeSet], true);
+}
+
+// --- Exported functions ---
+
 /**
  * Initialize filter panel from topology data.
- * Populates chips, restores saved selections from localStorage.
+ * Creates Tom Select instances, populates state chips, restores saved state.
  * @param {object} data - Topology response {nodes, edges}
  */
 export function initFilters(data) {
   restoreFromStorage();
+  initNamespaceSelect();
+  initTypeSelect();
+  initJobSelect();
   updateFilterValues(data);
-  renderChips();
+  syncTomSelectOptions(tsType, knownValues.type, activeFilters.type);
+  syncTomSelectOptions(tsJob, knownValues.job, activeFilters.job);
+  renderStateChips();
 }
 
 /**
- * Update known filter values from new topology data.
- * Preserves active selections that still exist in data.
+ * Update known filter values and sync Tom Select options from new topology data.
  * @param {object} data - Topology response {nodes, edges}
  */
 export function updateFilters(data) {
   updateFilterValues(data);
-  renderChips();
+  syncTomSelectOptions(tsType, knownValues.type, activeFilters.type);
+  syncTomSelectOptions(tsJob, knownValues.job, activeFilters.job);
+  renderStateChips();
+}
+
+/**
+ * Update namespace dropdown options from topology data.
+ * Preserves the current selection.
+ * @param {object} data - Topology response {nodes, edges}
+ */
+export function updateNamespaceOptions(data) {
+  if (!tsNamespace) return;
+
+  const namespaces = new Set();
+  if (data.nodes) {
+    for (const node of data.nodes) {
+      if (node.namespace) {
+        namespaces.add(node.namespace);
+      }
+    }
+  }
+
+  const sorted = [...namespaces].sort();
+  const current = tsNamespace.getValue();
+
+  // Rebuild only if the set changed.
+  const existing = Object.keys(tsNamespace.options).filter((k) => k !== '');
+  if (sorted.length === existing.length && sorted.every((v, i) => v === existing[i])) {
+    return;
+  }
+
+  tsNamespace.clearOptions();
+  tsNamespace.addOption({ value: '', text: 'All namespaces' });
+  for (const ns of sorted) {
+    tsNamespace.addOption({ value: ns, text: ns });
+  }
+  tsNamespace.setValue(current, true);
+}
+
+/**
+ * Set the namespace value in Tom Select (e.g. from URL param on init).
+ * @param {string} value
+ */
+export function setNamespaceValue(value) {
+  if (!tsNamespace) return;
+  tsNamespace.setValue(value, true);
 }
 
 /**
@@ -65,7 +187,6 @@ export function applyFilters(cy) {
       let visible = true;
 
       if (type === 'service') {
-        // Service nodes: match by job (id) and state.
         if (hasJobFilter && !activeFilters.job.has(id)) {
           visible = false;
         }
@@ -73,7 +194,6 @@ export function applyFilters(cy) {
           visible = false;
         }
       } else {
-        // Dependency nodes: match by type and state.
         if (hasTypeFilter && !activeFilters.type.has(type)) {
           visible = false;
         }
@@ -122,14 +242,19 @@ export function getActiveFilters() {
 }
 
 /**
- * Reset all filters and clear localStorage.
+ * Reset all filters (including Tom Select instances) and clear localStorage.
  */
 export function resetFilters() {
   activeFilters.type.clear();
   activeFilters.state.clear();
   activeFilters.job.clear();
   localStorage.removeItem(STORAGE_KEY);
-  renderChips();
+
+  if (tsType) tsType.clear(true);
+  if (tsJob) tsJob.clear(true);
+  if (tsNamespace) tsNamespace.setValue('', true);
+
+  renderStateChips();
 }
 
 /**
@@ -172,54 +297,41 @@ function pruneSet(active, known) {
   }
 }
 
-function renderChips() {
-  renderGroup('filter-type', 'type', knownValues.type);
-  renderGroup('filter-state', 'state', knownValues.state);
-  renderGroup('filter-job', 'job', knownValues.job);
-}
-
-function renderGroup(containerId, dimension, values) {
-  const container = $(`#${containerId}`);
+function renderStateChips() {
+  const container = $('#state-chips');
   if (!container) return;
 
-  // Keep the label, remove old chips.
-  const label = container.querySelector('.filter-label');
   container.innerHTML = '';
-  if (label) container.appendChild(label);
 
-  for (const value of values) {
+  for (const value of knownValues.state) {
     const chip = document.createElement('button');
     chip.className = 'filter-chip';
     chip.textContent = value;
-    chip.dataset.dimension = dimension;
     chip.dataset.value = value;
 
-    if (activeFilters[dimension].has(value)) {
+    if (activeFilters.state.has(value)) {
       chip.classList.add('active');
     }
 
     chip.addEventListener('click', () => {
-      toggleFilter(dimension, value);
+      toggleStateFilter(value);
     });
 
     container.appendChild(chip);
   }
 }
 
-function toggleFilter(dimension, value) {
-  if (activeFilters[dimension].has(value)) {
-    activeFilters[dimension].delete(value);
+function toggleStateFilter(value) {
+  if (activeFilters.state.has(value)) {
+    activeFilters.state.delete(value);
   } else {
-    activeFilters[dimension].add(value);
+    activeFilters.state.add(value);
   }
 
-  // Update chip visual state.
-  const chips = document.querySelectorAll(`.filter-chip[data-dimension="${dimension}"][data-value="${value}"]`);
+  const chips = document.querySelectorAll(`.filter-chip[data-value="${value}"]`);
   chips.forEach((chip) => chip.classList.toggle('active'));
 
   saveToStorage();
-
-  // Dispatch custom event so main.js can re-apply filters.
   window.dispatchEvent(new CustomEvent('filters-changed'));
 }
 

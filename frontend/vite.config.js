@@ -12,6 +12,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           cytoscape: ['cytoscape', 'cytoscape-dagre', 'dagre'],
+          'tom-select': ['tom-select'],
         },
       },
     },
