@@ -139,6 +139,50 @@ func TestHealthzJSON(t *testing.T) {
 	}
 }
 
+func TestTopologyETag(t *testing.T) {
+	srv := newTestServer()
+
+	// First request — should return 200 with ETag
+	req1 := httptest.NewRequest("GET", "/api/v1/topology", nil)
+	w1 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w1, req1)
+
+	if w1.Code != http.StatusOK {
+		t.Fatalf("first request status = %d, want 200", w1.Code)
+	}
+
+	etag := w1.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("expected ETag header on first request")
+	}
+
+	// Second request with matching If-None-Match — should return 304
+	req2 := httptest.NewRequest("GET", "/api/v1/topology", nil)
+	req2.Header.Set("If-None-Match", etag)
+	w2 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusNotModified {
+		t.Errorf("second request status = %d, want 304", w2.Code)
+	}
+	if w2.Body.Len() != 0 {
+		t.Errorf("304 response should have empty body, got %d bytes", w2.Body.Len())
+	}
+
+	// Third request with wrong ETag — should return 200
+	req3 := httptest.NewRequest("GET", "/api/v1/topology", nil)
+	req3.Header.Set("If-None-Match", `"wrong-etag"`)
+	w3 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w3, req3)
+
+	if w3.Code != http.StatusOK {
+		t.Errorf("third request status = %d, want 200", w3.Code)
+	}
+	if w3.Header().Get("ETag") == "" {
+		t.Error("expected ETag header on third request")
+	}
+}
+
 func TestCORSHeaders(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest("OPTIONS", "/api/v1/topology", nil)

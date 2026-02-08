@@ -104,6 +104,17 @@ const cytoscapeStyles = [
 ];
 
 let isFirstRender = true;
+let lastStructureSignature = '';
+
+/**
+ * Compute a structural signature from node IDs and edge keys.
+ * Changes in state/latency don't affect the signature.
+ */
+function computeSignature(data) {
+  const nodeIds = data.nodes.map((n) => n.id).sort();
+  const edgeKeys = data.edges.map((e) => `${e.source}->${e.target}`).sort();
+  return nodeIds.join(',') + '|' + edgeKeys.join(',');
+}
 
 /**
  * Initialize Cytoscape instance on the given container.
@@ -112,6 +123,7 @@ let isFirstRender = true;
  */
 export function initGraph(container) {
   isFirstRender = true;
+  lastStructureSignature = '';
   return cytoscape({
     container,
     style: cytoscapeStyles,
@@ -124,10 +136,16 @@ export function initGraph(container) {
 
 /**
  * Render topology data into the Cytoscape instance.
+ * Uses smart diffing: if only data attributes changed (state, latency),
+ * updates in-place without re-running dagre layout.
  * @param {cytoscape.Core} cy
  * @param {{nodes: Array, edges: Array, alerts: Array}} data
  */
 export function renderGraph(cy, data) {
+  const signature = computeSignature(data);
+  const structureChanged = signature !== lastStructureSignature;
+  lastStructureSignature = signature;
+
   // Count alerts per node (service = source).
   const alertCounts = {};
   if (data.alerts) {
@@ -136,6 +154,30 @@ export function renderGraph(cy, data) {
     }
   }
 
+  if (!structureChanged && !isFirstRender) {
+    // Structure unchanged — update data attributes only, skip layout
+    cy.batch(() => {
+      for (const node of data.nodes) {
+        const ele = cy.getElementById(node.id);
+        if (ele.length) {
+          ele.data('state', node.state);
+          ele.data('alertCount', alertCounts[node.id] || 0);
+        }
+      }
+      for (const edge of data.edges) {
+        const id = `${edge.source}->${edge.target}`;
+        const ele = cy.getElementById(id);
+        if (ele.length) {
+          ele.data('latency', edge.latency);
+          ele.data('state', edge.state);
+        }
+      }
+    });
+    cy.style().update();
+    return;
+  }
+
+  // Structure changed — full rebuild
   cy.batch(() => {
     cy.elements().remove();
 

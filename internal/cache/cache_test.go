@@ -64,6 +64,77 @@ func TestNotExpired(t *testing.T) {
 	}
 }
 
+func TestGetWithETag(t *testing.T) {
+	c := New(10 * time.Second)
+	want := &topology.TopologyResponse{
+		Nodes: []topology.Node{{ID: "svc-go", Label: "svc-go"}},
+		Edges: []topology.Edge{{Source: "svc-go", Target: "postgres"}},
+	}
+
+	c.Set(want)
+	resp, etag, ok := c.GetWithETag()
+	if !ok {
+		t.Fatal("expected ok=true after Set")
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	if etag == "" {
+		t.Fatal("expected non-empty ETag")
+	}
+	// ETag should be quoted hex
+	if etag[0] != '"' || etag[len(etag)-1] != '"' {
+		t.Errorf("ETag should be quoted, got %q", etag)
+	}
+}
+
+func TestETagChangesWithData(t *testing.T) {
+	c := New(10 * time.Second)
+
+	c.Set(&topology.TopologyResponse{
+		Nodes: []topology.Node{{ID: "svc-go"}},
+	})
+	_, etag1, _ := c.GetWithETag()
+
+	c.Set(&topology.TopologyResponse{
+		Nodes: []topology.Node{{ID: "svc-python"}},
+	})
+	_, etag2, _ := c.GetWithETag()
+
+	if etag1 == etag2 {
+		t.Error("ETag should change when data changes")
+	}
+}
+
+func TestETagStableForSameData(t *testing.T) {
+	c := New(10 * time.Second)
+	resp := &topology.TopologyResponse{
+		Nodes: []topology.Node{{ID: "svc-go", State: "ok"}},
+		Edges: []topology.Edge{{Source: "svc-go", Target: "postgres"}},
+	}
+
+	c.Set(resp)
+	_, etag1, _ := c.GetWithETag()
+
+	c.Set(resp)
+	_, etag2, _ := c.GetWithETag()
+
+	if etag1 != etag2 {
+		t.Errorf("ETag should be stable for same data, got %q and %q", etag1, etag2)
+	}
+}
+
+func TestGetWithETagEmpty(t *testing.T) {
+	c := New(10 * time.Second)
+	_, etag, ok := c.GetWithETag()
+	if ok {
+		t.Error("expected ok=false for empty cache")
+	}
+	if etag != "" {
+		t.Error("expected empty ETag for empty cache")
+	}
+}
+
 func TestConcurrentAccess(t *testing.T) {
 	c := New(1 * time.Hour)
 	var wg sync.WaitGroup

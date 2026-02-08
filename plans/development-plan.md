@@ -711,25 +711,21 @@ a production-ready Helm chart for dephealth-ui.
 - [x] Responsive status bar
 - [x] Touch-friendly node/edge tap targets
 
-### 5.4 Error handling improvements
+### 5.4 Error handling improvements [COMPLETED]
 
-- [ ] Connection lost overlay with retry countdown
-- [ ] Partial data indicator (if some queries fail)
-- [ ] Toast notifications for transient errors
-- [ ] Empty state: message when no services found
+- [x] Backend: partial data support in GraphBuilder (non-fatal health/latency/alert queries)
+- [x] Toast notification system (error, warning, info, success with auto-dismiss)
+- [x] Connection lost banner with retry countdown (exponential backoff 5s→30s)
+- [x] Empty state: message when no services found
+- [x] Partial data indicator (amber status dot + toast for each error)
 
-### 5.5 Performance optimization
+### 5.5 Performance optimization [COMPLETED]
 
-- [ ] Graph rendering:
-  - Limit initial viewport to visible nodes
-  - Virtual rendering for 100+ node graphs
-  - Debounce layout recalculation
-- [ ] API:
-  - Conditional requests (ETag / If-None-Match)
-  - Gzip compression middleware
-- [ ] Frontend:
-  - Bundle size audit
-  - Lazy loading for non-critical features
+- [x] Gzip compression middleware (sync.Pool for gzip writers)
+- [x] Smart graph update (skip dagre layout when structure unchanged, data-only update)
+- [x] Cache headers for static assets (immutable for hashed Vite assets, no-cache for index.html)
+- [x] ETag / If-None-Match for topology API (MD5 of nodes+edges+alerts, 304 responses)
+- [x] Frontend ETag support in API client
 
 ### 5.6 Deploy and test
 

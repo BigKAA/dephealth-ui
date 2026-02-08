@@ -13,16 +13,38 @@ async function authenticatedFetch(url, opts) {
   return resp;
 }
 
+// ETag tracking for topology endpoint
+let lastETag = null;
+let lastTopologyData = null;
+
 /**
  * Fetch topology data from the backend API.
+ * Supports ETag/If-None-Match for efficient polling.
  * @returns {Promise<{nodes: Array, edges: Array, alerts: Array, meta: Object}>}
  */
 export async function fetchTopology() {
-  const resp = await authenticatedFetch('/api/v1/topology');
+  const headers = {};
+  if (lastETag) {
+    headers['If-None-Match'] = lastETag;
+  }
+
+  const resp = await authenticatedFetch('/api/v1/topology', { headers });
+
+  if (resp.status === 304 && lastTopologyData) {
+    return lastTopologyData;
+  }
+
   if (!resp.ok) {
     throw new Error(`Topology API error: ${resp.status} ${resp.statusText}`);
   }
-  return resp.json();
+
+  const data = await resp.json();
+  const etag = resp.headers.get('ETag');
+  if (etag) {
+    lastETag = etag;
+  }
+  lastTopologyData = data;
+  return data;
 }
 
 /**

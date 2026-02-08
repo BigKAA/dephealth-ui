@@ -85,10 +85,11 @@ func (s *Server) setupMiddleware() {
 	s.router.Use(middleware.RealIP)
 	s.router.Use(middleware.Logger)
 	s.router.Use(middleware.Recoverer)
+	s.router.Use(gzipMiddleware)
 	s.router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "If-None-Match"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
@@ -130,8 +131,13 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
-	if cached, ok := s.cache.Get(); ok {
+	if cached, etag, ok := s.cache.GetWithETag(); ok {
+		if clientETag := r.Header.Get("If-None-Match"); clientETag == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("ETag", etag)
 		if err := json.NewEncoder(w).Encode(cached); err != nil {
 			s.logger.Error("failed to encode cached topology response", "error", err)
 		}
@@ -149,7 +155,9 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 
 	s.cache.Set(resp)
 
+	_, etag, _ := s.cache.GetWithETag()
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", etag)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("failed to encode topology response", "error", err)
 	}
