@@ -1,0 +1,10 @@
+{
+  "name": "dephealth-ui-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Frontend not yet implemented (Phase 2)'",
+    "build": "mkdir -p dist && cp index.html dist/index.html"
+  }
+}

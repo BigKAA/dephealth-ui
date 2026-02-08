@@ -2,9 +2,8 @@
 ARG REGISTRY=docker.io
 FROM ${REGISTRY}/node:22-alpine AS frontend
 WORKDIR /frontend
-COPY frontend/package*.json ./
-RUN npm ci
 COPY frontend/ ./
+RUN if [ -f package-lock.json ]; then npm ci; elif [ -f package.json ]; then npm install; fi
 RUN npm run build
 
 # Stage 2 — Go build

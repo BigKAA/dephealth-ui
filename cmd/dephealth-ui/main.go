@@ -11,6 +11,7 @@ import (
 
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/server"
+	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
 
 func main() {
@@ -37,7 +38,21 @@ func main() {
 		"prometheus", cfg.Datasources.Prometheus.URL,
 	)
 
-	srv := server.New(cfg, logger)
+	promClient := topology.NewPrometheusClient(topology.PrometheusConfig{
+		URL:      cfg.Datasources.Prometheus.URL,
+		Username: cfg.Datasources.Prometheus.Username,
+		Password: cfg.Datasources.Prometheus.Password,
+	})
+
+	grafanaCfg := topology.GrafanaConfig{
+		BaseURL:              cfg.Grafana.BaseURL,
+		ServiceStatusDashUID: cfg.Grafana.Dashboards.ServiceStatus,
+		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
+	}
+
+	builder := topology.NewGraphBuilder(promClient, grafanaCfg, cfg.Cache.TTL)
+
+	srv := server.New(cfg, logger, builder)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
