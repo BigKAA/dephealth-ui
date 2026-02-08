@@ -1,5 +1,43 @@
 {{- if .Values.dex.enabled }}
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dex
+  namespace: {{ include "dephealth-infra.namespace" . }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dex
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["dex.coreos.com"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dex
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dex
+subjects:
+  - kind: ServiceAccount
+    name: dex
+    namespace: {{ include "dephealth-infra.namespace" . }}
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dex
@@ -11,7 +49,9 @@ data:
   config.yaml: |
     issuer: {{ .Values.dex.issuer }}
     storage:
-      type: memory
+      type: kubernetes
+      config:
+        inCluster: true
     web:
       http: 0.0.0.0:5555
     logger:
@@ -56,6 +96,7 @@ spec:
       labels:
         {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 8 }}
     spec:
+      serviceAccountName: dex
       containers:
         - name: dex
           image: {{ .Values.dex.image }}:{{ .Values.dex.tag }}
