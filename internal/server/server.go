@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/BigKAA/dephealth-ui/internal/alerts"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
@@ -23,15 +24,17 @@ type Server struct {
 	logger  *slog.Logger
 	router  *chi.Mux
 	builder *topology.GraphBuilder
+	am      alerts.AlertManagerClient
 }
 
 // New creates a new Server instance with configured routes and middleware.
-func New(cfg *config.Config, logger *slog.Logger, builder *topology.GraphBuilder) *Server {
+func New(cfg *config.Config, logger *slog.Logger, builder *topology.GraphBuilder, am alerts.AlertManagerClient) *Server {
 	s := &Server{
 		cfg:     cfg,
 		logger:  logger,
 		router:  chi.NewRouter(),
 		builder: builder,
+		am:      am,
 	}
 
 	s.setupMiddleware()
@@ -130,11 +133,63 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleAlerts(w http.ResponseWriter, _ *http.Request) {
-	// TODO: implement in Phase 3
+// alertsResponse holds the aggregated alerts API response.
+type alertsResponse struct {
+	Alerts []alerts.Alert `json:"alerts"`
+	Meta   alertsMeta     `json:"meta"`
+}
+
+type alertsMeta struct {
+	Total    int    `json:"total"`
+	Critical int    `json:"critical"`
+	Warning  int    `json:"warning"`
+	FetchedAt string `json:"fetchedAt"`
+}
+
+func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
+	if s.am == nil {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"alerts":[],"meta":{"total":0,"critical":0,"warning":0,"fetchedAt":""}}`)
+		return
+	}
+
+	fetched, err := s.am.FetchAlerts(r.Context())
+	if err != nil {
+		s.logger.Error("failed to fetch alerts", "error", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprintf(w, `{"error":"failed to fetch alerts: %s"}`, err.Error())
+		return
+	}
+
+	if fetched == nil {
+		fetched = []alerts.Alert{}
+	}
+
+	var critical, warning int
+	for _, a := range fetched {
+		switch a.Severity {
+		case "critical":
+			critical++
+		case "warning":
+			warning++
+		}
+	}
+
+	resp := alertsResponse{
+		Alerts: fetched,
+		Meta: alertsMeta{
+			Total:     len(fetched),
+			Critical:  critical,
+			Warning:   warning,
+			FetchedAt: time.Now().UTC().Format(time.RFC3339),
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `{"alerts":[],"meta":{"total":0}}`)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode alerts response", "error", err)
+	}
 }
 
 // configResponse holds frontend-relevant configuration.

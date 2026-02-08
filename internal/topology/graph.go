@@ -3,9 +3,12 @@ package topology
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/url"
 	"time"
+
+	"github.com/BigKAA/dephealth-ui/internal/alerts"
 )
 
 // GrafanaConfig holds Grafana URL generation settings.
@@ -15,23 +18,30 @@ type GrafanaConfig struct {
 	LinkStatusDashUID    string
 }
 
-// GraphBuilder constructs a TopologyResponse from Prometheus data.
+// GraphBuilder constructs a TopologyResponse from Prometheus and AlertManager data.
 type GraphBuilder struct {
 	prom    PrometheusClient
+	am      alerts.AlertManagerClient
 	grafana GrafanaConfig
 	ttl     time.Duration
+	logger  *slog.Logger
 }
 
 // NewGraphBuilder creates a new GraphBuilder.
-func NewGraphBuilder(prom PrometheusClient, grafana GrafanaConfig, ttl time.Duration) *GraphBuilder {
+func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafana GrafanaConfig, ttl time.Duration, logger *slog.Logger) *GraphBuilder {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &GraphBuilder{
 		prom:    prom,
+		am:      am,
 		grafana: grafana,
 		ttl:     ttl,
+		logger:  logger,
 	}
 }
 
-// Build queries Prometheus and constructs the full topology response.
+// Build queries Prometheus and AlertManager, then constructs the full topology response.
 func (b *GraphBuilder) Build(ctx context.Context) (*TopologyResponse, error) {
 	rawEdges, err := b.prom.QueryTopologyEdges(ctx)
 	if err != nil {
@@ -48,12 +58,23 @@ func (b *GraphBuilder) Build(ctx context.Context) (*TopologyResponse, error) {
 		return nil, fmt.Errorf("querying avg latency: %w", err)
 	}
 
+	// Fetch alerts (non-fatal: log and continue with empty alerts).
+	var fetchedAlerts []alerts.Alert
+	if b.am != nil {
+		fetchedAlerts, err = b.am.FetchAlerts(ctx)
+		if err != nil {
+			b.logger.Warn("failed to fetch alerts from AlertManager", "error", err)
+		}
+	}
+
 	nodes, edges := b.buildGraph(rawEdges, health, avgLatency)
+
+	alertInfos := b.enrichWithAlerts(nodes, edges, fetchedAlerts)
 
 	return &TopologyResponse{
 		Nodes:  nodes,
 		Edges:  edges,
-		Alerts: []AlertInfo{},
+		Alerts: alertInfos,
 		Meta: TopologyMeta{
 			CachedAt:  time.Now().UTC(),
 			TTL:       int(b.ttl.Seconds()),
@@ -200,4 +221,75 @@ func (b *GraphBuilder) linkGrafanaURL(job, dep string) string {
 	return fmt.Sprintf("%s/d/%s?var-job=%s&var-dep=%s",
 		b.grafana.BaseURL, b.grafana.LinkStatusDashUID,
 		url.QueryEscape(job), url.QueryEscape(dep))
+}
+
+// enrichWithAlerts applies alert-based state overrides to edges and nodes,
+// and returns the list of topology-mapped AlertInfo entries.
+func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []alerts.Alert) []AlertInfo {
+	if len(fetched) == 0 {
+		return []AlertInfo{}
+	}
+
+	// Build edge index for state overrides.
+	edgeIdx := make(map[EdgeKey]int, len(edges))
+	for i, e := range edges {
+		edgeIdx[EdgeKey{Job: e.Source, Dependency: e.Target}] = i
+	}
+
+	// Track alert-based health overrides per source node.
+	nodeAlertHealth := make(map[string][]float64)
+
+	var alertInfos []AlertInfo
+	for _, a := range fetched {
+		alertInfos = append(alertInfos, AlertInfo{
+			AlertName:  a.AlertName,
+			Service:    a.Service,
+			Dependency: a.Dependency,
+			Severity:   a.Severity,
+			State:      a.State,
+			Since:      a.Since,
+			Summary:    a.Summary,
+		})
+
+		key := EdgeKey{Job: a.Service, Dependency: a.Dependency}
+		idx, ok := edgeIdx[key]
+		if !ok {
+			continue
+		}
+
+		// Alert-based state override (alerts are more authoritative).
+		switch a.AlertName {
+		case "DependencyDown":
+			edges[idx].State = "down"
+			edges[idx].Health = 0
+			nodeAlertHealth[a.Service] = append(nodeAlertHealth[a.Service], 0)
+		case "DependencyDegraded":
+			if edges[idx].State != "down" {
+				edges[idx].State = "degraded"
+			}
+			nodeAlertHealth[a.Service] = append(nodeAlertHealth[a.Service], 0.5)
+		}
+	}
+
+	// Recalculate node states for nodes affected by alerts.
+	if len(nodeAlertHealth) > 0 {
+		nodeIdx := make(map[string]int, len(nodes))
+		for i, n := range nodes {
+			nodeIdx[n.ID] = i
+		}
+
+		// Collect all edge health values per node (with alert overrides applied).
+		nodeHealth := make(map[string][]float64)
+		for _, e := range edges {
+			nodeHealth[e.Source] = append(nodeHealth[e.Source], e.Health)
+		}
+
+		for nodeID := range nodeAlertHealth {
+			if idx, ok := nodeIdx[nodeID]; ok {
+				nodes[idx].State = calcNodeState(nodeHealth[nodeID])
+			}
+		}
+	}
+
+	return alertInfos
 }

@@ -89,6 +89,14 @@ const cytoscapeStyles = [
       cursor: 'pointer',
     },
   },
+  // Nodes with active alerts get a thicker border
+  {
+    selector: 'node[alertCount > 0]',
+    style: {
+      'border-width': 4,
+      'border-style': 'double',
+    },
+  },
 ];
 
 let isFirstRender = true;
@@ -113,9 +121,17 @@ export function initGraph(container) {
 /**
  * Render topology data into the Cytoscape instance.
  * @param {cytoscape.Core} cy
- * @param {{nodes: Array, edges: Array}} data
+ * @param {{nodes: Array, edges: Array, alerts: Array}} data
  */
 export function renderGraph(cy, data) {
+  // Count alerts per node (service = source).
+  const alertCounts = {};
+  if (data.alerts) {
+    for (const a of data.alerts) {
+      alertCounts[a.service] = (alertCounts[a.service] || 0) + 1;
+    }
+  }
+
   cy.batch(() => {
     cy.elements().remove();
 
@@ -127,6 +143,7 @@ export function renderGraph(cy, data) {
           label: node.label,
           state: node.state,
           type: node.type,
+          alertCount: alertCounts[node.id] || 0,
           grafanaUrl: node.grafanaUrl || undefined,
         },
       });

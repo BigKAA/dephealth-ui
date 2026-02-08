@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/BigKAA/dephealth-ui/internal/alerts"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/server"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
@@ -36,6 +37,7 @@ func main() {
 	logger.Info("starting dephealth-ui",
 		"listen", cfg.Server.Listen,
 		"prometheus", cfg.Datasources.Prometheus.URL,
+		"alertmanager", cfg.Datasources.Alertmanager.URL,
 	)
 
 	promClient := topology.NewPrometheusClient(topology.PrometheusConfig{
@@ -44,15 +46,21 @@ func main() {
 		Password: cfg.Datasources.Prometheus.Password,
 	})
 
+	amClient := alerts.NewClient(alerts.Config{
+		URL:      cfg.Datasources.Alertmanager.URL,
+		Username: cfg.Datasources.Alertmanager.Username,
+		Password: cfg.Datasources.Alertmanager.Password,
+	})
+
 	grafanaCfg := topology.GrafanaConfig{
 		BaseURL:              cfg.Grafana.BaseURL,
 		ServiceStatusDashUID: cfg.Grafana.Dashboards.ServiceStatus,
 		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
 	}
 
-	builder := topology.NewGraphBuilder(promClient, grafanaCfg, cfg.Cache.TTL)
+	builder := topology.NewGraphBuilder(promClient, amClient, grafanaCfg, cfg.Cache.TTL, logger)
 
-	srv := server.New(cfg, logger, builder)
+	srv := server.New(cfg, logger, builder, amClient)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

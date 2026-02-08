@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/BigKAA/dephealth-ui/internal/alerts"
 )
 
 // mockPrometheusClient implements PrometheusClient for testing.
@@ -56,7 +58,7 @@ func TestGraphBuilder_Build(t *testing.T) {
 		LinkStatusDashUID:    "link-dash",
 	}
 
-	builder := NewGraphBuilder(mock, grafana, 15*time.Second)
+	builder := NewGraphBuilder(mock, nil, grafana, 15*time.Second, nil)
 	resp, err := builder.Build(context.Background())
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -171,11 +173,11 @@ func TestFormatLatency(t *testing.T) {
 }
 
 func TestGrafanaURLGeneration(t *testing.T) {
-	builder := NewGraphBuilder(nil, GrafanaConfig{
+	builder := NewGraphBuilder(nil, nil, GrafanaConfig{
 		BaseURL:              "https://grafana.example.com",
 		ServiceStatusDashUID: "svc-dash",
 		LinkStatusDashUID:    "link-dash",
-	}, 15*time.Second)
+	}, 15*time.Second, nil)
 
 	svcURL := builder.serviceGrafanaURL("order-service")
 	if svcURL != "https://grafana.example.com/d/svc-dash?var-job=order-service" {
@@ -188,8 +190,107 @@ func TestGrafanaURLGeneration(t *testing.T) {
 	}
 
 	// Empty base URL → empty URLs.
-	emptyBuilder := NewGraphBuilder(nil, GrafanaConfig{}, 15*time.Second)
+	emptyBuilder := NewGraphBuilder(nil, nil, GrafanaConfig{}, 15*time.Second, nil)
 	if emptyBuilder.serviceGrafanaURL("svc") != "" {
 		t.Error("expected empty URL when BaseURL is empty")
+	}
+}
+
+// mockAlertManagerClient implements alerts.AlertManagerClient for testing.
+type mockAlertManagerClient struct {
+	alerts []alerts.Alert
+	err    error
+}
+
+func (m *mockAlertManagerClient) FetchAlerts(_ context.Context) ([]alerts.Alert, error) {
+	return m.alerts, m.err
+}
+
+func TestBuildWithAlerts(t *testing.T) {
+	promMock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Job: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Job: "svc-go", Dependency: "postgres"}: 1,
+			{Job: "svc-go", Dependency: "redis"}:    1,
+		},
+		avg: map[EdgeKey]float64{
+			{Job: "svc-go", Dependency: "postgres"}: 0.005,
+			{Job: "svc-go", Dependency: "redis"}:    0.001,
+		},
+	}
+
+	amMock := &mockAlertManagerClient{
+		alerts: []alerts.Alert{
+			{
+				AlertName:  "DependencyDown",
+				Service:    "svc-go",
+				Dependency: "postgres",
+				Severity:   "critical",
+				State:      "firing",
+				Since:      "2026-02-08T10:00:00Z",
+			},
+		},
+	}
+
+	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil)
+	resp, err := builder.Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// Should have 1 alert in response.
+	if len(resp.Alerts) != 1 {
+		t.Fatalf("got %d alerts, want 1", len(resp.Alerts))
+	}
+	if resp.Alerts[0].AlertName != "DependencyDown" {
+		t.Errorf("Alerts[0].AlertName = %q, want %q", resp.Alerts[0].AlertName, "DependencyDown")
+	}
+
+	// Edge svc-go->postgres should be overridden to "down".
+	edgeByTarget := make(map[string]Edge)
+	for _, e := range resp.Edges {
+		edgeByTarget[e.Target] = e
+	}
+
+	pgEdge := edgeByTarget["postgres"]
+	if pgEdge.State != "down" {
+		t.Errorf("postgres edge State = %q, want %q", pgEdge.State, "down")
+	}
+	if pgEdge.Health != 0 {
+		t.Errorf("postgres edge Health = %v, want 0", pgEdge.Health)
+	}
+
+	// svc-go node should be degraded (1 down + 1 ok).
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+	if nodeByID["svc-go"].State != "degraded" {
+		t.Errorf("svc-go State = %q, want %q", nodeByID["svc-go"].State, "degraded")
+	}
+}
+
+func TestBuildWithNilAlertManager(t *testing.T) {
+	promMock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			{Job: "svc-go", Dependency: "postgres"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(promMock, nil, GrafanaConfig{}, 15*time.Second, nil)
+	resp, err := builder.Build(context.Background())
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	if len(resp.Alerts) != 0 {
+		t.Errorf("expected 0 alerts, got %d", len(resp.Alerts))
 	}
 }

@@ -9,9 +9,18 @@ let pollInterval = 15000;
 
 const $ = (sel) => document.querySelector(sel);
 
-function updateStatus(nodeCount, edgeCount) {
+function updateStatus(nodeCount, edgeCount, alerts) {
   const now = new Date().toLocaleTimeString();
-  $('#status-info').textContent = `Updated ${now} | ${nodeCount} nodes, ${edgeCount} edges`;
+  let text = `Updated ${now} | ${nodeCount} nodes, ${edgeCount} edges`;
+  if (alerts && alerts.length > 0) {
+    const critical = alerts.filter((a) => a.severity === 'critical').length;
+    const warning = alerts.filter((a) => a.severity === 'warning').length;
+    const parts = [];
+    if (critical > 0) parts.push(`${critical} critical`);
+    if (warning > 0) parts.push(`${warning} warning`);
+    text += ` | Alerts: ${parts.join(', ') || alerts.length}`;
+  }
+  $('#status-info').textContent = text;
   $('#status-connection').classList.add('connected');
   $('#status-connection').classList.remove('disconnected');
 }
@@ -34,7 +43,7 @@ async function refresh() {
   try {
     const data = await fetchTopology();
     renderGraph(cy, data);
-    updateStatus(data.meta.nodeCount, data.meta.edgeCount);
+    updateStatus(data.meta.nodeCount, data.meta.edgeCount, data.alerts);
     hideError();
   } catch (err) {
     console.error('Failed to refresh topology:', err);
@@ -101,7 +110,7 @@ async function init() {
 
     const data = await withRetry(fetchTopology);
     renderGraph(cy, data);
-    updateStatus(data.meta.nodeCount, data.meta.edgeCount);
+    updateStatus(data.meta.nodeCount, data.meta.edgeCount, data.alerts);
     startPolling();
   } catch (err) {
     console.error('Initialization failed:', err);

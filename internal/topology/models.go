@@ -25,10 +25,13 @@ type Edge struct {
 
 // AlertInfo represents an active alert associated with the topology.
 type AlertInfo struct {
-	Service   string `json:"service"`
-	AlertName string `json:"alertname"`
-	Severity  string `json:"severity"`
-	Since     string `json:"since"`
+	AlertName  string `json:"alertname"`
+	Service    string `json:"service"`
+	Dependency string `json:"dependency"`
+	Severity   string `json:"severity"`
+	State      string `json:"state"`
+	Since      string `json:"since"`
+	Summary    string `json:"summary,omitempty"`
 }
 
 // TopologyMeta holds metadata about the topology response.

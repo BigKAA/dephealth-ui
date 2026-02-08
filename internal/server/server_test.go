@@ -45,8 +45,8 @@ func newTestServer() *Server {
 		ServiceStatusDashUID: cfg.Grafana.Dashboards.ServiceStatus,
 		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
 	}
-	builder := topology.NewGraphBuilder(promClient, grafanaCfg, cfg.Cache.TTL)
-	return New(cfg, logger, builder)
+	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, logger)
+	return New(cfg, logger, builder, nil)
 }
 
 func TestRoutes(t *testing.T) {
