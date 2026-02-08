@@ -183,6 +183,42 @@ func TestTopologyETag(t *testing.T) {
 	}
 }
 
+func TestTopologyNamespaceBypassesCache(t *testing.T) {
+	srv := newTestServer()
+
+	// First request without namespace — should return 200 with ETag.
+	req1 := httptest.NewRequest("GET", "/api/v1/topology", nil)
+	w1 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w1, req1)
+
+	if w1.Code != http.StatusOK {
+		t.Fatalf("unfiltered request status = %d, want 200", w1.Code)
+	}
+	if w1.Header().Get("ETag") == "" {
+		t.Fatal("expected ETag header on unfiltered request")
+	}
+
+	// Namespace-filtered request — should return 200 without ETag.
+	req2 := httptest.NewRequest("GET", "/api/v1/topology?namespace=default", nil)
+	w2 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("namespace-filtered request status = %d, want 200", w2.Code)
+	}
+	if w2.Header().Get("ETag") != "" {
+		t.Error("namespace-filtered request should not have ETag header")
+	}
+
+	var resp topology.TopologyResponse
+	if err := json.NewDecoder(w2.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode namespace-filtered response: %v", err)
+	}
+	if len(resp.Nodes) == 0 {
+		t.Error("expected nodes in namespace-filtered response")
+	}
+}
+
 func TestCORSHeaders(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest("OPTIONS", "/api/v1/topology", nil)

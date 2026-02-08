@@ -78,7 +78,7 @@ func TestQueryTopologyEdges(t *testing.T) {
 	defer srv.Close()
 
 	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
-	edges, err := client.QueryTopologyEdges(context.Background())
+	edges, err := client.QueryTopologyEdges(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("QueryTopologyEdges() error: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestQueryHealthState(t *testing.T) {
 	defer srv.Close()
 
 	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
-	health, err := client.QueryHealthState(context.Background())
+	health, err := client.QueryHealthState(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("QueryHealthState() error: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestQueryLatency(t *testing.T) {
 	defer srv.Close()
 
 	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
-	latency, err := client.QueryAvgLatency(context.Background())
+	latency, err := client.QueryAvgLatency(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("QueryAvgLatency() error: %v", err)
 	}
@@ -157,10 +157,44 @@ func TestQueryBasicAuth(t *testing.T) {
 		Username: "testuser",
 		Password: "testpass",
 	})
-	_, _ = client.QueryTopologyEdges(context.Background())
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{})
 
 	if gotUser != "testuser" || gotPass != "testpass" {
 		t.Errorf("Basic auth = %q:%q, want testuser:testpass", gotUser, gotPass)
+	}
+}
+
+func TestQueryWithNamespaceFilter(t *testing.T) {
+	var capturedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.Query().Get("query")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+
+	// Without namespace — no filter injected.
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{})
+	if capturedQuery != `group by (job, namespace, dependency, type, host, port) (app_dependency_health)` {
+		t.Errorf("unfiltered query = %q", capturedQuery)
+	}
+
+	// With namespace — filter injected.
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Namespace: "prod"})
+	want := `group by (job, namespace, dependency, type, host, port) (app_dependency_health{namespace="prod"})`
+	if capturedQuery != want {
+		t.Errorf("filtered query = %q, want %q", capturedQuery, want)
+	}
+}
+
+func TestNsFilter(t *testing.T) {
+	if got := nsFilter(""); got != "" {
+		t.Errorf("nsFilter(\"\") = %q, want \"\"", got)
+	}
+	if got := nsFilter("prod"); got != `{namespace="prod"}` {
+		t.Errorf("nsFilter(\"prod\") = %q, want {namespace=\"prod\"}", got)
 	}
 }
 
@@ -172,7 +206,7 @@ func TestQueryErrorStatus(t *testing.T) {
 	defer srv.Close()
 
 	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
-	_, err := client.QueryTopologyEdges(context.Background())
+	_, err := client.QueryTopologyEdges(context.Background(), QueryOptions{})
 	if err == nil {
 		t.Fatal("expected error for 503 response")
 	}

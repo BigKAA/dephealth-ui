@@ -72,3 +72,8 @@ type TopologyEdge struct {
 	Host       string
 	Port       string
 }
+
+// QueryOptions holds optional parameters for topology queries.
+type QueryOptions struct {
+	Namespace string
+}

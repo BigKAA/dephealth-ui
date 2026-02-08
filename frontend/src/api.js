@@ -19,16 +19,23 @@ let lastTopologyData = null;
 
 /**
  * Fetch topology data from the backend API.
- * Supports ETag/If-None-Match for efficient polling.
+ * Supports ETag/If-None-Match for efficient polling (disabled for namespace-filtered requests).
+ * @param {string} [namespace] - optional namespace filter
  * @returns {Promise<{nodes: Array, edges: Array, alerts: Array, meta: Object}>}
  */
-export async function fetchTopology() {
+export async function fetchTopology(namespace) {
+  let url = '/api/v1/topology';
+  if (namespace) {
+    url += `?namespace=${encodeURIComponent(namespace)}`;
+  }
+
   const headers = {};
-  if (lastETag) {
+  // ETag only for unfiltered requests.
+  if (!namespace && lastETag) {
     headers['If-None-Match'] = lastETag;
   }
 
-  const resp = await authenticatedFetch('/api/v1/topology', { headers });
+  const resp = await authenticatedFetch(url, { headers });
 
   if (resp.status === 304 && lastTopologyData) {
     return lastTopologyData;
@@ -39,11 +46,14 @@ export async function fetchTopology() {
   }
 
   const data = await resp.json();
-  const etag = resp.headers.get('ETag');
-  if (etag) {
-    lastETag = etag;
+  // Only track ETag for unfiltered requests.
+  if (!namespace) {
+    const etag = resp.headers.get('ETag');
+    if (etag) {
+      lastETag = etag;
+    }
+    lastTopologyData = data;
   }
-  lastTopologyData = data;
   return data;
 }
 

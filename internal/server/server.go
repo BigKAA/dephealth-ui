@@ -131,20 +131,26 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
-	if cached, etag, ok := s.cache.GetWithETag(); ok {
-		if clientETag := r.Header.Get("If-None-Match"); clientETag == etag {
-			w.WriteHeader(http.StatusNotModified)
+	namespace := r.URL.Query().Get("namespace")
+	opts := topology.QueryOptions{Namespace: namespace}
+
+	// Namespace-filtered requests bypass cache (infrequent, analytical).
+	if namespace == "" {
+		if cached, etag, ok := s.cache.GetWithETag(); ok {
+			if clientETag := r.Header.Get("If-None-Match"); clientETag == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("ETag", etag)
+			if err := json.NewEncoder(w).Encode(cached); err != nil {
+				s.logger.Error("failed to encode cached topology response", "error", err)
+			}
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("ETag", etag)
-		if err := json.NewEncoder(w).Encode(cached); err != nil {
-			s.logger.Error("failed to encode cached topology response", "error", err)
-		}
-		return
 	}
 
-	resp, err := s.builder.Build(r.Context())
+	resp, err := s.builder.Build(r.Context(), opts)
 	if err != nil {
 		s.logger.Error("failed to build topology", "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -153,11 +159,14 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.cache.Set(resp)
+	// Only cache unfiltered requests.
+	if namespace == "" {
+		s.cache.Set(resp)
+		_, etag, _ := s.cache.GetWithETag()
+		w.Header().Set("ETag", etag)
+	}
 
-	_, etag, _ := s.cache.GetWithETag()
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("ETag", etag)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("failed to encode topology response", "error", err)
 	}

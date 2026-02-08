@@ -14,16 +14,16 @@ import (
 // PrometheusClient queries Prometheus/VictoriaMetrics for topology data.
 type PrometheusClient interface {
 	// QueryTopologyEdges returns all unique topology edges.
-	QueryTopologyEdges(ctx context.Context) ([]TopologyEdge, error)
+	QueryTopologyEdges(ctx context.Context, opts QueryOptions) ([]TopologyEdge, error)
 
 	// QueryHealthState returns the current health value per edge.
-	QueryHealthState(ctx context.Context) (map[EdgeKey]float64, error)
+	QueryHealthState(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error)
 
 	// QueryAvgLatency returns the average latency per edge.
-	QueryAvgLatency(ctx context.Context) (map[EdgeKey]float64, error)
+	QueryAvgLatency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error)
 
 	// QueryP99Latency returns the P99 latency per edge.
-	QueryP99Latency(ctx context.Context) (map[EdgeKey]float64, error)
+	QueryP99Latency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error)
 }
 
 // PrometheusConfig holds Prometheus connection settings.
@@ -51,13 +51,23 @@ func NewPrometheusClient(cfg PrometheusConfig) PrometheusClient {
 	}
 }
 
-// PromQL queries used for topology construction.
+// PromQL query templates for topology construction.
+// When namespace is provided, a label filter is injected.
 const (
-	queryTopologyEdges = `group by (job, namespace, dependency, type, host, port) (app_dependency_health)`
-	queryHealthState   = `app_dependency_health`
-	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])`
-	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))`
+	queryTopologyEdges = `group by (job, namespace, dependency, type, host, port) (app_dependency_health%s)`
+	queryHealthState   = `app_dependency_health%s`
+	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
+	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
 )
+
+// nsFilter returns a PromQL label filter for the given namespace.
+// Returns empty string if namespace is empty.
+func nsFilter(ns string) string {
+	if ns == "" {
+		return ""
+	}
+	return fmt.Sprintf(`{namespace="%s"}`, ns)
+}
 
 // promResponse represents Prometheus API v1 instant query response.
 type promResponse struct {
@@ -119,8 +129,9 @@ func (c *prometheusClient) query(ctx context.Context, promql string) ([]promResu
 	return pr.Data.Result, nil
 }
 
-func (c *prometheusClient) QueryTopologyEdges(ctx context.Context) ([]TopologyEdge, error) {
-	results, err := c.query(ctx, queryTopologyEdges)
+func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOptions) ([]TopologyEdge, error) {
+	f := nsFilter(opts.Namespace)
+	results, err := c.query(ctx, fmt.Sprintf(queryTopologyEdges, f))
 	if err != nil {
 		return nil, err
 	}
@@ -139,24 +150,27 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context) ([]TopologyEd
 	return edges, nil
 }
 
-func (c *prometheusClient) QueryHealthState(ctx context.Context) (map[EdgeKey]float64, error) {
-	results, err := c.query(ctx, queryHealthState)
+func (c *prometheusClient) QueryHealthState(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
+	f := nsFilter(opts.Namespace)
+	results, err := c.query(ctx, fmt.Sprintf(queryHealthState, f))
 	if err != nil {
 		return nil, err
 	}
 	return parseEdgeValues(results)
 }
 
-func (c *prometheusClient) QueryAvgLatency(ctx context.Context) (map[EdgeKey]float64, error) {
-	results, err := c.query(ctx, queryAvgLatency)
+func (c *prometheusClient) QueryAvgLatency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
+	f := nsFilter(opts.Namespace)
+	results, err := c.query(ctx, fmt.Sprintf(queryAvgLatency, f, f))
 	if err != nil {
 		return nil, err
 	}
 	return parseEdgeValues(results)
 }
 
-func (c *prometheusClient) QueryP99Latency(ctx context.Context) (map[EdgeKey]float64, error) {
-	results, err := c.query(ctx, queryP99Latency)
+func (c *prometheusClient) QueryP99Latency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
+	f := nsFilter(opts.Namespace)
+	results, err := c.query(ctx, fmt.Sprintf(queryP99Latency, f))
 	if err != nil {
 		return nil, err
 	}

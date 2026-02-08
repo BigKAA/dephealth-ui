@@ -49,22 +49,22 @@ func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafan
 
 // Build queries Prometheus and AlertManager, then constructs the full topology response.
 // Only QueryTopologyEdges is fatal. Health, latency, and alert failures result in partial data.
-func (b *GraphBuilder) Build(ctx context.Context) (*TopologyResponse, error) {
-	rawEdges, err := b.prom.QueryTopologyEdges(ctx)
+func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyResponse, error) {
+	rawEdges, err := b.prom.QueryTopologyEdges(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("querying topology edges: %w", err)
 	}
 
 	var queryErrors []string
 
-	health, err := b.prom.QueryHealthState(ctx)
+	health, err := b.prom.QueryHealthState(ctx, opts)
 	if err != nil {
 		b.logger.Warn("failed to query health state, using defaults", "error", err)
 		health = make(map[EdgeKey]float64)
 		queryErrors = append(queryErrors, fmt.Sprintf("health state: %v", err))
 	}
 
-	avgLatency, err := b.prom.QueryAvgLatency(ctx)
+	avgLatency, err := b.prom.QueryAvgLatency(ctx, opts)
 	if err != nil {
 		b.logger.Warn("failed to query avg latency, using defaults", "error", err)
 		avgLatency = make(map[EdgeKey]float64)

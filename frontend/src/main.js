@@ -7,6 +7,7 @@ let cy = null;
 let pollTimer = null;
 let autoRefresh = true;
 let pollInterval = 15000;
+let selectedNamespace = '';
 
 // Connection state
 let isDisconnected = false;
@@ -125,10 +126,11 @@ function checkEmptyState(data) {
 
 async function refresh() {
   try {
-    const data = await fetchTopology();
+    const data = await fetchTopology(selectedNamespace || undefined);
     renderGraph(cy, data);
     updateStatus(data);
     checkEmptyState(data);
+    updateNamespaceOptions(data);
 
     if (isDisconnected) {
       isDisconnected = false;
@@ -187,6 +189,64 @@ function initTheme() {
     if (!localStorage.getItem('theme')) {
       applyTheme(e.matches ? 'dark' : 'light');
     }
+  });
+}
+
+function updateNamespaceOptions(data) {
+  const select = $('#namespace-select');
+  const namespaces = new Set();
+  if (data.nodes) {
+    for (const node of data.nodes) {
+      if (node.namespace) {
+        namespaces.add(node.namespace);
+      }
+    }
+  }
+
+  const sorted = [...namespaces].sort();
+  const current = select.value;
+
+  // Rebuild options only if set changed.
+  const existing = [...select.options].slice(1).map((o) => o.value);
+  if (sorted.length === existing.length && sorted.every((v, i) => v === existing[i])) {
+    return;
+  }
+
+  // Preserve selection.
+  select.innerHTML = '<option value="">All namespaces</option>';
+  for (const ns of sorted) {
+    const opt = document.createElement('option');
+    opt.value = ns;
+    opt.textContent = ns;
+    select.appendChild(opt);
+  }
+  select.value = current;
+}
+
+function setupNamespaceSelector() {
+  const select = $('#namespace-select');
+
+  // Read namespace from URL on init.
+  const params = new URLSearchParams(window.location.search);
+  const ns = params.get('namespace') || '';
+  if (ns) {
+    selectedNamespace = ns;
+    select.value = ns;
+  }
+
+  select.addEventListener('change', () => {
+    selectedNamespace = select.value;
+
+    // Sync URL.
+    const url = new URL(window.location);
+    if (selectedNamespace) {
+      url.searchParams.set('namespace', selectedNamespace);
+    } else {
+      url.searchParams.delete('namespace');
+    }
+    history.replaceState(null, '', url);
+
+    refresh();
   });
 }
 
@@ -260,13 +320,15 @@ async function init() {
     }
 
     cy = initGraph($('#cy'));
+    setupNamespaceSelector();
     setupToolbar();
     setupGrafanaClickThrough();
 
-    const data = await withRetry(fetchTopology);
+    const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
     renderGraph(cy, data);
     updateStatus(data);
     checkEmptyState(data);
+    updateNamespaceOptions(data);
     startPolling();
   } catch (err) {
     console.error('Initialization failed:', err);

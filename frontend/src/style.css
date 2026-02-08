@@ -113,6 +113,17 @@ body {
   color: var(--btn-active-text);
 }
 
+.toolbar select {
+  padding: 4px 8px;
+  font-size: 13px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  max-width: 200px;
+}
+
 /* User info (OIDC) */
 #user-info {
   display: flex;

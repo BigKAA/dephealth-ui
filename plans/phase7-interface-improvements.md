@@ -225,7 +225,7 @@ After Phase 7.1:
 
 **File**: `internal/topology/prometheus.go`
 
-- [ ] Change PrometheusClient interface: all methods accept optional
+- [x] Change PrometheusClient interface: all methods accept optional
   `namespace string` parameter (or use a `QueryOptions` struct).
   Preferred: `QueryOptions` struct for extensibility.
   ```go
@@ -233,9 +233,9 @@ After Phase 7.1:
       Namespace string
   }
   ```
-- [ ] Update all 4 methods: `QueryTopologyEdges(ctx, opts)`,
+- [x] Update all 4 methods: `QueryTopologyEdges(ctx, opts)`,
   `QueryHealthState(ctx, opts)`, etc.
-- [ ] In `query()` method or in each Query method: if `opts.Namespace != ""`,
+- [x] In `query()` method or in each Query method: if `opts.Namespace != ""`,
   append `{namespace="<value>"}` to PromQL.
   For constants, use `fmt.Sprintf`:
   ```go
@@ -249,52 +249,52 @@ After Phase 7.1:
 
 **File**: `internal/topology/graph.go`
 
-- [ ] `Build(ctx, opts QueryOptions)` — accept options and pass to prom methods
-- [ ] No other logic change — namespace filtering happens at PromQL level
+- [x] `Build(ctx, opts QueryOptions)` — accept options and pass to prom methods
+- [x] No other logic change — namespace filtering happens at PromQL level
 
 ### Step 3: Update server handler
 
 **File**: `internal/server/server.go`
 
-- [ ] `handleTopology()` — parse `r.URL.Query().Get("namespace")`
-- [ ] If namespace is set: bypass cache, call `builder.Build(ctx, opts)` directly
-- [ ] If namespace is empty: use existing cache logic (no change)
-- [ ] Return filtered result
+- [x] `handleTopology()` — parse `r.URL.Query().Get("namespace")`
+- [x] If namespace is set: bypass cache, call `builder.Build(ctx, opts)` directly
+- [x] If namespace is empty: use existing cache logic (no change)
+- [x] Return filtered result
 
 ### Step 4: Update cache interface
 
 **File**: `internal/cache/cache.go`
 
-- [ ] No change to cache itself — namespace-filtered requests bypass cache.
+- [x] No change to cache itself — namespace-filtered requests bypass cache.
 
 ### Step 5: Update frontend API
 
 **File**: `frontend/src/api.js`
 
-- [ ] `fetchTopology(namespace)` — accept optional namespace param
-- [ ] If namespace provided: append `?namespace=<value>` to URL
-- [ ] If namespace provided: skip ETag logic (always fresh fetch)
+- [x] `fetchTopology(namespace)` — accept optional namespace param
+- [x] If namespace provided: append `?namespace=<value>` to URL
+- [x] If namespace provided: skip ETag logic (always fresh fetch)
 
 ### Step 6: Add namespace selector to frontend
 
 **File**: `frontend/index.html`
-- [ ] Add namespace dropdown/select in toolbar (or header area)
+- [x] Add namespace dropdown/select in toolbar (or header area)
 
 **File**: `frontend/src/main.js`
-- [ ] Fetch available namespaces (from topology data or separate endpoint)
-- [ ] On namespace change: call `fetchTopology(namespace)`, re-render
-- [ ] When namespace is selected: disable auto-refresh ETag optimization
+- [x] Fetch available namespaces (from topology data or separate endpoint)
+- [x] On namespace change: call `fetchTopology(namespace)`, re-render
+- [x] When namespace is selected: disable auto-refresh ETag optimization
   (or keep auto-refresh but always pass namespace)
 
 ### Step 7: Update tests
 
-- [ ] `internal/topology/prometheus_test.go` — test namespace filter in PromQL
-- [ ] `internal/topology/graph_test.go` — test Build with QueryOptions
-- [ ] `internal/server/server_test.go` — test namespace query param handling
+- [x] `internal/topology/prometheus_test.go` — test namespace filter in PromQL
+- [x] `internal/topology/graph_test.go` — test Build with QueryOptions
+- [x] `internal/server/server_test.go` — test namespace query param handling
 
 ### Step 8: Build, test, deploy
 
-- [ ] `go test ./...`
+- [x] `go test ./...`
 - [ ] Docker build + push
 - [ ] Helm upgrade
 - [ ] Verify: `?namespace=dephealth-test` filters correctly
@@ -302,11 +302,11 @@ After Phase 7.1:
 ### Checkpoint
 
 After Phase 7.2:
-- [ ] API accepts `?namespace=X` parameter
-- [ ] Filtered requests bypass cache and query Prometheus directly
-- [ ] Unfiltered requests use cache as before
-- [ ] Frontend has namespace selector
-- [ ] All tests pass
+- [x] API accepts `?namespace=X` parameter
+- [x] Filtered requests bypass cache and query Prometheus directly
+- [x] Unfiltered requests use cache as before
+- [x] Frontend has namespace selector
+- [x] All tests pass
 
 ---
 

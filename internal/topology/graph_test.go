@@ -21,28 +21,28 @@ type mockPrometheusClient struct {
 	avgErr    error // override for QueryAvgLatency
 }
 
-func (m *mockPrometheusClient) QueryTopologyEdges(_ context.Context) ([]TopologyEdge, error) {
+func (m *mockPrometheusClient) QueryTopologyEdges(_ context.Context, _ QueryOptions) ([]TopologyEdge, error) {
 	if m.edgesErr != nil {
 		return nil, m.edgesErr
 	}
 	return m.edges, m.err
 }
 
-func (m *mockPrometheusClient) QueryHealthState(_ context.Context) (map[EdgeKey]float64, error) {
+func (m *mockPrometheusClient) QueryHealthState(_ context.Context, _ QueryOptions) (map[EdgeKey]float64, error) {
 	if m.healthErr != nil {
 		return nil, m.healthErr
 	}
 	return m.health, m.err
 }
 
-func (m *mockPrometheusClient) QueryAvgLatency(_ context.Context) (map[EdgeKey]float64, error) {
+func (m *mockPrometheusClient) QueryAvgLatency(_ context.Context, _ QueryOptions) (map[EdgeKey]float64, error) {
 	if m.avgErr != nil {
 		return nil, m.avgErr
 	}
 	return m.avg, m.err
 }
 
-func (m *mockPrometheusClient) QueryP99Latency(_ context.Context) (map[EdgeKey]float64, error) {
+func (m *mockPrometheusClient) QueryP99Latency(_ context.Context, _ QueryOptions) (map[EdgeKey]float64, error) {
 	return m.p99, m.err
 }
 
@@ -72,7 +72,7 @@ func TestGraphBuilder_Build(t *testing.T) {
 	}
 
 	builder := NewGraphBuilder(mock, nil, grafana, 15*time.Second, nil)
-	resp, err := builder.Build(context.Background())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestGraphBuilder_Dedup(t *testing.T) {
 	}
 
 	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
-	resp, err := builder.Build(context.Background())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestDependencyNodeColoring(t *testing.T) {
 			}
 
 			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
-			resp, err := builder.Build(context.Background())
+			resp, err := builder.Build(context.Background(), QueryOptions{})
 			if err != nil {
 				t.Fatalf("Build() error: %v", err)
 			}
@@ -423,7 +423,7 @@ func TestBuildWithAlerts(t *testing.T) {
 	}
 
 	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil)
-	resp, err := builder.Build(context.Background())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 	}
 
 	builder := NewGraphBuilder(promMock, nil, GrafanaConfig{}, 15*time.Second, nil)
-	resp, err := builder.Build(context.Background())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
 	}
@@ -546,7 +546,7 @@ func TestBuildPartialData(t *testing.T) {
 			}
 
 			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
-			resp, err := builder.Build(context.Background())
+			resp, err := builder.Build(context.Background(), QueryOptions{})
 
 			if tt.wantErr {
 				if err == nil {
@@ -594,7 +594,7 @@ func TestBuildPartialWithAlertFailure(t *testing.T) {
 	}
 
 	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil)
-	resp, err := builder.Build(context.Background())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
