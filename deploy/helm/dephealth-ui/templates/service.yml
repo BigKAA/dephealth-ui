@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dephealth-ui
+  namespace: {{ include "dephealth-ui.namespace" . }}
+  labels:
+    {{- include "dephealth-ui.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "dephealth-ui.selectorLabels" . | nindent 4 }}

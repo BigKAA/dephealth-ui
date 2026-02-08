@@ -49,7 +49,19 @@ type CacheConfig struct {
 
 // AuthConfig holds authentication settings.
 type AuthConfig struct {
-	Type string `yaml:"type"`
+	Type  string      `yaml:"type"`
+	Basic BasicConfig `yaml:"basic"`
+}
+
+// BasicConfig holds HTTP Basic authentication settings.
+type BasicConfig struct {
+	Users []BasicUser `yaml:"users"`
+}
+
+// BasicUser represents a single Basic auth user.
+type BasicUser struct {
+	Username     string `yaml:"username"`
+	PasswordHash string `yaml:"passwordHash"`
 }
 
 // GrafanaConfig holds Grafana integration settings.
@@ -92,6 +104,24 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.Listen == "" {
 		return fmt.Errorf("server.listen is required")
+	}
+	switch c.Auth.Type {
+	case "none", "":
+		// ok
+	case "basic":
+		if len(c.Auth.Basic.Users) == 0 {
+			return fmt.Errorf("auth.basic.users must not be empty when auth.type is \"basic\"")
+		}
+		for i, u := range c.Auth.Basic.Users {
+			if u.Username == "" {
+				return fmt.Errorf("auth.basic.users[%d].username is required", i)
+			}
+			if u.PasswordHash == "" {
+				return fmt.Errorf("auth.basic.users[%d].passwordHash is required", i)
+			}
+		}
+	default:
+		return fmt.Errorf("unknown auth.type: %q (supported: none, basic)", c.Auth.Type)
 	}
 	return nil
 }

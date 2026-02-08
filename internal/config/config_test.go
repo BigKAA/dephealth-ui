@@ -143,6 +143,66 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "auth type basic valid",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "basic",
+					Basic: BasicConfig{
+						Users: []BasicUser{{Username: "admin", PasswordHash: "$2a$10$hash"}},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "auth type basic no users",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth:        AuthConfig{Type: "basic"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type basic empty username",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "basic",
+					Basic: BasicConfig{
+						Users: []BasicUser{{Username: "", PasswordHash: "$2a$10$hash"}},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type basic empty hash",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "basic",
+					Basic: BasicConfig{
+						Users: []BasicUser{{Username: "admin", PasswordHash: ""}},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown auth type",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth:        AuthConfig{Type: "ldap"},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -152,5 +212,46 @@ func TestValidate(t *testing.T) {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestLoadBasicAuthConfig(t *testing.T) {
+	content := `
+server:
+  listen: ":8080"
+datasources:
+  prometheus:
+    url: "http://vm:8428"
+auth:
+  type: "basic"
+  basic:
+    users:
+      - username: admin
+        passwordHash: "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012"
+      - username: viewer
+        passwordHash: "$2a$10$xyzxyzxyzxyzxyzxyzxyzxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Auth.Type != "basic" {
+		t.Errorf("Auth.Type = %q, want %q", cfg.Auth.Type, "basic")
+	}
+	if len(cfg.Auth.Basic.Users) != 2 {
+		t.Fatalf("got %d users, want 2", len(cfg.Auth.Basic.Users))
+	}
+	if cfg.Auth.Basic.Users[0].Username != "admin" {
+		t.Errorf("Users[0].Username = %q, want %q", cfg.Auth.Basic.Users[0].Username, "admin")
+	}
+	if cfg.Auth.Basic.Users[1].Username != "viewer" {
+		t.Errorf("Users[1].Username = %q, want %q", cfg.Auth.Basic.Users[1].Username, "viewer")
 	}
 }

@@ -1,0 +1,40 @@
+{{- if .Values.route.enabled }}
+{{- if .Values.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dephealth-ui-tls
+  namespace: {{ include "dephealth-ui.namespace" . }}
+  labels:
+    {{- include "dephealth-ui.labels" . | nindent 4 }}
+spec:
+  secretName: dephealth-ui-tls
+  issuerRef:
+    name: {{ .Values.tls.issuerName }}
+    kind: {{ .Values.tls.issuerKind }}
+  dnsNames:
+    - {{ .Values.route.hostname | quote }}
+---
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dephealth-ui
+  namespace: {{ include "dephealth-ui.namespace" . }}
+  labels:
+    {{- include "dephealth-ui.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.global.gateway.name }}
+      namespace: {{ .Values.global.gateway.namespace }}
+  hostnames:
+    - {{ .Values.route.hostname | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: dephealth-ui
+          port: 8080
+{{- end }}

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BigKAA/dephealth-ui/internal/auth"
+	"github.com/BigKAA/dephealth-ui/internal/cache"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
@@ -46,7 +48,9 @@ func newTestServer() *Server {
 		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
 	}
 	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, logger)
-	return New(cfg, logger, builder, nil)
+	topologyCache := cache.New(cfg.Cache.TTL)
+	authenticator, _ := auth.NewFromConfig(config.AuthConfig{Type: "none"})
+	return New(cfg, logger, builder, nil, topologyCache, authenticator)
 }
 
 func TestRoutes(t *testing.T) {

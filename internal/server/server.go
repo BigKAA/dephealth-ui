@@ -14,6 +14,8 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
+	"github.com/BigKAA/dephealth-ui/internal/auth"
+	"github.com/BigKAA/dephealth-ui/internal/cache"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
@@ -25,16 +27,20 @@ type Server struct {
 	router  *chi.Mux
 	builder *topology.GraphBuilder
 	am      alerts.AlertManagerClient
+	cache   *cache.Cache
+	auth    auth.Authenticator
 }
 
 // New creates a new Server instance with configured routes and middleware.
-func New(cfg *config.Config, logger *slog.Logger, builder *topology.GraphBuilder, am alerts.AlertManagerClient) *Server {
+func New(cfg *config.Config, logger *slog.Logger, builder *topology.GraphBuilder, am alerts.AlertManagerClient, c *cache.Cache, authenticator auth.Authenticator) *Server {
 	s := &Server{
 		cfg:     cfg,
 		logger:  logger,
 		router:  chi.NewRouter(),
 		builder: builder,
 		am:      am,
+		cache:   c,
+		auth:    authenticator,
 	}
 
 	s.setupMiddleware()
@@ -95,6 +101,7 @@ func (s *Server) setupRoutes() {
 
 	// API v1
 	s.router.Route("/api/v1", func(r chi.Router) {
+		r.Use(s.auth.Middleware())
 		r.Get("/topology", s.handleTopology)
 		r.Get("/alerts", s.handleAlerts)
 		r.Get("/config", s.handleConfig)
@@ -118,6 +125,14 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
+	if cached, ok := s.cache.Get(); ok {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(cached); err != nil {
+			s.logger.Error("failed to encode cached topology response", "error", err)
+		}
+		return
+	}
+
 	resp, err := s.builder.Build(r.Context())
 	if err != nil {
 		s.logger.Error("failed to build topology", "error", err)
@@ -126,6 +141,8 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
 		return
 	}
+
+	s.cache.Set(resp)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {

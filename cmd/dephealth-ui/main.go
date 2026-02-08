@@ -10,6 +10,8 @@ import (
 	"syscall"
 
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
+	"github.com/BigKAA/dephealth-ui/internal/auth"
+	"github.com/BigKAA/dephealth-ui/internal/cache"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/server"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
@@ -60,7 +62,15 @@ func main() {
 
 	builder := topology.NewGraphBuilder(promClient, amClient, grafanaCfg, cfg.Cache.TTL, logger)
 
-	srv := server.New(cfg, logger, builder, amClient)
+	topologyCache := cache.New(cfg.Cache.TTL)
+
+	authenticator, err := auth.NewFromConfig(cfg.Auth)
+	if err != nil {
+		logger.Error("failed to create authenticator", "error", err)
+		os.Exit(1)
+	}
+
+	srv := server.New(cfg, logger, builder, amClient, topologyCache, authenticator)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

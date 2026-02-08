@@ -1,0 +1,40 @@
+# dephealth-ui — homelab overrides
+
+global:
+  pushRegistry: "harbor.kryukov.lan/library"
+  namespace: dephealth-ui
+  gateway:
+    name: gateway
+    namespace: default
+
+image:
+  name: dephealth-ui
+  tag: v0.4.0
+  pullPolicy: Always
+
+route:
+  enabled: true
+  hostname: dephealth.kryukov.lan
+
+tls:
+  enabled: true
+  issuerName: dev-ca-issuer
+  issuerKind: ClusterIssuer
+
+config:
+  server:
+    listen: ":8080"
+  datasources:
+    prometheus:
+      url: "http://victoriametrics.dephealth-monitoring.svc:8428"
+    alertmanager:
+      url: "http://alertmanager.dephealth-monitoring.svc:9093"
+  cache:
+    ttl: 15s
+  auth:
+    type: "none"
+  grafana:
+    baseUrl: ""
+    dashboards:
+      serviceStatus: "dephealth-service-status"
+      linkStatus: "dephealth-link-status"

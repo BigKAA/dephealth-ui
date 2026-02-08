@@ -1,0 +1,60 @@
+# dephealth-ui — default values
+
+global:
+  # Registry for the application image (e.g. "harbor.example.com/library")
+  pushRegistry: ""
+  # Target namespace
+  namespace: dephealth-ui
+  # Gateway API configuration
+  gateway:
+    name: gateway
+    namespace: default
+
+image:
+  name: dephealth-ui
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+
+probes:
+  readinessDelay: 5
+  livenessDelay: 5
+
+# HTTPRoute (Gateway API)
+route:
+  enabled: false
+  hostname: dephealth.example.com
+
+# TLS via cert-manager
+tls:
+  enabled: false
+  issuerName: ""
+  issuerKind: ClusterIssuer
+
+# Application configuration (rendered as config.yaml in ConfigMap)
+config:
+  server:
+    listen: ":8080"
+  datasources:
+    prometheus:
+      url: "http://victoriametrics:8428"
+    alertmanager:
+      url: ""
+  cache:
+    ttl: 15s
+  auth:
+    type: "none"
+  grafana:
+    baseUrl: ""
+    dashboards:
+      serviceStatus: "dephealth-service-status"
+      linkStatus: "dephealth-link-status"
