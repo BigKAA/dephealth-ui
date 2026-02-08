@@ -729,11 +729,11 @@ a production-ready Helm chart for dephealth-ui.
 
 ### 5.6 Deploy and test
 
-- [ ] Build, push, deploy
-- [ ] Test OIDC with Keycloak (if available) or skip to future
-- [ ] Test dark theme
-- [ ] Test on mobile device / narrow viewport
-- [ ] Load test with simulated large topology
+- [x] Build, push, deploy
+- [x] Test OIDC with Keycloak (if available) or skip to future
+- [x] Test dark theme
+- [x] Test on mobile device / narrow viewport
+- [x] Load test with simulated large topology
 
 ### Checkpoint
 

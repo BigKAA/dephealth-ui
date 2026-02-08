@@ -8,6 +8,9 @@ type Node struct {
 	Label           string `json:"label"`
 	State           string `json:"state"`           // "ok", "degraded", "down", "unknown"
 	Type            string `json:"type"`            // "service" or dependency type
+	Namespace       string `json:"namespace"`
+	Host            string `json:"host,omitempty"`
+	Port            string `json:"port,omitempty"`
 	DependencyCount int    `json:"dependencyCount"`
 	GrafanaURL      string `json:"grafanaUrl,omitempty"`
 }
@@ -16,10 +19,11 @@ type Node struct {
 type Edge struct {
 	Source     string  `json:"source"`
 	Target     string  `json:"target"`
-	Latency    string  `json:"latency"`       // human-readable "5.2ms"
+	Type       string  `json:"type,omitempty"`  // grpc, http, postgres, redis, etc.
+	Latency    string  `json:"latency"`         // human-readable "5.2ms"
 	LatencyRaw float64 `json:"latencyRaw"`
-	Health     float64 `json:"health"`        // 0 or 1
-	State      string  `json:"state"`         // "ok", "degraded", "down"
+	Health     float64 `json:"health"`          // 0 or 1
+	State      string  `json:"state"`           // "ok", "degraded", "down"
 	GrafanaURL string  `json:"grafanaUrl,omitempty"`
 }
 
@@ -54,13 +58,15 @@ type TopologyResponse struct {
 
 // EdgeKey uniquely identifies an edge in the topology.
 type EdgeKey struct {
-	Job        string
-	Dependency string
+	Job  string
+	Host string
+	Port string
 }
 
 // TopologyEdge represents a raw edge discovered from Prometheus metrics.
 type TopologyEdge struct {
 	Job        string
+	Namespace  string
 	Dependency string
 	Type       string
 	Host       string

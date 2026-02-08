@@ -53,7 +53,7 @@ func NewPrometheusClient(cfg PrometheusConfig) PrometheusClient {
 
 // PromQL queries used for topology construction.
 const (
-	queryTopologyEdges = `group by (job, dependency, type, host, port) (app_dependency_health)`
+	queryTopologyEdges = `group by (job, namespace, dependency, type, host, port) (app_dependency_health)`
 	queryHealthState   = `app_dependency_health`
 	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])`
 	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))`
@@ -129,6 +129,7 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context) ([]TopologyEd
 	for _, r := range results {
 		edges = append(edges, TopologyEdge{
 			Job:        r.Metric["job"],
+			Namespace:  r.Metric["namespace"],
 			Dependency: r.Metric["dependency"],
 			Type:       r.Metric["type"],
 			Host:       r.Metric["host"],
@@ -166,8 +167,9 @@ func parseEdgeValues(results []promResult) (map[EdgeKey]float64, error) {
 	m := make(map[EdgeKey]float64, len(results))
 	for _, r := range results {
 		key := EdgeKey{
-			Job:        r.Metric["job"],
-			Dependency: r.Metric["dependency"],
+			Job:  r.Metric["job"],
+			Host: r.Metric["host"],
+			Port: r.Metric["port"],
 		}
 
 		var valStr string

@@ -13,15 +13,15 @@ const topologyEdgesResponse = `{
     "resultType": "vector",
     "result": [
       {
-        "metric": {"job": "svc-go", "dependency": "postgres", "type": "postgres", "host": "pg-primary", "port": "5432"},
+        "metric": {"job": "svc-go", "namespace": "default", "dependency": "postgres", "type": "postgres", "host": "pg-primary", "port": "5432"},
         "value": [1700000000, "1"]
       },
       {
-        "metric": {"job": "svc-go", "dependency": "redis", "type": "redis", "host": "redis", "port": "6379"},
+        "metric": {"job": "svc-go", "namespace": "default", "dependency": "redis", "type": "redis", "host": "redis", "port": "6379"},
         "value": [1700000000, "1"]
       },
       {
-        "metric": {"job": "svc-python", "dependency": "postgres", "type": "postgres", "host": "pg-primary", "port": "5432"},
+        "metric": {"job": "svc-python", "namespace": "default", "dependency": "postgres", "type": "postgres", "host": "pg-primary", "port": "5432"},
         "value": [1700000000, "1"]
       }
     ]
@@ -34,15 +34,15 @@ const healthStateResponse = `{
     "resultType": "vector",
     "result": [
       {
-        "metric": {"job": "svc-go", "dependency": "postgres"},
+        "metric": {"job": "svc-go", "dependency": "postgres", "host": "pg-primary", "port": "5432"},
         "value": [1700000000, "1"]
       },
       {
-        "metric": {"job": "svc-go", "dependency": "redis"},
+        "metric": {"job": "svc-go", "dependency": "redis", "host": "redis", "port": "6379"},
         "value": [1700000000, "0"]
       },
       {
-        "metric": {"job": "svc-python", "dependency": "postgres"},
+        "metric": {"job": "svc-python", "dependency": "postgres", "host": "pg-primary", "port": "5432"},
         "value": [1700000000, "1"]
       }
     ]
@@ -55,11 +55,11 @@ const latencyResponse = `{
     "resultType": "vector",
     "result": [
       {
-        "metric": {"job": "svc-go", "dependency": "postgres"},
+        "metric": {"job": "svc-go", "dependency": "postgres", "host": "pg-primary", "port": "5432"},
         "value": [1700000000, "0.0052"]
       },
       {
-        "metric": {"job": "svc-go", "dependency": "redis"},
+        "metric": {"job": "svc-go", "dependency": "redis", "host": "redis", "port": "6379"},
         "value": [1700000000, "0.001"]
       }
     ]
@@ -91,6 +91,12 @@ func TestQueryTopologyEdges(t *testing.T) {
 	if e.Job != "svc-go" || e.Dependency != "postgres" || e.Type != "postgres" {
 		t.Errorf("edge[0] = %+v, unexpected", e)
 	}
+	if e.Namespace != "default" {
+		t.Errorf("edge[0].Namespace = %q, want %q", e.Namespace, "default")
+	}
+	if e.Host != "pg-primary" || e.Port != "5432" {
+		t.Errorf("edge[0].Host=%q Port=%q, want pg-primary:5432", e.Host, e.Port)
+	}
 }
 
 func TestQueryHealthState(t *testing.T) {
@@ -107,14 +113,14 @@ func TestQueryHealthState(t *testing.T) {
 		t.Fatalf("got %d entries, want 3", len(health))
 	}
 
-	key := EdgeKey{Job: "svc-go", Dependency: "redis"}
+	key := EdgeKey{Job: "svc-go", Host: "redis", Port: "6379"}
 	if v, ok := health[key]; !ok || v != 0 {
-		t.Errorf("health[svc-go/redis] = %v, want 0", v)
+		t.Errorf("health[svc-go/redis:6379] = %v, want 0", v)
 	}
 
-	key = EdgeKey{Job: "svc-go", Dependency: "postgres"}
+	key = EdgeKey{Job: "svc-go", Host: "pg-primary", Port: "5432"}
 	if v, ok := health[key]; !ok || v != 1 {
-		t.Errorf("health[svc-go/postgres] = %v, want 1", v)
+		t.Errorf("health[svc-go/pg-primary:5432] = %v, want 1", v)
 	}
 }
 
@@ -132,9 +138,9 @@ func TestQueryLatency(t *testing.T) {
 		t.Fatalf("got %d entries, want 2", len(latency))
 	}
 
-	key := EdgeKey{Job: "svc-go", Dependency: "postgres"}
+	key := EdgeKey{Job: "svc-go", Host: "pg-primary", Port: "5432"}
 	if v := latency[key]; v != 0.0052 {
-		t.Errorf("latency[svc-go/postgres] = %v, want 0.0052", v)
+		t.Errorf("latency[svc-go/pg-primary:5432] = %v, want 0.0052", v)
 	}
 }
 
