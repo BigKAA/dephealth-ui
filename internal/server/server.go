@@ -97,8 +97,8 @@ func (s *Server) setupRoutes() {
 		r.Get("/config", s.handleConfig)
 	})
 
-	// SPA static files (placeholder — returns 200 for now)
-	s.router.Get("/*", s.handleSPA)
+	// SPA static files (embedded via embed.FS)
+	s.router.Handle("/*", newStaticHandler())
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
@@ -177,9 +177,3 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func (s *Server) handleSPA(w http.ResponseWriter, _ *http.Request) {
-	// TODO: implement in Phase 2 — serve embedded SPA files
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `<!DOCTYPE html><html><body><h1>dephealth-ui</h1><p>Frontend will be here in Phase 2.</p></body></html>`)
-}

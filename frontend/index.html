@@ -6,7 +6,30 @@
   <title>dephealth-ui</title>
 </head>
 <body>
-  <h1>dephealth-ui</h1>
-  <p>Frontend will be implemented in Phase 2. Use <code>/api/v1/topology</code> for JSON API.</p>
+  <header id="header">
+    <span class="header-title">dephealth-ui</span>
+    <div class="toolbar">
+      <button id="btn-refresh" title="Refresh now">Refresh</button>
+      <button id="btn-fit" title="Fit graph to screen">Fit</button>
+      <button id="btn-auto-refresh" class="active" title="Toggle auto-refresh">Auto</button>
+    </div>
+  </header>
+
+  <div id="cy"></div>
+
+  <footer id="status-bar">
+    <span id="status-connection" class="status-dot" title="Connection status"></span>
+    <span id="status-info">Loading...</span>
+  </footer>
+
+  <div id="error-overlay" class="hidden">
+    <div class="error-modal">
+      <h2>Connection Error</h2>
+      <p id="error-message"></p>
+      <button id="btn-error-retry">Retry</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
