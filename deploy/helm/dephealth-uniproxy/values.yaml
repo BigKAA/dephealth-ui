@@ -1,0 +1,31 @@
+# dephealth-uniproxy — default values
+#
+# Usage:
+#   helm install dephealth-uniproxy-ns1 deploy/helm/dephealth-uniproxy/ \
+#     -f deploy/helm/dephealth-uniproxy/values-homelab.yaml \
+#     -f deploy/helm/dephealth-uniproxy/instances/ns1-homelab.yaml \
+#     -n dephealth-uniproxy --create-namespace
+
+global:
+  pushRegistry: ""
+
+image:
+  name: uniproxy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+checkInterval: "10s"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+probes:
+  readinessDelay: 5
+  livenessDelay: 5
+
+instances: []

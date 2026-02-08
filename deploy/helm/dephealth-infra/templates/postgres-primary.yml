@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-secret
-  namespace: {{ include "dephealth-infra.namespace" . }}
+  namespace: {{ .Values.postgres.namespace }}
   labels:
     {{- include "dephealth-infra.labels" . | nindent 4 }}
 type: Opaque
@@ -14,7 +14,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres-primary
-  namespace: {{ include "dephealth-infra.namespace" . }}
+  namespace: {{ .Values.postgres.namespace }}
   labels:
     {{- include "dephealth-infra.labels" . | nindent 4 }}
     {{- include "dephealth-infra.selectorLabels" (dict "name" "postgres-primary") | nindent 4 }}
@@ -76,7 +76,24 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres-primary
-  namespace: {{ include "dephealth-infra.namespace" . }}
+  namespace: {{ .Values.postgres.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "postgres-primary") | nindent 4 }}
+  ports:
+    - port: 5432
+      targetPort: postgres
+      name: postgres
+---
+# Alias service for cross-namespace access: postgresql.dephealth-postgresql.svc
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: {{ .Values.postgres.namespace }}
   labels:
     {{- include "dephealth-infra.labels" . | nindent 4 }}
 spec:

@@ -1,6 +1,6 @@
 .PHONY: build lint test frontend-build docker-build docker-push \
        helm-deploy helm-undeploy dev clean \
-       env-deploy env-undeploy env-status
+       uniproxy-build env-deploy env-undeploy env-status
 
 # --- Variables ---
 REGISTRY      ?= harbor.kryukov.lan/library
@@ -15,7 +15,7 @@ HELM_VALUES   ?= $(HELM_CHART)/values-homelab.yaml
 
 # Test environment charts
 INFRA_CHART      ?= deploy/helm/dephealth-infra
-SERVICES_CHART   ?= deploy/helm/dephealth-services
+UNIPROXY_CHART   ?= deploy/helm/dephealth-uniproxy
 MONITORING_CHART ?= deploy/helm/dephealth-monitoring
 
 # --- Local ---
@@ -50,6 +50,15 @@ docker-build:
 docker-push:
 	@echo "Image pushed during docker-build (--push flag)"
 
+# --- Uniproxy Docker build ---
+
+uniproxy-build:
+	docker buildx build \
+		--platform $(PLATFORMS) \
+		-t $(REGISTRY)/uniproxy:$(TAG) \
+		--push \
+		test/uniproxy/
+
 # --- Helm (dephealth-ui) ---
 
 helm-deploy:
@@ -65,22 +74,44 @@ helm-undeploy:
 env-deploy:
 	helm upgrade --install dephealth-infra $(INFRA_CHART) \
 		-f $(INFRA_CHART)/values-homelab.yaml
-	helm upgrade --install dephealth-services $(SERVICES_CHART) \
-		-f $(SERVICES_CHART)/values-homelab.yaml
+	helm upgrade --install dephealth-uniproxy-ns1 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns1-homelab.yaml \
+		-n dephealth-uniproxy --create-namespace
+	helm upgrade --install dephealth-uniproxy-ns2 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns2-homelab.yaml \
+		-n dephealth-uniproxy-2 --create-namespace
 	helm upgrade --install dephealth-monitoring $(MONITORING_CHART) \
 		-f $(MONITORING_CHART)/values-homelab.yaml
 
 env-undeploy:
 	-helm uninstall dephealth-monitoring -n dephealth-monitoring
-	-helm uninstall dephealth-services -n dephealth-test
-	-helm uninstall dephealth-infra -n dephealth-test
+	-helm uninstall dephealth-uniproxy-ns1 -n dephealth-uniproxy
+	-helm uninstall dephealth-uniproxy-ns2 -n dephealth-uniproxy-2
+	-helm uninstall dephealth-infra
+	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
+		dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
+		--ignore-not-found
 
 env-status:
-	@echo "=== dephealth-test ==="
-	kubectl get pods -n dephealth-test
+	@echo "=== dephealth-redis ==="
+	@kubectl get pods -n dephealth-redis 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-postgresql ==="
+	@kubectl get pods -n dephealth-postgresql 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-grpc-stub ==="
+	@kubectl get pods -n dephealth-grpc-stub 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-uniproxy ==="
+	@kubectl get pods -n dephealth-uniproxy 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-uniproxy-2 ==="
+	@kubectl get pods -n dephealth-uniproxy-2 2>/dev/null || echo "  namespace not found"
 	@echo ""
 	@echo "=== dephealth-monitoring ==="
-	kubectl get pods -n dephealth-monitoring
+	@kubectl get pods -n dephealth-monitoring 2>/dev/null || echo "  namespace not found"
 
 # --- Development cycle ---
 

@@ -1,4 +1,39 @@
 {{- if .Values.victoriametrics.enabled }}
+# --- RBAC for Kubernetes service discovery ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: victoriametrics
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: victoriametrics-sd
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: victoriametrics-sd
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: victoriametrics-sd
+subjects:
+  - kind: ServiceAccount
+    name: victoriametrics
+    namespace: {{ include "dephealth-monitoring.namespace" . }}
+---
 # --- ConfigMap: scrape config ---
 apiVersion: v1
 kind: ConfigMap
@@ -15,33 +50,62 @@ data:
       scrape_timeout: 10s
 
     scrape_configs:
-      {{- range .Values.scrapeTargets }}
-      - job_name: {{ .jobName }}
-        {{- if .metricsPath }}
-        metrics_path: {{ .metricsPath }}
-        {{- end }}
-        static_configs:
-          - targets:
-              - {{ .host }}:{{ .port }}
-            labels:
-              namespace: {{ .namespace }}
-              service: {{ .service }}
-      {{- end }}
+      # --- Kubernetes pod auto-discovery ---
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
 
-      {{- range .Values.extraScrapeTargets }}
-      - job_name: {{ .jobName }}
-        {{- if .metricsPath }}
-        metrics_path: {{ .metricsPath }}
-        {{- end }}
-        static_configs:
-          - targets:
-              - {{ .host }}:{{ .port }}
-            labels:
-              namespace: {{ .namespace }}
-              service: {{ .service }}
-      {{- end }}
+        relabel_configs:
+          # 1. Only scrape pods with prometheus.io/scrape=true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
 
-      # VictoriaMetrics self-monitoring
+          # 2. Only scrape pods with app.kubernetes.io/part-of=dephealth
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_part_of]
+            action: keep
+            regex: "dephealth"
+
+          # 3. Use scheme from annotation (default: http)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+
+          # 4. Use path from annotation (default: /metrics)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # 5. Use port from annotation
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+          # 6. Set namespace label from K8s metadata
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+
+          # 7. Set job label from app.kubernetes.io/name
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: job
+
+          # 8. Set service label (same as job)
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: service
+
+          # 9. Set pod label
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      # --- VictoriaMetrics self-monitoring (static) ---
       - job_name: victoriametrics
         static_configs:
           - targets:
@@ -67,6 +131,7 @@ spec:
       labels:
         {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 8 }}
     spec:
+      serviceAccountName: victoriametrics
       containers:
         - name: victoriametrics
           image: {{ include "dephealth-monitoring.image" (dict "registry" .Values.global.imageRegistry "image" .Values.victoriametrics.image "tag" .Values.victoriametrics.tag) }}

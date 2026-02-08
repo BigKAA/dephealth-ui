@@ -1,0 +1,40 @@
+{{- range .Values.instances }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}-config
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "dephealth-uniproxy.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ .name }}
+data:
+  config.yaml: |
+    server:
+      listen: ":8080"
+      metricsPath: "/metrics"
+    checkInterval: {{ $.Values.checkInterval }}
+    connections:
+      {{- if .connections }}
+      {{- range .connections }}
+      - name: {{ .name | quote }}
+        type: {{ .type | quote }}
+        host: {{ .host | quote }}
+        port: {{ .port | quote }}
+        {{- if .path }}
+        path: {{ .path | quote }}
+        {{- end }}
+        {{- if .database }}
+        database: {{ .database | quote }}
+        {{- end }}
+        {{- if .username }}
+        username: {{ .username | quote }}
+        {{- end }}
+        {{- if .password }}
+        password: {{ .password | quote }}
+        {{- end }}
+      {{- end }}
+      {{- else }}
+      []
+      {{- end }}
+{{- end }}

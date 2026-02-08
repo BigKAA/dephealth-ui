@@ -85,39 +85,6 @@ grafana:
       name: gateway
       namespace: default
 
-# --- Scrape targets ---
-# Список сервисов для VictoriaMetrics scrape.
-# Каждый элемент: jobName, host, port, metricsPath (по умолчанию /metrics), namespace, service.
-scrapeTargets:
-  - jobName: dephealth-test-go
-    host: go-service.dephealth-test.svc
-    port: "8080"
-    namespace: dephealth-test
-    service: go-service
-
-  - jobName: dephealth-test-python
-    host: python-service.dephealth-test.svc
-    port: "8080"
-    namespace: dephealth-test
-    service: python-service
-
-  - jobName: dephealth-test-java
-    host: java-service.dephealth-test.svc
-    port: "8080"
-    metricsPath: /actuator/prometheus
-    namespace: dephealth-test
-    service: java-service
-
-  - jobName: dephealth-test-csharp
-    host: csharp-service.dephealth-test.svc
-    port: "8080"
-    namespace: dephealth-test
-    service: csharp-service
-
-# Дополнительные scrape targets (conformance и т.д.)
-extraScrapeTargets: []
-#  - jobName: dephealth-conformance-go
-#    host: conformance-test-service.dephealth-conformance.svc
-#    port: "8080"
-#    namespace: dephealth-conformance
-#    service: conformance-test-service
+# Scrape configuration uses Kubernetes pod service discovery.
+# Pods with annotations prometheus.io/scrape=true and label
+# app.kubernetes.io/part-of=dephealth are auto-discovered.

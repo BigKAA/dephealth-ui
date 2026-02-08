@@ -21,6 +21,7 @@ global:
 # --- PostgreSQL ---
 postgres:
   enabled: true
+  namespace: dephealth-postgresql
   image: postgres
   tag: "17-alpine"
   credentials:
@@ -50,6 +51,7 @@ postgres:
 # --- Redis ---
 redis:
   enabled: true
+  namespace: dephealth-redis
   image: redis
   tag: "7-alpine"
   resources:
@@ -93,7 +95,7 @@ rabbitmq:
 # --- Stubs ---
 stubs:
   httpStub:
-    enabled: true
+    enabled: false
     image: dephealth-http-stub
     tag: latest
     resources:
@@ -105,6 +107,7 @@ stubs:
         memory: 32Mi
   grpcStub:
     enabled: true
+    namespace: dephealth-grpc-stub
     image: dephealth-grpc-stub
     tag: latest
     resources:

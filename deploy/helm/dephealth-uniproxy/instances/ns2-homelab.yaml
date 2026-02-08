@@ -1,0 +1,54 @@
+instances:
+  - name: uniproxy-04
+    replicas: 2
+    connections:
+      - name: uniproxy-05
+        type: http
+        host: uniproxy-05.dephealth-uniproxy-2.svc
+        port: "8080"
+        path: "/"
+      - name: uniproxy-06
+        type: http
+        host: uniproxy-06.dephealth-uniproxy-2.svc
+        port: "8080"
+        path: "/"
+
+  - name: uniproxy-05
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-06
+    replicas: 2
+    connections:
+      - name: uniproxy-07
+        type: http
+        host: uniproxy-07.dephealth-uniproxy-2.svc
+        port: "8080"
+        path: "/"
+      - name: uniproxy-08
+        type: http
+        host: uniproxy-08.dephealth-uniproxy-2.svc
+        port: "8080"
+        path: "/"
+
+  - name: uniproxy-07
+    replicas: 1
+    connections:
+      - name: postgresql
+        type: postgres
+        host: postgresql.dephealth-postgresql.svc
+        port: "5432"
+        database: dephealth
+        username: dephealth
+        password: dephealth-test-pass
+
+  - name: uniproxy-08
+    replicas: 1
+    connections:
+      - name: postgresql
+        type: postgres
+        host: postgresql.dephealth-postgresql.svc
+        port: "5432"
+        database: dephealth
+        username: dephealth
+        password: dephealth-test-pass

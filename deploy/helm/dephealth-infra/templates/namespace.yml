@@ -1,7 +1,29 @@
+{{- if .Values.redis.enabled }}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ include "dephealth-infra.namespace" . }}
+  name: {{ .Values.redis.namespace }}
   labels:
     {{- include "dephealth-infra.labels" . | nindent 4 }}
     app.kubernetes.io/component: infrastructure
+{{- end }}
+---
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.postgres.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: infrastructure
+{{- end }}
+---
+{{- if .Values.stubs.grpcStub.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.stubs.grpcStub.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: infrastructure
+{{- end }}
