@@ -1,8 +1,12 @@
+import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
 import { initGraph, renderGraph, updateGraphTheme } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 import { showToast } from './toast.js';
-import { initFilters, updateFilters, applyFilters, resetFilters, hasActiveFilters } from './filter.js';
+import {
+  initFilters, updateFilters, applyFilters, resetFilters,
+  hasActiveFilters, updateNamespaceOptions, setNamespaceValue,
+} from './filter.js';
 
 let cy = null;
 let pollTimer = null;
@@ -199,64 +203,6 @@ function initTheme() {
   });
 }
 
-function updateNamespaceOptions(data) {
-  const select = $('#namespace-select');
-  const namespaces = new Set();
-  if (data.nodes) {
-    for (const node of data.nodes) {
-      if (node.namespace) {
-        namespaces.add(node.namespace);
-      }
-    }
-  }
-
-  const sorted = [...namespaces].sort();
-  const current = select.value;
-
-  // Rebuild options only if set changed.
-  const existing = [...select.options].slice(1).map((o) => o.value);
-  if (sorted.length === existing.length && sorted.every((v, i) => v === existing[i])) {
-    return;
-  }
-
-  // Preserve selection.
-  select.innerHTML = '<option value="">All namespaces</option>';
-  for (const ns of sorted) {
-    const opt = document.createElement('option');
-    opt.value = ns;
-    opt.textContent = ns;
-    select.appendChild(opt);
-  }
-  select.value = current;
-}
-
-function setupNamespaceSelector() {
-  const select = $('#namespace-select');
-
-  // Read namespace from URL on init.
-  const params = new URLSearchParams(window.location.search);
-  const ns = params.get('namespace') || '';
-  if (ns) {
-    selectedNamespace = ns;
-    select.value = ns;
-  }
-
-  select.addEventListener('change', () => {
-    selectedNamespace = select.value;
-
-    // Sync URL.
-    const url = new URL(window.location);
-    if (selectedNamespace) {
-      url.searchParams.set('namespace', selectedNamespace);
-    } else {
-      url.searchParams.delete('namespace');
-    }
-    history.replaceState(null, '', url);
-
-    refresh();
-  });
-}
-
 function setupFilters() {
   const panel = $('#filter-panel');
   const btn = $('#btn-filter');
@@ -276,9 +222,7 @@ function setupFilters() {
 
   $('#btn-reset-filters').addEventListener('click', () => {
     resetFilters();
-    // Also reset namespace.
     selectedNamespace = '';
-    $('#namespace-select').value = '';
     const url = new URL(window.location);
     url.searchParams.delete('namespace');
     history.replaceState(null, '', url);
@@ -286,9 +230,20 @@ function setupFilters() {
     refresh();
   });
 
-  // Listen for filter changes from filter.js chip clicks.
   window.addEventListener('filters-changed', () => {
     applyFilters(cy);
+  });
+
+  window.addEventListener('namespace-changed', (e) => {
+    selectedNamespace = e.detail;
+    const url = new URL(window.location);
+    if (selectedNamespace) {
+      url.searchParams.set('namespace', selectedNamespace);
+    } else {
+      url.searchParams.delete('namespace');
+    }
+    history.replaceState(null, '', url);
+    refresh();
   });
 }
 
@@ -362,17 +317,23 @@ async function init() {
     }
 
     cy = initGraph($('#cy'));
-    setupNamespaceSelector();
     setupToolbar();
     setupFilters();
     setupGrafanaClickThrough();
+
+    // Read namespace from URL.
+    const params = new URLSearchParams(window.location.search);
+    selectedNamespace = params.get('namespace') || '';
 
     const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
     renderGraph(cy, data);
     updateStatus(data);
     checkEmptyState(data);
-    updateNamespaceOptions(data);
     initFilters(data);
+    updateNamespaceOptions(data);
+    if (selectedNamespace) {
+      setNamespaceValue(selectedNamespace);
+    }
     applyFilters(cy);
     startPolling();
   } catch (err) {
