@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
         - name: dephealth-ui
-          image: harbor.kryukov.lan/library/dephealth-ui:latest
+          image: harbor.kryukov.lan/library/dephealth-ui:v0.2.0
           imagePullPolicy: Always
           args:
             - "-config"

@@ -11,7 +11,7 @@ microservice topology and dependency health visualization.
 
 ---
 
-## Phase 0: Project Setup & Test Environment
+## Phase 0: Project Setup & Test Environment [COMPLETED]
 
 **Objective:** Initialize project structure, build tooling, and deploy the test
 environment in Kubernetes so that real Prometheus metrics and alerts are
@@ -21,8 +21,8 @@ available for development.
 
 ### 0.1 Go project initialization
 
-- [ ] `go mod init github.com/BigKAA/dephealth-ui`
-- [ ] Create directory structure:
+- [x] `go mod init github.com/BigKAA/dephealth-ui`
+- [x] Create directory structure:
 
 ```text
 cmd/dephealth-ui/main.go        — entry point (placeholder)
@@ -32,12 +32,12 @@ frontend/                       — empty dir for Phase 2
 deploy/helm/dephealth-ui/       — empty dir for Phase 4
 ```
 
-- [ ] Add `.gitignore` (Go + Node.js + IDE artifacts)
-- [ ] Add `config.example.yaml` with documented defaults
+- [x] Add `.gitignore` (Go + Node.js + IDE artifacts)
+- [x] Add `config.example.yaml` with documented defaults
 
 ### 0.2 Makefile
 
-- [ ] Create `Makefile` with targets:
+- [x] Create `Makefile` with targets:
 
 | Target | Description |
 |---|---|
@@ -51,12 +51,12 @@ deploy/helm/dephealth-ui/       — empty dir for Phase 4
 | `helm-undeploy` | `helm uninstall` |
 | `dev` | `docker-build` → `docker-push` → `helm-deploy` |
 
-- [ ] Variables at the top: `REGISTRY`, `IMAGE_NAME`, `TAG`, `PLATFORMS`, `NAMESPACE`
-- [ ] Default `PLATFORMS = linux/amd64,linux/arm64`
+- [x] Variables at the top: `REGISTRY`, `IMAGE_NAME`, `TAG`, `PLATFORMS`, `NAMESPACE`
+- [x] Default `PLATFORMS = linux/amd64,linux/arm64`
 
 ### 0.3 Dockerfile (multi-stage, multi-arch)
 
-- [ ] Create `Dockerfile`:
+- [x] Create `Dockerfile`:
 
 ```dockerfile
 # Stage 1 — frontend build
@@ -86,7 +86,7 @@ EXPOSE 8080
 ENTRYPOINT ["/dephealth-ui"]
 ```
 
-- [ ] Verify build: `docker buildx build --platform linux/amd64,linux/arm64 -t test .`
+- [x] Verify build: `docker buildx build --platform linux/amd64,linux/arm64 -t test .`
 
 ### 0.4 Deploy test environment in Kubernetes
 
@@ -95,7 +95,7 @@ and `app_dependency_latency_seconds` metrics.
 
 **Source charts:** `deploy/helm/` (local copies from topologymetrics project)
 
-- [ ] Build and push stub images (http-stub, grpc-stub) — multi-arch
+- [x] Build and push stub images (http-stub, grpc-stub) — multi-arch
 
 ```bash
 # From topologymetrics project root
@@ -112,7 +112,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
   --push conformance/stubs/grpc-stub/
 ```
 
-- [ ] Build and push test service images (go, python, java, csharp) — multi-arch
+- [x] Build and push test service images (go, python, java, csharp) — multi-arch
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
@@ -123,7 +123,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 # Similarly for python, java, csharp services
 ```
 
-- [ ] Deploy infrastructure:
+- [x] Deploy infrastructure:
 
 ```bash
 helm upgrade --install dephealth-infra \
@@ -131,7 +131,7 @@ helm upgrade --install dephealth-infra \
   -f deploy/helm/dephealth-infra/values-homelab.yaml
 ```
 
-- [ ] Deploy test services:
+- [x] Deploy test services:
 
 ```bash
 helm upgrade --install dephealth-services \
@@ -139,7 +139,7 @@ helm upgrade --install dephealth-services \
   -f deploy/helm/dephealth-services/values-homelab.yaml
 ```
 
-- [ ] Deploy monitoring stack:
+- [x] Deploy monitoring stack:
 
 ```bash
 helm upgrade --install dephealth-monitoring \
@@ -149,23 +149,23 @@ helm upgrade --install dephealth-monitoring \
 
 ### 0.5 Verify test environment
 
-- [ ] All pods running: `kubectl get pods -n dephealth-test`
-- [ ] All pods running: `kubectl get pods -n dephealth-monitoring`
-- [ ] Metrics visible in VictoriaMetrics:
+- [x] All pods running: `kubectl get pods -n dephealth-test`
+- [x] All pods running: `kubectl get pods -n dephealth-monitoring`
+- [x] Metrics visible in VictoriaMetrics:
 
 ```bash
 kubectl port-forward -n dephealth-monitoring svc/victoriametrics 8428:8428
 curl 'http://localhost:8428/api/v1/query?query=app_dependency_health'
 ```
 
-- [ ] Alerts configured in AlertManager:
+- [x] Alerts configured in AlertManager:
 
 ```bash
 kubectl port-forward -n dephealth-monitoring svc/alertmanager 9093:9093
 curl 'http://localhost:9093/api/v2/alerts'
 ```
 
-- [ ] Note the internal service URLs for dephealth-ui config:
+- [x] Note the internal service URLs for dephealth-ui config:
   - VictoriaMetrics: `http://victoriametrics.dephealth-monitoring.svc:8428`
   - AlertManager: `http://alertmanager.dephealth-monitoring.svc:9093`
 
@@ -179,7 +179,7 @@ curl 'http://localhost:9093/api/v2/alerts'
 
 ---
 
-## Phase 1: Go Backend — Configuration & Prometheus Client
+## Phase 1: Go Backend — Configuration & Prometheus Client [COMPLETED]
 
 **Objective:** Implement the Go backend that connects to VictoriaMetrics,
 executes PromQL queries, builds the topology graph, and exposes it via
@@ -191,7 +191,7 @@ REST API.
 
 **Files:** `internal/config/config.go`
 
-- [ ] Define config struct matching `config.example.yaml`:
+- [x] Define config struct matching `config.example.yaml`:
 
 ```go
 type Config struct {
@@ -203,37 +203,37 @@ type Config struct {
 }
 ```
 
-- [ ] Load from YAML file (flag `-config`)
-- [ ] Override with environment variables (`DEPHEALTH_SERVER_LISTEN`, etc.)
-- [ ] Validate required fields (at minimum `datasources.prometheus.url`)
-- [ ] Unit tests for config loading and validation
+- [x] Load from YAML file (flag `-config`)
+- [x] Override with environment variables (`DEPHEALTH_SERVER_LISTEN`, etc.)
+- [x] Validate required fields (at minimum `datasources.prometheus.url`)
+- [x] Unit tests for config loading and validation
 
 ### 1.2 HTTP server skeleton
 
 **Files:** `internal/server/server.go`, `internal/server/routes.go`
 
-- [ ] Create chi router with middleware:
+- [x] Create chi router with middleware:
   - `middleware.Logger`
   - `middleware.Recoverer`
   - `middleware.RequestID`
   - `middleware.RealIP`
   - CORS headers for development
-- [ ] Register routes:
+- [x] Register routes:
   - `GET /api/v1/topology`
   - `GET /api/v1/alerts`
   - `GET /api/v1/config`
   - `GET /healthz` — liveness probe
   - `GET /readyz` — readiness probe (checks datasource connectivity)
   - `GET /*` — SPA static files (placeholder, returns 200 for now)
-- [ ] Graceful shutdown on SIGINT/SIGTERM
-- [ ] Unit tests for route registration
+- [x] Graceful shutdown on SIGINT/SIGTERM
+- [x] Unit tests for route registration
 
 ### 1.3 Prometheus / VictoriaMetrics client
 
 **Files:** `internal/topology/prometheus.go`
 
-- [ ] Use official `github.com/prometheus/client_golang/api` or plain HTTP client
-- [ ] Implement query methods:
+- [x] Use official `github.com/prometheus/client_golang/api` or plain HTTP client
+- [x] Implement query methods:
 
 ```go
 type PrometheusClient interface {
@@ -251,20 +251,20 @@ type PrometheusClient interface {
 }
 ```
 
-- [ ] PromQL queries (from design doc):
+- [x] PromQL queries (from design doc):
   - Topology edges: `group by (job, dependency, type, host, port) (app_dependency_health)`
   - Health state: `app_dependency_health`
   - Avg latency: `rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])`
   - P99 latency: `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))`
-- [ ] Optional Basic auth for Prometheus connection
-- [ ] Configurable timeout
-- [ ] Unit tests with mock HTTP server
+- [x] Optional Basic auth for Prometheus connection
+- [x] Configurable timeout
+- [x] Unit tests with mock HTTP server
 
 ### 1.4 Graph builder
 
 **Files:** `internal/topology/graph.go`, `internal/topology/models.go`
 
-- [ ] Define models:
+- [x] Define models:
 
 ```go
 type Node struct {
@@ -294,7 +294,7 @@ type TopologyResponse struct {
 }
 ```
 
-- [ ] Build graph from Prometheus data:
+- [x] Build graph from Prometheus data:
   1. Query topology edges → create Node set (from `job` labels) + Edge set
   2. Query health state → set `health` on edges
   3. Query latency → set `latency`/`latencyRaw` on edges
@@ -304,36 +304,36 @@ type TopologyResponse struct {
      - All edges unhealthy → `down`
      - No edges → `unknown`
   5. Generate Grafana URLs from config
-- [ ] Unit tests for graph building logic (with sample data)
+- [x] Unit tests for graph building logic (with sample data)
 
 ### 1.5 API handler — GET /api/v1/topology
 
 **Files:** `internal/server/handlers.go`
 
-- [ ] Call graph builder → return JSON TopologyResponse
-- [ ] Error handling: return 502 if Prometheus unavailable, 500 for internal errors
-- [ ] Set `Content-Type: application/json`
-- [ ] Unit tests
+- [x] Call graph builder → return JSON TopologyResponse
+- [x] Error handling: return 502 if Prometheus unavailable, 500 for internal errors
+- [x] Set `Content-Type: application/json`
+- [x] Unit tests
 
 ### 1.6 Entry point
 
 **Files:** `cmd/dephealth-ui/main.go`
 
-- [ ] Parse flags (`-config`)
-- [ ] Load config
-- [ ] Create Prometheus client
-- [ ] Create graph builder
-- [ ] Create and start HTTP server
-- [ ] Graceful shutdown
+- [x] Parse flags (`-config`)
+- [x] Load config
+- [x] Create Prometheus client
+- [x] Create graph builder
+- [x] Create and start HTTP server
+- [x] Graceful shutdown
 
 ### 1.7 Deploy and test in Kubernetes
 
-- [ ] Build multi-arch image and push to Harbor
-- [ ] Create a minimal Kubernetes manifest (Deployment + Service) for quick
+- [x] Build multi-arch image and push to Harbor
+- [x] Create a minimal Kubernetes manifest (Deployment + Service) for quick
       testing (not full Helm chart yet)
-- [ ] Set environment or ConfigMap with VictoriaMetrics URL
-- [ ] Port-forward and test: `curl localhost:8080/api/v1/topology`
-- [ ] Verify the graph JSON contains correct nodes and edges from test services
+- [x] Set environment or ConfigMap with VictoriaMetrics URL
+- [x] Port-forward and test: `curl localhost:8080/api/v1/topology`
+- [x] Verify the graph JSON contains correct nodes and edges from test services
 
 ### Checkpoint
 
@@ -345,7 +345,7 @@ type TopologyResponse struct {
 
 ---
 
-## Phase 2: Frontend — Graph Visualization
+## Phase 2: Frontend — Graph Visualization [COMPLETED]
 
 **Objective:** Create a Vite-based SPA that fetches the topology from the
 backend API and renders an interactive directed graph with Cytoscape.js.
@@ -356,38 +356,38 @@ backend API and renders an interactive directed graph with Cytoscape.js.
 
 **Files:** `frontend/`
 
-- [ ] Initialize Vite project:
+- [x] Initialize Vite project:
 
 ```bash
 npm create vite@latest frontend -- --template vanilla
 cd frontend && npm install
 ```
 
-- [ ] Install dependencies:
+- [x] Install dependencies:
 
 ```bash
 npm install cytoscape cytoscape-dagre
 ```
 
-- [ ] Configure Vite (`frontend/vite.config.js`):
+- [x] Configure Vite (`frontend/vite.config.js`):
   - Dev server proxy: `/api` → `http://localhost:8080`
   - Build output: `frontend/dist`
-- [ ] Verify dev server starts: `npm run dev`
+- [x] Verify dev server starts: `npm run dev`
 
 ### 2.2 API client
 
 **Files:** `frontend/src/api.js`
 
-- [ ] `fetchTopology()` — GET /api/v1/topology → parse JSON
-- [ ] `fetchConfig()` — GET /api/v1/config → parse JSON
-- [ ] Error handling: show user-friendly error on network/HTTP errors
-- [ ] Auto-retry with backoff on transient errors
+- [x] `fetchTopology()` — GET /api/v1/topology → parse JSON
+- [x] `fetchConfig()` — GET /api/v1/config → parse JSON
+- [x] Error handling: show user-friendly error on network/HTTP errors
+- [x] Auto-retry with backoff on transient errors
 
 ### 2.3 Graph renderer
 
 **Files:** `frontend/src/graph.js`
 
-- [ ] Initialize Cytoscape instance with dagre layout:
+- [x] Initialize Cytoscape instance with dagre layout:
 
 ```javascript
 const cy = cytoscape({
@@ -398,12 +398,12 @@ const cy = cytoscape({
 });
 ```
 
-- [ ] `renderGraph(topologyData)`:
+- [x] `renderGraph(topologyData)`:
   1. Convert API nodes → Cytoscape nodes
   2. Convert API edges → Cytoscape edges
   3. Use `cy.batch()` for efficient update
   4. Run layout
-- [ ] `updateGraph(topologyData)`:
+- [x] `updateGraph(topologyData)`:
   - Diff current elements vs new data
   - Add/remove/update elements without full re-layout
   - Only re-layout if topology structure changed (new/removed nodes/edges)
@@ -412,14 +412,14 @@ const cy = cytoscape({
 
 **Files:** `frontend/src/styles.js`
 
-- [ ] Node styles:
+- [x] Node styles:
   - **ok:** green background (`#4caf50`)
   - **degraded:** amber background (`#ff9800`)
   - **down:** red background (`#f44336`)
   - **unknown:** gray background (`#9e9e9e`)
   - Label: node name
   - Shape: round-rectangle for services, ellipse for dependencies
-- [ ] Edge styles:
+- [x] Edge styles:
   - **ok:** green line
   - **degraded:** dashed amber line
   - **down:** dotted red line
@@ -431,62 +431,62 @@ const cy = cytoscape({
 
 **Files:** `frontend/src/main.js`, `frontend/index.html`
 
-- [ ] HTML structure:
+- [x] HTML structure:
   - Header bar with app title
   - Full-screen Cytoscape container (`#cy`)
   - Status bar (last update time, node/edge count, connection status)
   - Error overlay (shown on API errors)
-- [ ] On load:
+- [x] On load:
   1. Fetch config
   2. Fetch topology
   3. Render graph
   4. Start polling interval (configurable, default 15s)
-- [ ] Toolbar buttons:
+- [x] Toolbar buttons:
   - Refresh now
   - Fit to screen
   - Toggle auto-refresh
 
 ### 2.6 Grafana click-through
 
-- [ ] On node click → open `grafanaUrl` in new tab (if present)
-- [ ] On edge click → open `grafanaUrl` in new tab (if present)
-- [ ] Visual hover feedback (highlight, cursor pointer)
+- [x] On node click → open `grafanaUrl` in new tab (if present)
+- [x] On edge click → open `grafanaUrl` in new tab (if present)
+- [x] Visual hover feedback (highlight, cursor pointer)
 
 ### 2.7 CSS / layout
 
 **Files:** `frontend/src/style.css`
 
-- [ ] Fullscreen layout (100vh)
-- [ ] Header bar (fixed top)
-- [ ] Status bar (fixed bottom)
-- [ ] Cytoscape container fills remaining space
-- [ ] Basic responsive: collapse header on narrow screens
-- [ ] Light theme as default
+- [x] Fullscreen layout (100vh)
+- [x] Header bar (fixed top)
+- [x] Status bar (fixed bottom)
+- [x] Cytoscape container fills remaining space
+- [x] Basic responsive: collapse header on narrow screens
+- [x] Light theme as default
 
 ### 2.8 Embed frontend in Go binary
 
 **Files:** `internal/server/static.go`
 
-- [ ] Use `embed.FS` to embed `frontend/dist`:
+- [x] Use `embed.FS` to embed `frontend/dist`:
 
 ```go
 //go:embed static/*
 var staticFiles embed.FS
 ```
 
-- [ ] Serve embedded files from chi router (`/*`)
-- [ ] SPA fallback: serve `index.html` for all non-API, non-static routes
-- [ ] Set correct MIME types and cache headers for static assets
+- [x] Serve embedded files from chi router (`/*`)
+- [x] SPA fallback: serve `index.html` for all non-API, non-static routes
+- [x] Set correct MIME types and cache headers for static assets
 
 ### 2.9 Deploy and test in Kubernetes
 
-- [ ] Build multi-arch image (frontend + backend embedded)
-- [ ] Push to Harbor
-- [ ] Deploy to Kubernetes
-- [ ] Port-forward and open in browser
-- [ ] Verify graph renders with real test service data
-- [ ] Verify auto-refresh works
-- [ ] Verify Grafana links work (if Grafana is accessible)
+- [x] Build multi-arch image (frontend + backend embedded)
+- [x] Push to Harbor
+- [x] Deploy to Kubernetes
+- [x] Port-forward and open in browser
+- [x] Verify graph renders with real test service data
+- [x] Verify auto-refresh works
+- [x] Verify Grafana links work (if Grafana is accessible)
 
 ### Checkpoint
 

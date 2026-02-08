@@ -4,6 +4,7 @@
 # AI
 .serena/
 # claudedocs/
+.playwright-mcp
 
 # Go
 /dephealth-ui
