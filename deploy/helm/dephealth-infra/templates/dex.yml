@@ -1,0 +1,131 @@
+{{- if .Values.dex.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex
+  namespace: {{ include "dephealth-infra.namespace" . }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 4 }}
+data:
+  config.yaml: |
+    issuer: {{ .Values.dex.issuer }}
+    storage:
+      type: memory
+    web:
+      http: 0.0.0.0:5555
+    logger:
+      level: info
+      format: json
+    oauth2:
+      passwordConnector: local
+    enablePasswordDB: true
+    staticClients:
+      {{- range .Values.dex.staticClients }}
+      - id: {{ .id }}
+        name: {{ .name | quote }}
+        secret: {{ .secret }}
+        redirectURIs:
+          {{- range .redirectURIs }}
+          - {{ . | quote }}
+          {{- end }}
+      {{- end }}
+    staticPasswords:
+      {{- range .Values.dex.staticPasswords }}
+      - email: {{ .email | quote }}
+        hash: {{ .hash | quote }}
+        username: {{ .username | quote }}
+        userID: {{ .userID | quote }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex
+  namespace: {{ include "dephealth-infra.namespace" . }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 8 }}
+    spec:
+      containers:
+        - name: dex
+          image: {{ .Values.dex.image }}:{{ .Values.dex.tag }}
+          command: ["/usr/local/bin/dex", "serve", "/etc/dex/cfg/config.yaml"]
+          ports:
+            - containerPort: 5555
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5555
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5555
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dex/cfg
+          resources:
+            {{- toYaml .Values.dex.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: dex
+            items:
+              - key: config.yaml
+                path: config.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: {{ include "dephealth-infra.namespace" . }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "dex") | nindent 4 }}
+  ports:
+    - port: 5555
+      targetPort: http
+      name: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dex
+  namespace: {{ include "dephealth-infra.namespace" . }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.global.gateway.name }}
+      namespace: {{ .Values.global.gateway.namespace }}
+      sectionName: https
+  hostnames:
+    - {{ .Values.dex.hostname | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: dex
+          port: 5555
+{{- end }}

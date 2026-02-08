@@ -3,3 +3,21 @@ global:
   imageRegistry: harbor.kryukov.lan/docker
   pushRegistry: harbor.kryukov.lan/library
   storageClass: nfs-client
+
+dex:
+  enabled: true
+  issuer: "https://dex.kryukov.lan"
+  hostname: "dex.kryukov.lan"
+  staticClients:
+    - id: dephealth-ui
+      name: dephealth-ui
+      secret: ZGVwaGVhbHRoLXVpLXNlY3JldA
+      redirectURIs:
+        - "https://dephealth.kryukov.lan/auth/callback"
+        - "http://localhost:8080/auth/callback"
+  staticPasswords:
+    - email: "artur@kryukov.lan"
+      # echo password | htpasswd -BinC 10 admin | cut -d: -f2
+      hash: "$2y$10$Ewnzu3BUo4WYwIo9tNkfqO3VaK6uHbycCGTIUjiIUQWdm03NgvDNS"
+      username: "artur"
+      userID: "08a8684b-db89-4b73-91a9-3cd1221f0000"

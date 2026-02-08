@@ -13,6 +13,10 @@ global:
   storageClass: ""
   # Целевой namespace
   namespace: dephealth-test
+  # Gateway API конфигурация
+  gateway:
+    name: eg
+    namespace: envoy-gateway-system
 
 # --- PostgreSQL ---
 postgres:
@@ -110,3 +114,35 @@ stubs:
       limits:
         cpu: 100m
         memory: 32Mi
+
+# --- Dex (OIDC Provider) ---
+dex:
+  enabled: false
+  image: ghcr.io/dexidp/dex
+  tag: "v2.42.1"
+  # Issuer URL (must match external HTTPS URL)
+  issuer: "https://dex.example.com"
+  # Hostname for HTTPRoute
+  hostname: "dex.example.com"
+  # OIDC clients
+  staticClients:
+    - id: dephealth-ui
+      name: dephealth-ui
+      secret: ZGVwaGVhbHRoLXVpLXNlY3JldA
+      redirectURIs:
+        - "https://dephealth.example.com/auth/callback"
+        - "http://localhost:8080/auth/callback"
+  # Local users (password connector)
+  staticPasswords:
+    - email: "admin@example.com"
+      # echo password | htpasswd -BinC 10 admin | cut -d: -f2
+      hash: "$2y$10$Ewnzu3BUo4WYwIo9tNkfqO3VaK6uHbycCGTIUjiIUQWdm03NgvDNS"
+      username: "admin"
+      userID: "08a8684b-db89-4b73-91a9-3cd1221f0000"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
