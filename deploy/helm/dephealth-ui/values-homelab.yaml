@@ -4,12 +4,12 @@ global:
   pushRegistry: "harbor.kryukov.lan/library"
   namespace: dephealth-ui
   gateway:
-    name: gateway
-    namespace: default
+    name: eg
+    namespace: envoy-gateway-system
 
 image:
   name: dephealth-ui
-  tag: v0.4.0
+  tag: v0.5.0
   pullPolicy: Always
 
 route:
@@ -17,9 +17,12 @@ route:
   hostname: dephealth.kryukov.lan
 
 tls:
+  enabled: false
+
+customCA:
   enabled: true
-  issuerName: dev-ca-issuer
-  issuerKind: ClusterIssuer
+  configMapName: custom-ca
+  key: ca.crt
 
 config:
   server:
@@ -32,7 +35,12 @@ config:
   cache:
     ttl: 15s
   auth:
-    type: "none"
+    type: "oidc"
+    oidc:
+      issuer: "https://dex.kryukov.lan"
+      clientId: "dephealth-ui"
+      clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
+      redirectUrl: "https://dephealth.kryukov.lan/auth/callback"
   grafana:
     baseUrl: ""
     dashboards:

@@ -25,6 +25,11 @@ spec:
           args:
             - "-config"
             - "/etc/dephealth-ui/config.yaml"
+          {{- if .Values.customCA.enabled }}
+          env:
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/custom/{{ .Values.customCA.key }}
+          {{- end }}
           ports:
             - containerPort: 8080
               name: http
@@ -46,7 +51,17 @@ spec:
             - name: config
               mountPath: /etc/dephealth-ui
               readOnly: true
+            {{- if .Values.customCA.enabled }}
+            - name: custom-ca
+              mountPath: /etc/ssl/custom
+              readOnly: true
+            {{- end }}
       volumes:
         - name: config
           configMap:
             name: dephealth-ui-config
+        {{- if .Values.customCA.enabled }}
+        - name: custom-ca
+          configMap:
+            name: {{ .Values.customCA.configMapName }}
+        {{- end }}

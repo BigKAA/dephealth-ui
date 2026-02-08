@@ -40,6 +40,14 @@ tls:
   issuerName: ""
   issuerKind: ClusterIssuer
 
+# Custom CA certificate for OIDC issuer TLS verification
+# The CA is mounted and set via SSL_CERT_FILE env var
+customCA:
+  enabled: false
+  # Name of ConfigMap or Secret in the SAME namespace containing the CA cert
+  configMapName: ""
+  key: "ca.crt"
+
 # Application configuration (rendered as config.yaml in ConfigMap)
 config:
   server:
