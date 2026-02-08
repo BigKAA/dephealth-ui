@@ -704,12 +704,12 @@ a production-ready Helm chart for dephealth-ui.
 - [x] Respect `prefers-color-scheme` media query as default
 - [x] Adjust Cytoscape edge label colors for dark theme (function-based styles + `updateGraphTheme`)
 
-### 5.3 Responsive layout
+### 5.3 Responsive layout [COMPLETED]
 
-- [ ] Mobile-friendly touch interactions (pinch-zoom, pan)
-- [ ] Collapsible header on small screens
-- [ ] Responsive status bar
-- [ ] Touch-friendly node/edge tap targets
+- [x] Mobile-friendly touch interactions (pinch-zoom, pan)
+- [x] Collapsible header on small screens
+- [x] Responsive status bar
+- [x] Touch-friendly node/edge tap targets
 
 ### 5.4 Error handling improvements
 

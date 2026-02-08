@@ -234,3 +234,78 @@ body {
 .error-modal button:hover {
   background: var(--btn-primary-hover);
 }
+
+/* Responsive: tablet / large phone */
+@media (max-width: 600px) {
+  #header {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 48px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .header-title {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .toolbar {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar button {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-height: 34px;
+  }
+
+  #user-info {
+    margin-left: auto;
+  }
+
+  #btn-logout {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  #status-bar {
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
+  #status-info {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .error-modal {
+    padding: 24px 16px;
+  }
+}
+
+/* Responsive: small phone */
+@media (max-width: 380px) {
+  .header-title {
+    font-size: 13px;
+  }
+
+  .toolbar button {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+/* Touch-friendly targets */
+@media (pointer: coarse) {
+  .toolbar button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  #btn-logout {
+    min-height: 44px;
+  }
+}
