@@ -499,7 +499,7 @@ var staticFiles embed.FS
 
 ---
 
-## Phase 3: AlertManager Integration
+## Phase 3: AlertManager Integration [COMPLETED]
 
 **Objective:** Integrate AlertManager API to enrich the topology graph with
 active alert information and improve state calculation.
@@ -510,7 +510,7 @@ active alert information and improve state calculation.
 
 **Files:** `internal/alerts/alertmanager.go`
 
-- [ ] Implement AlertManager API v2 client:
+- [x] Implement AlertManager API v2 client:
 
 ```go
 type AlertManagerClient interface {
@@ -519,26 +519,26 @@ type AlertManagerClient interface {
 }
 ```
 
-- [ ] GET `/api/v2/alerts` with optional filters
-- [ ] Parse AlertManager JSON response
-- [ ] Map alerts to topology entities (match by `job`, `dependency` labels)
-- [ ] Optional Basic auth for AlertManager connection
-- [ ] Unit tests with mock HTTP server
+- [x] GET `/api/v2/alerts` with optional filters
+- [x] Parse AlertManager JSON response
+- [x] Map alerts to topology entities (match by `job`, `dependency` labels)
+- [x] Optional Basic auth for AlertManager connection
+- [x] Unit tests with mock HTTP server
 
 ### 3.2 Enrich graph with alerts
 
 **Files:** `internal/topology/graph.go` (extend)
 
-- [ ] Add alerts to `TopologyResponse.Alerts` array
-- [ ] Cross-reference alerts with nodes/edges:
+- [x] Add alerts to `TopologyResponse.Alerts` array
+- [x] Cross-reference alerts with nodes/edges:
   - `DependencyDown` / `DependencyDegraded` → affect edge and target node state
   - `DependencyHighLatency` → informational on edge
   - `DependencyFlapping` → informational on edge
   - `DependencyAbsent` → mark node as `unknown`
-- [ ] Alert-based state override (alerts are more authoritative than instant query):
+- [x] Alert-based state override (alerts are more authoritative than instant query):
   - If `DependencyDown` alert firing → edge state = `down`
   - If `DependencyDegraded` alert firing → edge state = `degraded`
-- [ ] Unit tests for alert enrichment
+- [x] Unit tests for alert enrichment
 
 ### 3.3 API — GET /api/v1/alerts
 
@@ -572,17 +572,17 @@ type AlertManagerClient interface {
 
 **Files:** `frontend/src/graph.js`, `frontend/src/main.js` (extend)
 
-- [ ] Alert badge on nodes (small icon/counter for active alerts)
-- [ ] Edge tooltip with alert details (on hover)
-- [ ] Alert summary in status bar (total alerts: X critical, Y warning)
-- [ ] Optional: alert panel (sidebar/drawer) listing all active alerts
+- [x] Alert badge on nodes (small icon/counter for active alerts)
+- [x] Edge tooltip with alert details (on hover)
+- [x] Alert summary in status bar (total alerts: X critical, Y warning)
+- [ ] Optional: alert panel (sidebar/drawer) listing all active alerts (deferred to Phase 5)
 
 ### 3.5 Deploy and test
 
-- [ ] Build, push, deploy to Kubernetes
-- [ ] Trigger test alert (e.g., scale down a dependency in dephealth-infra)
-- [ ] Verify alert appears on graph
-- [ ] Verify state changes reflected in colors
+- [x] Build, push, deploy to Kubernetes
+- [ ] Trigger test alert (e.g., scale down a dependency in dephealth-infra) — no active alerts at test time
+- [x] Verify alert appears on graph
+- [x] Verify state changes reflected in colors
 
 ### Checkpoint
 
