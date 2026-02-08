@@ -40,6 +40,8 @@ type TopologyMeta struct {
 	TTL       int       `json:"ttl"`
 	NodeCount int       `json:"nodeCount"`
 	EdgeCount int       `json:"edgeCount"`
+	Partial   bool      `json:"partial"`
+	Errors    []string  `json:"errors,omitempty"`
 }
 
 // TopologyResponse is the complete topology API response.

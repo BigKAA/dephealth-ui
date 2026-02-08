@@ -1,33 +1,70 @@
 import './style.css';
 import { initGraph, renderGraph, updateGraphTheme } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
+import { showToast } from './toast.js';
 
 let cy = null;
 let pollTimer = null;
 let autoRefresh = true;
 let pollInterval = 15000;
 
+// Connection state
+let isDisconnected = false;
+let retryDelay = 5000;
+let retryTimer = null;
+let countdownTimer = null;
+
+// Partial data tracking
+let lastPartialErrors = [];
+
 const $ = (sel) => document.querySelector(sel);
 
-function updateStatus(nodeCount, edgeCount, alerts) {
+const RETRY_BASE = 5000;
+const RETRY_MAX = 30000;
+
+function updateStatus(data) {
   const now = new Date().toLocaleTimeString();
+  const { nodeCount, edgeCount } = data.meta;
   let text = `Updated ${now} | ${nodeCount} nodes, ${edgeCount} edges`;
-  if (alerts && alerts.length > 0) {
-    const critical = alerts.filter((a) => a.severity === 'critical').length;
-    const warning = alerts.filter((a) => a.severity === 'warning').length;
+
+  if (data.alerts && data.alerts.length > 0) {
+    const critical = data.alerts.filter((a) => a.severity === 'critical').length;
+    const warning = data.alerts.filter((a) => a.severity === 'warning').length;
     const parts = [];
     if (critical > 0) parts.push(`${critical} critical`);
     if (warning > 0) parts.push(`${warning} warning`);
-    text += ` | Alerts: ${parts.join(', ') || alerts.length}`;
+    text += ` | Alerts: ${parts.join(', ') || data.alerts.length}`;
   }
+
+  const dot = $('#status-connection');
+
+  if (data.meta.partial) {
+    text += ' | Partial data';
+    dot.classList.add('partial');
+    dot.classList.remove('connected', 'disconnected');
+
+    // Toast new errors only when the error list changes
+    const currentErrors = data.meta.errors || [];
+    const errorsKey = currentErrors.join('|');
+    const lastKey = lastPartialErrors.join('|');
+    if (errorsKey !== lastKey) {
+      for (const err of currentErrors) {
+        showToast(`Data source error: ${err}`, 'warning');
+      }
+      lastPartialErrors = currentErrors;
+    }
+  } else {
+    dot.classList.add('connected');
+    dot.classList.remove('disconnected', 'partial');
+    lastPartialErrors = [];
+  }
+
   $('#status-info').textContent = text;
-  $('#status-connection').classList.add('connected');
-  $('#status-connection').classList.remove('disconnected');
 }
 
 function setConnectionError() {
   $('#status-connection').classList.add('disconnected');
-  $('#status-connection').classList.remove('connected');
+  $('#status-connection').classList.remove('connected', 'partial');
 }
 
 function showError(message) {
@@ -39,15 +76,80 @@ function hideError() {
   $('#error-overlay').classList.add('hidden');
 }
 
+function showBanner() {
+  $('#connection-banner').classList.remove('hidden');
+}
+
+function hideBanner() {
+  $('#connection-banner').classList.add('hidden');
+  clearRetryTimers();
+}
+
+function clearRetryTimers() {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+}
+
+function startRetryCountdown(delay) {
+  let remaining = Math.ceil(delay / 1000);
+  $('#banner-countdown').textContent = remaining;
+  showBanner();
+
+  countdownTimer = setInterval(() => {
+    remaining--;
+    if (remaining > 0) {
+      $('#banner-countdown').textContent = remaining;
+    }
+  }, 1000);
+
+  retryTimer = setTimeout(() => {
+    clearRetryTimers();
+    refresh();
+  }, delay);
+}
+
+function checkEmptyState(data) {
+  const empty = $('#empty-state');
+  if (!data.nodes || data.nodes.length === 0) {
+    empty.classList.remove('hidden');
+  } else {
+    empty.classList.add('hidden');
+  }
+}
+
 async function refresh() {
   try {
     const data = await fetchTopology();
     renderGraph(cy, data);
-    updateStatus(data.meta.nodeCount, data.meta.edgeCount, data.alerts);
-    hideError();
+    updateStatus(data);
+    checkEmptyState(data);
+
+    if (isDisconnected) {
+      isDisconnected = false;
+      retryDelay = RETRY_BASE;
+      hideBanner();
+      showToast('Connection restored', 'success');
+      startPolling();
+    }
   } catch (err) {
     console.error('Failed to refresh topology:', err);
     setConnectionError();
+
+    if (!isDisconnected) {
+      isDisconnected = true;
+      retryDelay = RETRY_BASE;
+      stopPolling();
+      showToast(`Connection lost: ${err.message}`, 'error');
+    }
+
+    startRetryCountdown(retryDelay);
+    retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
   }
 }
 
@@ -113,6 +215,11 @@ function setupToolbar() {
     localStorage.setItem('theme', next);
     applyTheme(next);
   });
+
+  $('#btn-retry-now').addEventListener('click', () => {
+    clearRetryTimers();
+    refresh();
+  });
 }
 
 function setupGrafanaClickThrough() {
@@ -158,7 +265,8 @@ async function init() {
 
     const data = await withRetry(fetchTopology);
     renderGraph(cy, data);
-    updateStatus(data.meta.nodeCount, data.meta.edgeCount, data.alerts);
+    updateStatus(data);
+    checkEmptyState(data);
     startPolling();
   } catch (err) {
     console.error('Initialization failed:', err);

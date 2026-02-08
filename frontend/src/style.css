@@ -147,10 +147,79 @@ body {
   color: var(--logout-hover-text);
 }
 
+/* Connection lost banner */
+#connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+#connection-banner.hidden {
+  display: none;
+}
+
+#btn-retry-now {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+#btn-retry-now:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 /* Cytoscape container */
 #cy {
   flex: 1;
   min-height: 0;
+  position: relative;
+}
+
+/* Empty state */
+#empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#empty-state.hidden {
+  display: none;
+}
+
+.empty-state-content {
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.empty-state-content h3 {
+  font-size: 16px;
+  color: var(--text-heading);
+  margin-bottom: 8px;
+}
+
+.empty-state-content p {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* Status bar */
@@ -181,6 +250,10 @@ body {
 
 .status-dot.disconnected {
   background: #f44336;
+}
+
+.status-dot.partial {
+  background: #ff9800;
 }
 
 /* Error overlay */
@@ -233,6 +306,82 @@ body {
 
 .error-modal button:hover {
   background: var(--btn-primary-hover);
+}
+
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  transform: translateX(120%);
+  transition: transform 0.3s ease;
+  max-width: 360px;
+}
+
+.toast-visible {
+  transform: translateX(0);
+}
+
+.toast-exit {
+  animation: toast-fade-out 0.3s ease forwards;
+}
+
+@keyframes toast-fade-out {
+  to {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
+.toast-error {
+  background: #d32f2f;
+}
+
+.toast-warning {
+  background: #ed6c02;
+}
+
+.toast-info {
+  background: #0288d1;
+}
+
+.toast-success {
+  background: #2e7d32;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  color: #fff;
 }
 
 /* Responsive: tablet / large phone */

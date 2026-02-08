@@ -20,7 +20,22 @@
     </div>
   </header>
 
-  <div id="cy"></div>
+  <div id="connection-banner" class="hidden">
+    <span id="banner-message">Connection lost. Retrying in <span id="banner-countdown">5</span>s...</span>
+    <button id="btn-retry-now">Retry now</button>
+  </div>
+
+  <div id="cy">
+    <div id="empty-state" class="hidden">
+      <div class="empty-state-content">
+        <span class="empty-state-icon">&empty;</span>
+        <h3>No services found</h3>
+        <p>Check that Prometheus is configured with topologymetrics exporter.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
 
   <footer id="status-bar">
     <span id="status-connection" class="status-dot" title="Connection status"></span>

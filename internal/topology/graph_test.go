@@ -2,6 +2,7 @@ package topology
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,22 +11,34 @@ import (
 
 // mockPrometheusClient implements PrometheusClient for testing.
 type mockPrometheusClient struct {
-	edges   []TopologyEdge
-	health  map[EdgeKey]float64
-	avg     map[EdgeKey]float64
-	p99     map[EdgeKey]float64
-	err     error
+	edges      []TopologyEdge
+	health     map[EdgeKey]float64
+	avg        map[EdgeKey]float64
+	p99        map[EdgeKey]float64
+	err        error // default error for all methods
+	edgesErr   error // override for QueryTopologyEdges
+	healthErr  error // override for QueryHealthState
+	avgErr     error // override for QueryAvgLatency
 }
 
 func (m *mockPrometheusClient) QueryTopologyEdges(_ context.Context) ([]TopologyEdge, error) {
+	if m.edgesErr != nil {
+		return nil, m.edgesErr
+	}
 	return m.edges, m.err
 }
 
 func (m *mockPrometheusClient) QueryHealthState(_ context.Context) (map[EdgeKey]float64, error) {
+	if m.healthErr != nil {
+		return nil, m.healthErr
+	}
 	return m.health, m.err
 }
 
 func (m *mockPrometheusClient) QueryAvgLatency(_ context.Context) (map[EdgeKey]float64, error) {
+	if m.avgErr != nil {
+		return nil, m.avgErr
+	}
 	return m.avg, m.err
 }
 
@@ -292,5 +305,130 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 
 	if len(resp.Alerts) != 0 {
 		t.Errorf("expected 0 alerts, got %d", len(resp.Alerts))
+	}
+}
+
+func TestBuildPartialData(t *testing.T) {
+	baseEdges := []TopologyEdge{
+		{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		{Job: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+	}
+
+	tests := []struct {
+		name       string
+		healthErr  error
+		avgErr     error
+		edgesErr   error
+		wantErr    bool
+		wantPartial bool
+		wantErrors int
+	}{
+		{
+			name:        "health state fails",
+			healthErr:   errors.New("prometheus timeout"),
+			wantPartial: true,
+			wantErrors:  1,
+		},
+		{
+			name:        "avg latency fails",
+			avgErr:      errors.New("prometheus timeout"),
+			wantPartial: true,
+			wantErrors:  1,
+		},
+		{
+			name:        "both health and latency fail",
+			healthErr:   errors.New("prometheus timeout"),
+			avgErr:      errors.New("query error"),
+			wantPartial: true,
+			wantErrors:  2,
+		},
+		{
+			name:     "topology edges fail is fatal",
+			edgesErr: errors.New("prometheus down"),
+			wantErr:  true,
+		},
+		{
+			name:        "all queries succeed",
+			wantPartial: false,
+			wantErrors:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockPrometheusClient{
+				edges: baseEdges,
+				health: map[EdgeKey]float64{
+					{Job: "svc-go", Dependency: "postgres"}: 1,
+					{Job: "svc-go", Dependency: "redis"}:    1,
+				},
+				avg: map[EdgeKey]float64{
+					{Job: "svc-go", Dependency: "postgres"}: 0.005,
+					{Job: "svc-go", Dependency: "redis"}:    0.001,
+				},
+				healthErr: tt.healthErr,
+				avgErr:    tt.avgErr,
+				edgesErr:  tt.edgesErr,
+			}
+
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
+			resp, err := builder.Build(context.Background())
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if resp.Meta.Partial != tt.wantPartial {
+				t.Errorf("Meta.Partial = %v, want %v", resp.Meta.Partial, tt.wantPartial)
+			}
+
+			if len(resp.Meta.Errors) != tt.wantErrors {
+				t.Errorf("len(Meta.Errors) = %d, want %d", len(resp.Meta.Errors), tt.wantErrors)
+			}
+
+			// Even with partial data, nodes and edges should be present
+			if len(resp.Nodes) == 0 {
+				t.Error("expected nodes even with partial data")
+			}
+			if len(resp.Edges) == 0 {
+				t.Error("expected edges even with partial data")
+			}
+		})
+	}
+}
+
+func TestBuildPartialWithAlertFailure(t *testing.T) {
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			{Job: "svc-go", Dependency: "postgres"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	amMock := &mockAlertManagerClient{
+		err: errors.New("alertmanager unreachable"),
+	}
+
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil)
+	resp, err := builder.Build(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !resp.Meta.Partial {
+		t.Error("expected Meta.Partial = true when alerts fail")
+	}
+	if len(resp.Meta.Errors) != 1 {
+		t.Errorf("expected 1 error, got %d", len(resp.Meta.Errors))
 	}
 }
