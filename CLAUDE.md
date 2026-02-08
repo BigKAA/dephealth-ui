@@ -10,7 +10,7 @@ Data sources:
 - Prometheus/VictoriaMetrics (via [topologymetrics](https://github.com/BigKAA/topologymetrics))
 - AlertManager
 
-Project status: early planning/research phase — no source code yet.
+Project status: Phase 0 complete — project structure initialized, test environment deployed.
 
 ## Communication & Language
 
@@ -51,12 +51,29 @@ Follow **GitHub Flow + Semantic Versioning** (see [GIT-WORKFLOW.md](GIT-WORKFLOW
 - Releases via git tags `vX.Y.Z` on `master`
 - Quick fixes (typos, small fixes) can be committed directly to `master`
 
-## Project Structure (expected)
+## Project Structure
 
 ```
-src/          — source code
-plans/        — development and testing plans (phased, detailed)
-docs/         — detailed project documentation
+cmd/dephealth-ui/       — application entry point
+internal/               — Go packages (config, server, topology, alerts, auth, cache)
+frontend/               — Vite + Cytoscape.js SPA (Phase 2)
+deploy/helm/
+  dephealth-ui/         — application Helm chart (Phase 4)
+  dephealth-infra/      — test infrastructure (PostgreSQL, Redis, stubs)
+  dephealth-services/   — test microservices (go, python, java, csharp)
+  dephealth-monitoring/ — monitoring stack (VictoriaMetrics, AlertManager, Grafana)
+plans/                  — development and testing plans (phased, detailed)
+docs/                   — detailed project documentation
+```
+
+## Test Environment
+
+Deploy/manage test environment with local Helm charts:
+
+```bash
+make env-deploy    # deploy infra + services + monitoring
+make env-undeploy  # remove all test components
+make env-status    # check pod status
 ```
 
 ## Plans

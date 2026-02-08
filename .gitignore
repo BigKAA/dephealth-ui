@@ -4,3 +4,35 @@
 # AI
 .serena/
 # claudedocs/
+
+# Go
+/dephealth-ui
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+coverage.out
+coverage.html
+
+# Node.js / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config with secrets (keep example only)
+config.yaml
+config.local.yaml

@@ -1,0 +1,50 @@
+# dephealth-ui configuration
+# Copy to config.yaml and adjust values for your environment.
+# All settings can be overridden via environment variables (DEPHEALTH_*).
+
+server:
+  # Address and port to listen on
+  listen: ":8080"
+
+datasources:
+  prometheus:
+    # Prometheus or VictoriaMetrics API URL (required)
+    url: "http://victoriametrics.dephealth-monitoring.svc:8428"
+    # Optional Basic auth for Prometheus connection
+    # username: "reader"
+    # password: "secret"
+  alertmanager:
+    # AlertManager API URL (optional, enables alert enrichment)
+    url: "http://alertmanager.dephealth-monitoring.svc:9093"
+    # Optional Basic auth for AlertManager connection
+    # username: ""
+    # password: ""
+
+cache:
+  # Topology response cache TTL (default: 15s)
+  ttl: 15s
+
+auth:
+  # Authentication type: "none", "basic", or "oidc"
+  type: "none"
+
+  # Basic auth configuration (when type: "basic")
+  # basic:
+  #   users:
+  #     - username: admin
+  #       passwordHash: "$2a$10$..."  # bcrypt hash
+
+  # OIDC configuration (when type: "oidc")
+  # oidc:
+  #   issuer: "https://keycloak.example.com/realms/infra"
+  #   clientId: "dephealth-ui"
+  #   clientSecret: "your-secret"
+  #   redirectUrl: "https://dephealth.example.com/auth/callback"
+
+grafana:
+  # Grafana base URL for dashboard links (optional)
+  baseUrl: ""
+  dashboards:
+    # Dashboard UIDs for link generation
+    serviceStatus: "dephealth-service-status"
+    linkStatus: "dephealth-link-status"

@@ -93,7 +93,7 @@ ENTRYPOINT ["/dephealth-ui"]
 Deploy the topologymetrics stack that generates real `app_dependency_health`
 and `app_dependency_latency_seconds` metrics.
 
-**Source charts:** `~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/`
+**Source charts:** `deploy/helm/` (local copies from topologymetrics project)
 
 - [ ] Build and push stub images (http-stub, grpc-stub) — multi-arch
 
@@ -127,24 +127,24 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 ```bash
 helm upgrade --install dephealth-infra \
-  ~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/dephealth-infra/ \
-  -f ~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/dephealth-infra/values-homelab.yaml
+  deploy/helm/dephealth-infra/ \
+  -f deploy/helm/dephealth-infra/values-homelab.yaml
 ```
 
 - [ ] Deploy test services:
 
 ```bash
 helm upgrade --install dephealth-services \
-  ~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/dephealth-services/ \
-  -f ~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/dephealth-services/values-homelab.yaml
+  deploy/helm/dephealth-services/ \
+  -f deploy/helm/dephealth-services/values-homelab.yaml
 ```
 
 - [ ] Deploy monitoring stack:
 
 ```bash
 helm upgrade --install dephealth-monitoring \
-  ~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/dephealth-monitoring/ \
-  -f ~/Projects/personal/topologymetrics/topologymetrics/deploy/helm/dephealth-monitoring/values-homelab.yaml
+  deploy/helm/dephealth-monitoring/ \
+  -f deploy/helm/dephealth-monitoring/values-homelab.yaml
 ```
 
 ### 0.5 Verify test environment
@@ -985,17 +985,27 @@ dephealth-ui/
 │   └── vite.config.js
 ├── deploy/
 │   └── helm/
-│       └── dephealth-ui/
+│       ├── dephealth-ui/          ← application chart (Phase 4)
+│       │   ├── Chart.yaml
+│       │   ├── values.yaml
+│       │   ├── values-homelab.yaml
+│       │   └── templates/
+│       ├── dephealth-infra/       ← test infrastructure (PostgreSQL, Redis, stubs)
+│       │   ├── Chart.yaml
+│       │   ├── values.yaml
+│       │   ├── values-homelab.yaml
+│       │   └── templates/
+│       ├── dephealth-services/    ← test microservices (go, python, java, csharp)
+│       │   ├── Chart.yaml
+│       │   ├── values.yaml
+│       │   ├── values-homelab.yaml
+│       │   └── templates/
+│       └── dephealth-monitoring/  ← monitoring (VictoriaMetrics, AlertManager, Grafana)
 │           ├── Chart.yaml
 │           ├── values.yaml
 │           ├── values-homelab.yaml
+│           ├── dashboards/
 │           └── templates/
-│               ├── _helpers.tpl
-│               ├── namespace.yml
-│               ├── configmap.yml
-│               ├── deployment.yml
-│               ├── service.yml
-│               └── httproute.yml
 ├── plans/
 │   └── development-plan.md
 ├── docs/

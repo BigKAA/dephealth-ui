@@ -1,0 +1,259 @@
+{{- if .Values.grafana.enabled }}
+# --- ConfigMap: datasource ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  datasources.yml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        type: prometheus
+        access: proxy
+        url: http://victoriametrics:8428
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: "15s"
+---
+# --- ConfigMap: dashboards provider ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-provider
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  dephealth.yml: |
+    apiVersion: 1
+    providers:
+      - name: dephealth
+        orgId: 1
+        folder: dephealth
+        type: file
+        disableDeletion: false
+        editable: true
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards/dephealth
+---
+# --- ConfigMap: dashboard - service-list ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-service-list
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  service-list.json: |
+    {{- .Files.Get "dashboards/service-list.json" | nindent 4 }}
+---
+# --- ConfigMap: dashboard - services-status ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-services-status
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  services-status.json: |
+    {{- .Files.Get "dashboards/services-status.json" | nindent 4 }}
+---
+# --- ConfigMap: dashboard - service-status ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-service-status
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  service-status.json: |
+    {{- .Files.Get "dashboards/service-status.json" | nindent 4 }}
+---
+# --- ConfigMap: dashboard - links-status ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-links-status
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  links-status.json: |
+    {{- .Files.Get "dashboards/links-status.json" | nindent 4 }}
+---
+# --- ConfigMap: dashboard - link-status ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-link-status
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  link-status.json: |
+    {{- .Files.Get "dashboards/link-status.json" | nindent 4 }}
+---
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 472
+      containers:
+        - name: grafana
+          image: {{ include "dephealth-monitoring.image" (dict "registry" .Values.global.imageRegistry "image" .Values.grafana.image "tag" .Values.grafana.tag) }}
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.grafana.adminPassword | quote }}
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_SERVER_ROOT_URL
+              value: {{ .Values.grafana.rootUrl | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.grafana.resources | nindent 12 }}
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: dashboards-service-list
+              mountPath: /var/lib/grafana/dashboards/dephealth/service-list.json
+              subPath: service-list.json
+              readOnly: true
+            - name: dashboards-services-status
+              mountPath: /var/lib/grafana/dashboards/dephealth/services-status.json
+              subPath: services-status.json
+              readOnly: true
+            - name: dashboards-service-status
+              mountPath: /var/lib/grafana/dashboards/dephealth/service-status.json
+              subPath: service-status.json
+              readOnly: true
+            - name: dashboards-links-status
+              mountPath: /var/lib/grafana/dashboards/dephealth/links-status.json
+              subPath: links-status.json
+              readOnly: true
+            - name: dashboards-link-status
+              mountPath: /var/lib/grafana/dashboards/dephealth/link-status.json
+              subPath: link-status.json
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-provider
+          configMap:
+            name: grafana-dashboards-provider
+        - name: dashboards-service-list
+          configMap:
+            name: grafana-dashboard-service-list
+        - name: dashboards-services-status
+          configMap:
+            name: grafana-dashboard-services-status
+        - name: dashboards-service-status
+          configMap:
+            name: grafana-dashboard-service-status
+        - name: dashboards-links-status
+          configMap:
+            name: grafana-dashboard-links-status
+        - name: dashboards-link-status
+          configMap:
+            name: grafana-dashboard-link-status
+        - name: data
+          emptyDir: {}
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+{{- if .Values.grafana.route.enabled }}
+---
+# --- HTTPRoute (Gateway API) ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.grafana.route.gateway.name }}
+      namespace: {{ .Values.grafana.route.gateway.namespace }}
+  hostnames:
+    - {{ .Values.grafana.route.hostname }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: grafana
+          port: 3000
+{{- end }}
+{{- end }}
