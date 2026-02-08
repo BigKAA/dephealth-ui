@@ -3,6 +3,10 @@ import dagre from 'cytoscape-dagre';
 
 cytoscape.use(dagre);
 
+function isDarkTheme() {
+  return document.documentElement.dataset.theme === 'dark';
+}
+
 const STATE_COLORS = {
   ok: '#4caf50',
   degraded: '#ff9800',
@@ -75,8 +79,8 @@ const cytoscapeStyles = [
       'line-style': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).lineStyle,
       label: 'data(latency)',
       'font-size': 10,
-      color: '#555',
-      'text-background-color': '#f5f5f5',
+      color: () => (isDarkTheme() ? '#aaa' : '#555'),
+      'text-background-color': () => (isDarkTheme() ? '#2a2a2a' : '#f5f5f5'),
       'text-background-opacity': 0.8,
       'text-background-padding': '2px',
       'text-rotation': 'autorotate',
@@ -175,5 +179,15 @@ export function renderGraph(cy, data) {
   if (isFirstRender) {
     cy.fit(50);
     isFirstRender = false;
+  }
+}
+
+/**
+ * Force Cytoscape to re-evaluate theme-dependent style functions (edge labels).
+ * @param {cytoscape.Core} cy
+ */
+export function updateGraphTheme(cy) {
+  if (cy) {
+    cy.style().update();
   }
 }

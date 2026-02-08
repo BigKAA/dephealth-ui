@@ -694,32 +694,15 @@ a production-ready Helm chart for dephealth-ui.
 - [x] `auth.type` exposed in config API response
 - [x] Unit tests with mock OIDC provider (RSA keypair, JWKS, full flow)
 
-### 5.2 Dark theme
+### 5.2 Dark theme [COMPLETED]
 
-**Files:** `frontend/src/style.css`, `frontend/src/main.js`
+**Files:** `frontend/src/style.css`, `frontend/src/graph.js`, `frontend/src/main.js`, `frontend/index.html`
 
-- [ ] CSS custom properties for theming:
-
-```css
-:root {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f5f5f5;
-    --text-primary: #212121;
-    --text-secondary: #757575;
-}
-
-[data-theme="dark"] {
-    --bg-primary: #1e1e1e;
-    --bg-secondary: #2d2d2d;
-    --text-primary: #e0e0e0;
-    --text-secondary: #9e9e9e;
-}
-```
-
-- [ ] Theme toggle button in header
-- [ ] Persist theme preference in `localStorage`
-- [ ] Respect `prefers-color-scheme` media query as default
-- [ ] Adjust Cytoscape node/edge colors for dark theme
+- [x] CSS custom properties for theming (`:root` light + `html[data-theme="dark"]`)
+- [x] Theme toggle button in header
+- [x] Persist theme preference in `localStorage`
+- [x] Respect `prefers-color-scheme` media query as default
+- [x] Adjust Cytoscape edge label colors for dark theme (function-based styles + `updateGraphTheme`)
 
 ### 5.3 Responsive layout
 

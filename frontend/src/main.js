@@ -1,5 +1,5 @@
 import './style.css';
-import { initGraph, renderGraph } from './graph.js';
+import { initGraph, renderGraph, updateGraphTheme } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 
 let cy = null;
@@ -65,6 +65,29 @@ function stopPolling() {
   }
 }
 
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $('#btn-theme').textContent = theme === 'dark' ? 'Light' : 'Dark';
+  updateGraphTheme(cy);
+}
+
+function initTheme() {
+  const stored = localStorage.getItem('theme');
+  if (stored) {
+    applyTheme(stored);
+  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    applyTheme('dark');
+  } else {
+    applyTheme('light');
+  }
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+      applyTheme(e.matches ? 'dark' : 'light');
+    }
+  });
+}
+
 function setupToolbar() {
   $('#btn-refresh').addEventListener('click', () => {
     refresh();
@@ -82,6 +105,13 @@ function setupToolbar() {
     } else {
       stopPolling();
     }
+  });
+
+  $('#btn-theme').addEventListener('click', () => {
+    const current = document.documentElement.dataset.theme;
+    const next = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    applyTheme(next);
   });
 }
 
@@ -110,6 +140,8 @@ async function initUserInfo() {
 }
 
 async function init() {
+  initTheme();
+
   try {
     const config = await withRetry(fetchConfig);
     if (config.cache && config.cache.ttl > 0) {

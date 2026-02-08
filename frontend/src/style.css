@@ -1,3 +1,52 @@
+/* Theme tokens */
+:root {
+  --bg-primary: #fff;
+  --bg-secondary: #f5f5f5;
+  --text-primary: #333;
+  --text-heading: #1a1a1a;
+  --text-secondary: #555;
+  --text-muted: #666;
+  --border-color: #ddd;
+  --border-light: #ccc;
+  --border-hover: #999;
+  --btn-hover-bg: #f0f0f0;
+  --btn-active-bg: #e3f2fd;
+  --btn-active-border: #2196f3;
+  --btn-active-text: #1976d2;
+  --btn-primary-bg: #1976d2;
+  --btn-primary-hover: #1565c0;
+  --logout-hover-bg: #ffebee;
+  --logout-hover-border: #e57373;
+  --logout-hover-text: #c62828;
+  --error-title: #d32f2f;
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --shadow: rgba(0, 0, 0, 0.2);
+}
+
+html[data-theme="dark"] {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #2a2a2a;
+  --text-primary: #e0e0e0;
+  --text-heading: #f0f0f0;
+  --text-secondary: #aaa;
+  --text-muted: #888;
+  --border-color: #444;
+  --border-light: #555;
+  --border-hover: #777;
+  --btn-hover-bg: #333;
+  --btn-active-bg: #1a3a5c;
+  --btn-active-border: #42a5f5;
+  --btn-active-text: #90caf9;
+  --btn-primary-bg: #42a5f5;
+  --btn-primary-hover: #1e88e5;
+  --logout-hover-bg: #3e2020;
+  --logout-hover-border: #ef5350;
+  --logout-hover-text: #ef9a9a;
+  --error-title: #ef5350;
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
 *,
 *::before,
 *::after {
@@ -9,8 +58,8 @@
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background: #f5f5f5;
-  color: #333;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
@@ -26,15 +75,15 @@ body {
   justify-content: space-between;
   height: 48px;
   padding: 0 16px;
-  background: #fff;
-  border-bottom: 1px solid #ddd;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
 .header-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-heading);
 }
 
 .toolbar {
@@ -45,23 +94,23 @@ body {
 .toolbar button {
   padding: 4px 12px;
   font-size: 13px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-light);
   border-radius: 4px;
-  background: #fff;
-  color: #333;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
 .toolbar button:hover {
-  background: #f0f0f0;
-  border-color: #999;
+  background: var(--btn-hover-bg);
+  border-color: var(--border-hover);
 }
 
 .toolbar button.active {
-  background: #e3f2fd;
-  border-color: #2196f3;
-  color: #1976d2;
+  background: var(--btn-active-bg);
+  border-color: var(--btn-active-border);
+  color: var(--btn-active-text);
 }
 
 /* User info (OIDC) */
@@ -78,24 +127,24 @@ body {
 
 #user-name {
   font-size: 13px;
-  color: #555;
+  color: var(--text-muted);
 }
 
 #btn-logout {
   padding: 4px 12px;
   font-size: 13px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-light);
   border-radius: 4px;
-  background: #fff;
-  color: #333;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
 #btn-logout:hover {
-  background: #ffebee;
-  border-color: #e57373;
-  color: #c62828;
+  background: var(--logout-hover-bg);
+  border-color: var(--logout-hover-border);
+  color: var(--logout-hover-text);
 }
 
 /* Cytoscape container */
@@ -111,10 +160,10 @@ body {
   gap: 8px;
   height: 28px;
   padding: 0 16px;
-  background: #fff;
-  border-top: 1px solid #ddd;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -141,7 +190,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-bg);
   z-index: 1000;
 }
 
@@ -150,24 +199,24 @@ body {
 }
 
 .error-modal {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 8px;
   padding: 32px;
   max-width: 400px;
   width: 90%;
   text-align: center;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 24px var(--shadow);
 }
 
 .error-modal h2 {
   font-size: 18px;
   margin-bottom: 12px;
-  color: #d32f2f;
+  color: var(--error-title);
 }
 
 .error-modal p {
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary);
   margin-bottom: 20px;
   word-break: break-word;
 }
@@ -177,11 +226,11 @@ body {
   font-size: 14px;
   border: none;
   border-radius: 4px;
-  background: #1976d2;
+  background: var(--btn-primary-bg);
   color: #fff;
   cursor: pointer;
 }
 
 .error-modal button:hover {
-  background: #1565c0;
+  background: var(--btn-primary-hover);
 }
