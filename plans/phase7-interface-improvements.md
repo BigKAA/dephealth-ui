@@ -193,26 +193,26 @@ Changes:
 ### Step 5: Update frontend edge IDs
 
 **File**: `frontend/src/graph.js`
-- [ ] Edge ID: currently `${edge.source}->${edge.target}`.
+- [x] Edge ID: currently `${edge.source}->${edge.target}`.
   Target is now `host:port`. The format still works, just the value changes.
-  No code change needed — verify only.
+  No code change needed — verified.
 
 ### Step 6: Build, test, deploy
 
-- [ ] `go test ./internal/topology/...`
-- [ ] `go test ./...`
-- [ ] Docker build + push
-- [ ] Helm upgrade dephealth-ui
-- [ ] Verify in browser: 4 endpoint nodes instead of 8, correct coloring
+- [x] `go test ./internal/topology/...`
+- [x] `go test ./...`
+- [x] Docker build + push (`v0.6.0`)
+- [x] Helm upgrade dephealth-ui
+- [x] Verify in browser: 4 endpoint nodes instead of 8, correct coloring
 
 ### Checkpoint
 
 After Phase 7.1:
-- [ ] Graph shows 4 unique dependency nodes (redis, grpc-stub, http-stub, postgres-primary)
-- [ ] Dependency nodes reflect incoming edge health (green/orange/red)
-- [ ] Service nodes still reflect outgoing edge health
-- [ ] Alerts still match correctly
-- [ ] All Go tests pass
+- [x] Graph shows 4 unique dependency nodes (redis, grpc-stub, http-stub, postgres-primary)
+- [x] Dependency nodes reflect incoming edge health (green/orange/red)
+- [x] Service nodes still reflect outgoing edge health
+- [x] Alerts still match correctly
+- [x] All Go tests pass
 
 ---
 
@@ -295,9 +295,9 @@ After Phase 7.1:
 ### Step 8: Build, test, deploy
 
 - [x] `go test ./...`
-- [ ] Docker build + push
-- [ ] Helm upgrade
-- [ ] Verify: `?namespace=dephealth-test` filters correctly
+- [x] Docker build + push (`v0.6.0`)
+- [x] Helm upgrade
+- [x] Verify: `?namespace=dephealth-test` filters correctly
 
 ### Checkpoint
 
@@ -369,9 +369,9 @@ After Phase 7.2:
 ### Step 7: Build and deploy
 
 - [x] `npm run build` (Vite) — OK
-- [ ] Docker build + push
-- [ ] Helm upgrade
-- [ ] Verify: filter chips appear, toggling hides/shows elements correctly
+- [x] Docker build + push (`v0.6.0`)
+- [x] Helm upgrade
+- [x] Verify: filter chips appear, toggling hides/shows elements correctly
 
 ### Checkpoint
 
