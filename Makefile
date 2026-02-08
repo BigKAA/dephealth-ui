@@ -83,7 +83,8 @@ env-deploy:
 		-f $(UNIPROXY_CHART)/instances/ns2-homelab.yaml \
 		-n dephealth-uniproxy-2 --create-namespace
 	helm upgrade --install dephealth-monitoring $(MONITORING_CHART) \
-		-f $(MONITORING_CHART)/values-homelab.yaml
+		-f $(MONITORING_CHART)/values-homelab.yaml \
+		-n dephealth-monitoring --create-namespace
 
 env-undeploy:
 	-helm uninstall dephealth-monitoring -n dephealth-monitoring
