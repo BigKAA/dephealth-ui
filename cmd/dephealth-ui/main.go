@@ -64,7 +64,7 @@ func main() {
 
 	topologyCache := cache.New(cfg.Cache.TTL)
 
-	authenticator, err := auth.NewFromConfig(cfg.Auth)
+	authenticator, err := auth.NewFromConfigWithContext(context.Background(), cfg.Auth, logger)
 	if err != nil {
 		logger.Error("failed to create authenticator", "error", err)
 		os.Exit(1)

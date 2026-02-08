@@ -35,10 +35,11 @@ auth:
   #       passwordHash: "$2a$10$..."  # bcrypt hash
 
   # OIDC configuration (when type: "oidc")
+  # Uses Authorization Code Flow with PKCE (S256).
   # oidc:
   #   issuer: "https://keycloak.example.com/realms/infra"
   #   clientId: "dephealth-ui"
-  #   clientSecret: "your-secret"
+  #   clientSecret: "your-secret"         # optional for public clients with PKCE
   #   redirectUrl: "https://dephealth.example.com/auth/callback"
 
 grafana:

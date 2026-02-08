@@ -54,6 +54,10 @@ func (a *basicAuth) validate(username, password string) bool {
 	return false
 }
 
+func (a *basicAuth) Routes() http.Handler {
+	return nil
+}
+
 func (a *basicAuth) unauthorized(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="dephealth-ui"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)

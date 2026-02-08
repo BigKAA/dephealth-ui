@@ -32,6 +32,7 @@ func newTestServer() *Server {
 			Prometheus: config.PrometheusConfig{URL: promSrv.URL},
 		},
 		Cache: config.CacheConfig{TTL: 15 * time.Second},
+		Auth:  config.AuthConfig{Type: "none"},
 		Grafana: config.GrafanaConfig{
 			BaseURL: "https://grafana.example.com",
 			Dashboards: config.DashboardsConfig{
@@ -121,6 +122,9 @@ func TestConfigReturnsGrafana(t *testing.T) {
 	}
 	if resp.Cache.TTL != 15 {
 		t.Errorf("Cache.TTL = %d, want 15", resp.Cache.TTL)
+	}
+	if resp.Auth.Type != "none" {
+		t.Errorf("Auth.Type = %q, want %q", resp.Auth.Type, "none")
 	}
 }
 

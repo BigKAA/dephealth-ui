@@ -99,6 +99,11 @@ func (s *Server) setupRoutes() {
 	s.router.Get("/healthz", s.handleHealthz)
 	s.router.Get("/readyz", s.handleReadyz)
 
+	// Auth routes (OIDC login/callback/logout/userinfo)
+	if authRoutes := s.auth.Routes(); authRoutes != nil {
+		s.router.Mount("/auth", authRoutes)
+	}
+
 	// API v1
 	s.router.Route("/api/v1", func(r chi.Router) {
 		r.Use(s.auth.Middleware())
@@ -213,6 +218,11 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 type configResponse struct {
 	Grafana configGrafana `json:"grafana"`
 	Cache   configCache   `json:"cache"`
+	Auth    configAuth    `json:"auth"`
+}
+
+type configAuth struct {
+	Type string `json:"type"`
 }
 
 type configGrafana struct {
@@ -240,6 +250,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		},
 		Cache: configCache{
 			TTL: int(s.cfg.Cache.TTL.Seconds()),
+		},
+		Auth: configAuth{
+			Type: s.cfg.Auth.Type,
 		},
 	}
 

@@ -10,3 +10,7 @@ func (a *noneAuth) Middleware() func(http.Handler) http.Handler {
 		return next
 	}
 }
+
+func (a *noneAuth) Routes() http.Handler {
+	return nil
+}

@@ -51,6 +51,15 @@ type CacheConfig struct {
 type AuthConfig struct {
 	Type  string      `yaml:"type"`
 	Basic BasicConfig `yaml:"basic"`
+	OIDC  OIDCConfig  `yaml:"oidc"`
+}
+
+// OIDCConfig holds OpenID Connect authentication settings.
+type OIDCConfig struct {
+	Issuer       string `yaml:"issuer"`
+	ClientID     string `yaml:"clientId"`
+	ClientSecret string `yaml:"clientSecret"`
+	RedirectURL  string `yaml:"redirectUrl"`
 }
 
 // BasicConfig holds HTTP Basic authentication settings.
@@ -120,8 +129,18 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("auth.basic.users[%d].passwordHash is required", i)
 			}
 		}
+	case "oidc":
+		if c.Auth.OIDC.Issuer == "" {
+			return fmt.Errorf("auth.oidc.issuer is required when auth.type is \"oidc\"")
+		}
+		if c.Auth.OIDC.ClientID == "" {
+			return fmt.Errorf("auth.oidc.clientId is required when auth.type is \"oidc\"")
+		}
+		if c.Auth.OIDC.RedirectURL == "" {
+			return fmt.Errorf("auth.oidc.redirectUrl is required when auth.type is \"oidc\"")
+		}
 	default:
-		return fmt.Errorf("unknown auth.type: %q (supported: none, basic)", c.Auth.Type)
+		return fmt.Errorf("unknown auth.type: %q (supported: none, basic, oidc)", c.Auth.Type)
 	}
 	return nil
 }
@@ -157,6 +176,18 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("DEPHEALTH_AUTH_TYPE"); v != "" {
 		cfg.Auth.Type = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_OIDC_ISSUER"); v != "" {
+		cfg.Auth.OIDC.Issuer = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_OIDC_CLIENTID"); v != "" {
+		cfg.Auth.OIDC.ClientID = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_OIDC_CLIENTSECRET"); v != "" {
+		cfg.Auth.OIDC.ClientSecret = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_OIDC_REDIRECTURL"); v != "" {
+		cfg.Auth.OIDC.RedirectURL = v
 	}
 	if v := os.Getenv("DEPHEALTH_GRAFANA_BASEURL"); v != "" {
 		cfg.Grafana.BaseURL = v

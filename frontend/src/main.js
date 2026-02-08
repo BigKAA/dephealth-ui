@@ -1,6 +1,6 @@
 import './style.css';
 import { initGraph, renderGraph } from './graph.js';
-import { fetchTopology, fetchConfig, withRetry } from './api.js';
+import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 
 let cy = null;
 let pollTimer = null;
@@ -97,11 +97,27 @@ function setupGrafanaClickThrough() {
   });
 }
 
+async function initUserInfo() {
+  const user = await fetchUserInfo();
+  if (user && (user.name || user.email)) {
+    $('#user-name').textContent = user.name || user.email;
+    $('#user-info').classList.remove('hidden');
+
+    $('#btn-logout').addEventListener('click', () => {
+      window.location.href = '/auth/logout';
+    });
+  }
+}
+
 async function init() {
   try {
     const config = await withRetry(fetchConfig);
     if (config.cache && config.cache.ttl > 0) {
       pollInterval = config.cache.ttl * 1000;
+    }
+
+    if (config.auth && config.auth.type === 'oidc') {
+      await initUserInfo();
     }
 
     cy = initGraph($('#cy'));

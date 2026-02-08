@@ -195,6 +195,67 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "auth type oidc valid",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "oidc",
+					OIDC: OIDCConfig{
+						Issuer:      "https://keycloak.example.com/realms/infra",
+						ClientID:    "dephealth-ui",
+						RedirectURL: "https://dephealth.example.com/auth/callback",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "auth type oidc missing issuer",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "oidc",
+					OIDC: OIDCConfig{
+						ClientID:    "dephealth-ui",
+						RedirectURL: "https://dephealth.example.com/auth/callback",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type oidc missing clientId",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "oidc",
+					OIDC: OIDCConfig{
+						Issuer:      "https://keycloak.example.com/realms/infra",
+						RedirectURL: "https://dephealth.example.com/auth/callback",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type oidc missing redirectUrl",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "oidc",
+					OIDC: OIDCConfig{
+						Issuer:   "https://keycloak.example.com/realms/infra",
+						ClientID: "dephealth-ui",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "unknown auth type",
 			cfg: Config{
 				Server:      ServerConfig{Listen: ":8080"},
@@ -253,5 +314,73 @@ auth:
 	}
 	if cfg.Auth.Basic.Users[1].Username != "viewer" {
 		t.Errorf("Users[1].Username = %q, want %q", cfg.Auth.Basic.Users[1].Username, "viewer")
+	}
+}
+
+func TestLoadOIDCConfig(t *testing.T) {
+	content := `
+server:
+  listen: ":8080"
+datasources:
+  prometheus:
+    url: "http://vm:8428"
+auth:
+  type: "oidc"
+  oidc:
+    issuer: "https://keycloak.example.com/realms/infra"
+    clientId: "dephealth-ui"
+    clientSecret: "my-secret"
+    redirectUrl: "https://dephealth.example.com/auth/callback"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Auth.Type != "oidc" {
+		t.Errorf("Auth.Type = %q, want %q", cfg.Auth.Type, "oidc")
+	}
+	if cfg.Auth.OIDC.Issuer != "https://keycloak.example.com/realms/infra" {
+		t.Errorf("OIDC.Issuer = %q, want %q", cfg.Auth.OIDC.Issuer, "https://keycloak.example.com/realms/infra")
+	}
+	if cfg.Auth.OIDC.ClientID != "dephealth-ui" {
+		t.Errorf("OIDC.ClientID = %q, want %q", cfg.Auth.OIDC.ClientID, "dephealth-ui")
+	}
+	if cfg.Auth.OIDC.ClientSecret != "my-secret" {
+		t.Errorf("OIDC.ClientSecret = %q, want %q", cfg.Auth.OIDC.ClientSecret, "my-secret")
+	}
+	if cfg.Auth.OIDC.RedirectURL != "https://dephealth.example.com/auth/callback" {
+		t.Errorf("OIDC.RedirectURL = %q, want %q", cfg.Auth.OIDC.RedirectURL, "https://dephealth.example.com/auth/callback")
+	}
+}
+
+func TestOIDCEnvOverrides(t *testing.T) {
+	t.Setenv("DEPHEALTH_AUTH_OIDC_ISSUER", "https://env-keycloak.example.com/realms/test")
+	t.Setenv("DEPHEALTH_AUTH_OIDC_CLIENTID", "env-client")
+	t.Setenv("DEPHEALTH_AUTH_OIDC_CLIENTSECRET", "env-secret")
+	t.Setenv("DEPHEALTH_AUTH_OIDC_REDIRECTURL", "https://env-app.example.com/auth/callback")
+
+	cfg, err := Load("/nonexistent/config.yaml")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Auth.OIDC.Issuer != "https://env-keycloak.example.com/realms/test" {
+		t.Errorf("OIDC.Issuer = %q, want env value", cfg.Auth.OIDC.Issuer)
+	}
+	if cfg.Auth.OIDC.ClientID != "env-client" {
+		t.Errorf("OIDC.ClientID = %q, want %q", cfg.Auth.OIDC.ClientID, "env-client")
+	}
+	if cfg.Auth.OIDC.ClientSecret != "env-secret" {
+		t.Errorf("OIDC.ClientSecret = %q, want %q", cfg.Auth.OIDC.ClientSecret, "env-secret")
+	}
+	if cfg.Auth.OIDC.RedirectURL != "https://env-app.example.com/auth/callback" {
+		t.Errorf("OIDC.RedirectURL = %q, want env value", cfg.Auth.OIDC.RedirectURL)
 	}
 }

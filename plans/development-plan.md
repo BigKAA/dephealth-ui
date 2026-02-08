@@ -594,7 +594,7 @@ type AlertManagerClient interface {
 
 ---
 
-## Phase 4: Caching, Auth & Helm Chart
+## Phase 4: Caching, Auth & Helm Chart [COMPLETED]
 
 **Objective:** Add server-side caching, authentication middleware, and create
 a production-ready Helm chart for dephealth-ui.
@@ -605,159 +605,41 @@ a production-ready Helm chart for dephealth-ui.
 
 **Files:** `internal/cache/cache.go`
 
-- [ ] In-memory TTL cache for topology responses:
-
-```go
-type Cache struct {
-    mu       sync.RWMutex
-    data     *TopologyResponse
-    cachedAt time.Time
-    ttl      time.Duration
-}
-```
-
-- [ ] Cache key = "topology" (single global cache, all users see same data)
-- [ ] `Get()` → return cached if not expired
-- [ ] `Set()` → store with timestamp
-- [ ] Background refresh goroutine (optional: pre-fetch before TTL expires)
-- [ ] TTL from config (default 15s)
-- [ ] Add `cachedAt` and `ttl` to `TopologyResponse.Meta`
-- [ ] Unit tests
+- [x] In-memory TTL cache for topology responses
+- [x] Cache key = "topology" (single global cache, all users see same data)
+- [x] `Get()` → return cached if not expired
+- [x] `Set()` → store with timestamp
+- [x] Background refresh goroutine (optional: pre-fetch before TTL expires)
+- [x] TTL from config (default 15s)
+- [x] Add `cachedAt` and `ttl` to `TopologyResponse.Meta`
+- [x] Unit tests
 
 ### 4.2 Auth middleware — `none`
 
 **Files:** `internal/auth/auth.go`, `internal/auth/none.go`
 
-- [ ] Auth middleware interface:
-
-```go
-type Authenticator interface {
-    Middleware() func(http.Handler) http.Handler
-}
-```
-
-- [ ] `none` implementation: pass-through (no authentication)
+- [x] Auth middleware interface (`Authenticator`)
+- [x] `none` implementation: pass-through (no authentication)
 
 ### 4.3 Auth middleware — `basic`
 
 **Files:** `internal/auth/basic.go`
 
-- [ ] HTTP Basic Authentication
-- [ ] Users from config (username + bcrypt password hash)
-- [ ] Protect `/api/*` routes
-- [ ] Allow `/healthz`, `/readyz` without auth
-- [ ] Return 401 with `WWW-Authenticate` header on failure
-- [ ] Unit tests
+- [x] HTTP Basic Authentication
+- [x] Users from config (username + bcrypt password hash)
+- [x] Protect `/api/*` routes
+- [x] Allow `/healthz`, `/readyz` without auth
+- [x] Return 401 with `WWW-Authenticate` header on failure
+- [x] Unit tests
 
 ### 4.4 Helm chart for dephealth-ui
 
 **Files:** `deploy/helm/dephealth-ui/`
 
-- [ ] `Chart.yaml`:
-
-```yaml
-apiVersion: v2
-name: dephealth-ui
-description: Microservice topology and dependency health visualization
-type: application
-version: 0.1.0
-appVersion: "0.1.0"
-```
-
-- [ ] `values.yaml`:
-
-```yaml
-global:
-  imageRegistry: docker.io
-  pushRegistry: ""
-  namespace: dephealth-ui
-
-image:
-  name: dephealth-ui
-  tag: latest
-  pullPolicy: IfNotPresent
-
-replicaCount: 1
-
-service:
-  type: ClusterIP
-  port: 8080
-
-route:
-  enabled: false
-  hostname: dephealth.example.com
-  gateway:
-    name: gateway
-    namespace: default
-  tls:
-    enabled: false
-    clusterIssuer: ""
-
-config:
-  server:
-    listen: ":8080"
-  datasources:
-    prometheus:
-      url: "http://victoriametrics.dephealth-monitoring.svc:8428"
-    alertmanager:
-      url: "http://alertmanager.dephealth-monitoring.svc:9093"
-  cache:
-    ttl: 15s
-  auth:
-    type: "none"
-  grafana:
-    baseUrl: ""
-    dashboards:
-      serviceStatus: "dephealth-service-status"
-      linkStatus: "dephealth-link-status"
-
-resources:
-  requests:
-    cpu: 50m
-    memory: 32Mi
-  limits:
-    cpu: 200m
-    memory: 64Mi
-
-probes:
-  liveness:
-    path: /healthz
-    initialDelaySeconds: 5
-    periodSeconds: 10
-  readiness:
-    path: /readyz
-    initialDelaySeconds: 5
-    periodSeconds: 10
-```
-
-- [ ] `values-homelab.yaml`:
-
-```yaml
-global:
-  pushRegistry: harbor.kryukov.lan/library
-  namespace: dephealth-ui
-
-route:
-  enabled: true
-  hostname: dephealth.kryukov.lan
-  gateway:
-    name: gateway
-    namespace: default
-  tls:
-    enabled: true
-    clusterIssuer: dev-ca-issuer
-
-config:
-  datasources:
-    prometheus:
-      url: "http://victoriametrics.dephealth-monitoring.svc:8428"
-    alertmanager:
-      url: "http://alertmanager.dephealth-monitoring.svc:9093"
-  grafana:
-    baseUrl: "http://grafana.dephealth.local"
-```
-
-- [ ] Templates:
+- [x] `Chart.yaml`
+- [x] `values.yaml`
+- [x] `values-homelab.yaml`
+- [x] Templates:
   - `namespace.yml` — Namespace
   - `configmap.yml` — YAML config mounted as file
   - `deployment.yml` — Deployment with probes, resource limits, config mount
@@ -767,14 +649,14 @@ config:
 
 ### 4.5 Deploy and test full Helm chart
 
-- [ ] Build, push multi-arch image
-- [ ] `helm upgrade --install dephealth-ui deploy/helm/dephealth-ui/ -f deploy/helm/dephealth-ui/values-homelab.yaml`
-- [ ] Verify pods running
-- [ ] Verify HTTPRoute created
-- [ ] Add `dephealth.kryukov.lan` to hosts file (ask user)
-- [ ] Access via browser at `https://dephealth.kryukov.lan`
-- [ ] Verify full functionality: graph renders, auto-refreshes, alerts shown
-- [ ] Test basic auth (change config, redeploy, verify login prompt)
+- [x] Build, push multi-arch image
+- [x] `helm upgrade --install dephealth-ui deploy/helm/dephealth-ui/ -f deploy/helm/dephealth-ui/values-homelab.yaml`
+- [x] Verify pods running
+- [x] Verify HTTPRoute created
+- [x] Add `dephealth.kryukov.lan` to hosts file (ask user)
+- [x] Access via browser at `https://dephealth.kryukov.lan`
+- [x] Verify full functionality: graph renders, auto-refreshes, alerts shown
+- [x] Test basic auth (change config, redeploy, verify login prompt)
 
 ### Checkpoint
 
@@ -792,21 +674,25 @@ config:
 
 **Estimated effort:** 3-4 days
 
-### 5.1 Auth middleware — `oidc`
+### 5.1 Auth middleware — `oidc` [COMPLETED]
 
-**Files:** `internal/auth/oidc.go`
+**Files:** `internal/auth/oidc.go`, `internal/auth/session.go`
 
-- [ ] OIDC Authorization Code flow:
+- [x] OIDC Authorization Code flow with PKCE (S256):
   - Discovery endpoint (`.well-known/openid-configuration`)
-  - Redirect to IdP for login
+  - Redirect to IdP for login (`/auth/login`)
   - Handle callback (`/auth/callback`)
   - Validate ID token (JWT)
-  - Session management (cookie-based)
-- [ ] Config: `issuer`, `clientId`, `clientSecret`, `redirectUrl`
-- [ ] Use `github.com/coreos/go-oidc/v3` library
-- [ ] Logout endpoint (`/auth/logout`)
-- [ ] Frontend: show logged-in user in header, logout button
-- [ ] Unit tests with mock OIDC provider
+  - Session management (cookie-based, in-memory store, 8h TTL)
+- [x] Config: `issuer`, `clientId`, `clientSecret`, `redirectUrl`
+- [x] Use `github.com/coreos/go-oidc/v3` library
+- [x] Logout endpoint (`/auth/logout`)
+- [x] User info endpoint (`/auth/userinfo`)
+- [x] Frontend: show logged-in user in header, logout button
+- [x] `authenticatedFetch()` wrapper (401 → redirect to login)
+- [x] `Routes() http.Handler` added to `Authenticator` interface
+- [x] `auth.type` exposed in config API response
+- [x] Unit tests with mock OIDC provider (RSA keypair, JWKS, full flow)
 
 ### 5.2 Dark theme
 
