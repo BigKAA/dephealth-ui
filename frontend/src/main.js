@@ -2,6 +2,7 @@ import './style.css';
 import { initGraph, renderGraph, updateGraphTheme } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 import { showToast } from './toast.js';
+import { initFilters, updateFilters, applyFilters, resetFilters, hasActiveFilters } from './filter.js';
 
 let cy = null;
 let pollTimer = null;
@@ -58,6 +59,10 @@ function updateStatus(data) {
     dot.classList.add('connected');
     dot.classList.remove('disconnected', 'partial');
     lastPartialErrors = [];
+  }
+
+  if (hasActiveFilters()) {
+    text += ' | Filtered';
   }
 
   $('#status-info').textContent = text;
@@ -131,6 +136,8 @@ async function refresh() {
     updateStatus(data);
     checkEmptyState(data);
     updateNamespaceOptions(data);
+    updateFilters(data);
+    applyFilters(cy);
 
     if (isDisconnected) {
       isDisconnected = false;
@@ -250,6 +257,41 @@ function setupNamespaceSelector() {
   });
 }
 
+function setupFilters() {
+  const panel = $('#filter-panel');
+  const btn = $('#btn-filter');
+
+  // Restore panel visibility.
+  const panelVisible = localStorage.getItem('dephealth-filter-panel') !== 'closed';
+  if (panelVisible) {
+    panel.classList.remove('hidden');
+    btn.classList.add('active');
+  }
+
+  btn.addEventListener('click', () => {
+    const isHidden = panel.classList.toggle('hidden');
+    btn.classList.toggle('active', !isHidden);
+    localStorage.setItem('dephealth-filter-panel', isHidden ? 'closed' : 'open');
+  });
+
+  $('#btn-reset-filters').addEventListener('click', () => {
+    resetFilters();
+    // Also reset namespace.
+    selectedNamespace = '';
+    $('#namespace-select').value = '';
+    const url = new URL(window.location);
+    url.searchParams.delete('namespace');
+    history.replaceState(null, '', url);
+    applyFilters(cy);
+    refresh();
+  });
+
+  // Listen for filter changes from filter.js chip clicks.
+  window.addEventListener('filters-changed', () => {
+    applyFilters(cy);
+  });
+}
+
 function setupToolbar() {
   $('#btn-refresh').addEventListener('click', () => {
     refresh();
@@ -322,6 +364,7 @@ async function init() {
     cy = initGraph($('#cy'));
     setupNamespaceSelector();
     setupToolbar();
+    setupFilters();
     setupGrafanaClickThrough();
 
     const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
@@ -329,6 +372,8 @@ async function init() {
     updateStatus(data);
     checkEmptyState(data);
     updateNamespaceOptions(data);
+    initFilters(data);
+    applyFilters(cy);
     startPolling();
   } catch (err) {
     console.error('Initialization failed:', err);

@@ -12,6 +12,7 @@
       <select id="namespace-select" title="Filter by namespace">
         <option value="">All namespaces</option>
       </select>
+      <button id="btn-filter" title="Toggle filters">Filter</button>
       <button id="btn-refresh" title="Refresh now">Refresh</button>
       <button id="btn-fit" title="Fit graph to screen">Fit</button>
       <button id="btn-auto-refresh" class="active" title="Toggle auto-refresh">Auto</button>
@@ -26,6 +27,21 @@
   <div id="connection-banner" class="hidden">
     <span id="banner-message">Connection lost. Retrying in <span id="banner-countdown">5</span>s...</span>
     <button id="btn-retry-now">Retry now</button>
+  </div>
+
+  <div id="filter-panel" class="hidden">
+    <div class="filter-group" id="filter-type">
+      <span class="filter-label">Type:</span>
+    </div>
+    <div class="filter-group" id="filter-state">
+      <span class="filter-label">State:</span>
+    </div>
+    <div class="filter-group" id="filter-job">
+      <span class="filter-label">Service:</span>
+    </div>
+    <div class="filter-actions">
+      <button id="btn-reset-filters" title="Reset all filters">Reset</button>
+    </div>
   </div>
 
   <div id="cy">

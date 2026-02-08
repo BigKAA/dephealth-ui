@@ -318,88 +318,57 @@ After Phase 7.2:
 ### Step 1: Filter UI components
 
 **File**: `frontend/index.html`
-- [ ] Add filter panel between header and `#cy` container:
-  ```html
-  <div id="filter-panel" class="hidden">
-    <div class="filter-group" id="filter-type">
-      <span class="filter-label">Type:</span>
-      <!-- chips populated dynamically -->
-    </div>
-    <div class="filter-group" id="filter-state">
-      <span class="filter-label">State:</span>
-      <!-- chips populated dynamically -->
-    </div>
-    <div class="filter-group" id="filter-job">
-      <span class="filter-label">Service:</span>
-      <!-- chips populated dynamically -->
-    </div>
-  </div>
-  ```
-- [ ] Add filter toggle button in toolbar:
-  ```html
-  <button id="btn-filter" title="Toggle filters">Filter</button>
-  ```
+- [x] Add filter panel between header and `#cy` container (with Reset button)
+- [x] Add filter toggle button in toolbar
 
 ### Step 2: Filter styles
 
 **File**: `frontend/src/style.css`
-- [ ] `.filter-panel` — horizontal bar below header, flexbox wrap
-- [ ] `.filter-group` — inline group with label + chips
-- [ ] `.filter-chip` — toggle button style (active/inactive states)
-- [ ] `.filter-chip.active` — highlighted when filter is active
-- [ ] Dark theme support via CSS custom properties
-- [ ] Responsive: wrap on small screens
+- [x] `#filter-panel` — horizontal bar below header, flexbox wrap
+- [x] `.filter-group` — inline group with label + chips
+- [x] `.filter-chip` — toggle button style (active/inactive states)
+- [x] `.filter-chip.active` — highlighted when filter is active
+- [x] Dark theme support via CSS custom properties
+- [x] Responsive: wrap on small screens
 
 ### Step 3: Filter module
 
 **File**: `frontend/src/filter.js` (new file)
-- [ ] `initFilters(cy, data)` — populate filter chips from topology data:
-  - Extract unique `type` values from nodes (type != "service")
-  - State values: hardcoded `["ok", "degraded", "down", "unknown"]`
-  - Job values: from service nodes (type == "service")
-- [ ] `applyFilters(cy, activeFilters)` — show/hide Cytoscape elements:
-  - For each node: check if it passes ALL active filter dimensions (AND logic)
-  - Service nodes: match by job filter, state filter
-  - Dependency nodes: match by type filter, state filter
-  - Edges: visible only if both source AND target are visible
-  - Hide orphan nodes: if all connected edges hidden, hide node too
-- [ ] `getActiveFilters()` — read current filter state from UI
-- [ ] `updateFilters(data)` — refresh filter chips after data poll
-  (add new types/jobs, preserve selections)
-- [ ] Export filter state for persistence check
+- [x] `initFilters(data)` — populate filter chips, restore from localStorage
+- [x] `applyFilters(cy)` — show/hide Cytoscape elements (AND logic)
+  - Service nodes: match by job + state
+  - Dependency nodes: match by type + state
+  - Edges: visible only if both endpoints visible
+  - Orphan nodes: hidden when all connected edges hidden
+- [x] `getActiveFilters()` — return current filter state
+- [x] `updateFilters(data)` — refresh chips, preserve selections
+- [x] `hasActiveFilters()` — check if any filter active
+- [x] `resetFilters()` — clear all + remove from localStorage
 
 ### Step 4: Integrate filters into main.js
 
 **File**: `frontend/src/main.js`
-- [ ] Import `initFilters`, `applyFilters`, `updateFilters` from filter.js
-- [ ] After `renderGraph()` in `refresh()`: call `updateFilters(data)` then
-  `applyFilters(cy, getActiveFilters())`
-- [ ] Toggle button handler: show/hide filter panel
-- [ ] Filter chip click handlers: toggle chip, re-apply filters
-- [ ] Persist filter panel visibility in localStorage (open/closed)
+- [x] Import filter functions from filter.js
+- [x] `refresh()`: call `updateFilters(data)` + `applyFilters(cy)` after render
+- [x] `setupFilters()`: toggle button, reset button, `filters-changed` event
+- [x] Panel visibility persisted in localStorage
+- [x] Status bar shows "Filtered" indicator when filters active
 
 ### Step 5: Preserve filters across data refresh
 
-- [ ] In `refresh()`: after `renderGraph()` + `updateFilters()`, re-apply
-  current filters. Cytoscape rebuild clears hide/show, so filters must
-  re-apply after every render.
-- [ ] Filter chip selections persist as a JS `Set` per dimension —
-  not lost on data poll.
+- [x] Filters re-applied after every `renderGraph()` cycle
+- [x] Filter selections persist as JS `Set` per dimension (not lost on poll)
 
 ### Step 6: Hybrid filter persistence
 
-- [ ] **Namespace** → URL query param `?namespace=X`, synced via `history.replaceState`
-- [ ] **Type, State, Job** → `localStorage` key `dephealth-filters`
-  ```js
-  // Save: { type: ["grpc","http"], state: ["ok"], job: ["order-service"] }
-  localStorage.setItem('dephealth-filters', JSON.stringify(activeFilters));
-  ```
-- [ ] Restore on page load: read namespace from URL, others from localStorage
-- [ ] "Reset filters" button clears localStorage + removes namespace from URL
+- [x] **Namespace** → URL query param `?namespace=X` (Phase 7.2, unchanged)
+- [x] **Type, State, Job** → `localStorage` key `dephealth-filters`
+- [x] Restore on page load from localStorage
+- [x] "Reset" button clears localStorage + removes namespace from URL
 
 ### Step 7: Build and deploy
 
-- [ ] `npm run build` (Vite)
+- [x] `npm run build` (Vite) — OK
 - [ ] Docker build + push
 - [ ] Helm upgrade
 - [ ] Verify: filter chips appear, toggling hides/shows elements correctly
@@ -407,14 +376,14 @@ After Phase 7.2:
 ### Checkpoint
 
 After Phase 7.3:
-- [ ] Filter panel toggleable from toolbar
-- [ ] Type filter: multi-select chips for grpc, http, postgres, redis, etc.
-- [ ] State filter: ok, degraded, down, unknown
-- [ ] Job filter: per-service toggle
-- [ ] Filters combine with AND logic
-- [ ] Filters survive data refresh
-- [ ] Connected orphan nodes hidden correctly
-- [ ] Dark/light theme supported
+- [x] Filter panel toggleable from toolbar
+- [x] Type filter: multi-select chips for grpc, http, postgres, redis, etc.
+- [x] State filter: ok, degraded, down, unknown
+- [x] Job filter: per-service toggle
+- [x] Filters combine with AND logic
+- [x] Filters survive data refresh
+- [x] Connected orphan nodes hidden correctly
+- [x] Dark/light theme supported
 
 ---
 
