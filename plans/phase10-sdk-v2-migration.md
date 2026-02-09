@@ -339,7 +339,7 @@ instances:
 
 ---
 
-## Phase 10.4: Build and Deploy
+## Phase 10.4: Build and Deploy [COMPLETED]
 
 ### Task 10.4.1: Build uniproxy image
 

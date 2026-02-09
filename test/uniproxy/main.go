@@ -42,29 +42,32 @@ func main() {
 		"checkInterval", cfg.CheckInterval,
 	)
 
-	// Build dephealth SDK options from config.
-	opts, err := buildOptions(cfg, logger)
-	if err != nil {
-		slog.Error("failed to build options", "error", err)
-		os.Exit(1)
-	}
-
-	// Create dephealth instance.
-	dh, err := dephealth.New(cfg.Name, opts...)
-	if err != nil {
-		slog.Error("failed to create dephealth", "error", err)
-		os.Exit(1)
-	}
-
-	// Start health checks.
+	// Start health checks (only if there are dependencies).
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	if err := dh.Start(ctx); err != nil {
-		slog.Error("failed to start dephealth", "error", err)
-		os.Exit(1)
+	var dh *dephealth.DepHealth
+	if len(cfg.Dependencies) > 0 {
+		opts, err := buildOptions(cfg, logger)
+		if err != nil {
+			slog.Error("failed to build options", "error", err)
+			os.Exit(1)
+		}
+
+		dh, err = dephealth.New(cfg.Name, opts...)
+		if err != nil {
+			slog.Error("failed to create dephealth", "error", err)
+			os.Exit(1)
+		}
+
+		if err := dh.Start(ctx); err != nil {
+			slog.Error("failed to start dephealth", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("dephealth started", "name", cfg.Name)
+	} else {
+		slog.Info("no dependencies configured, running without health checks")
 	}
-	slog.Info("dephealth started", "name", cfg.Name)
 
 	// Start HTTP server.
 	srv := server.New(dh, cfg.Name)
@@ -83,7 +86,9 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("shutting down")
-	dh.Stop()
+	if dh != nil {
+		dh.Stop()
+	}
 	httpServer.Close()
 }
 

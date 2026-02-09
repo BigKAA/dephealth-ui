@@ -126,15 +126,18 @@ func TestLoad_MissingName(t *testing.T) {
 	}
 }
 
-func TestLoad_MissingDeps(t *testing.T) {
+func TestLoad_NoDeps(t *testing.T) {
 	os.Unsetenv("DEPHEALTH_DEPS")
 	setEnvs(t, map[string]string{
 		"DEPHEALTH_NAME": "app",
 	})
 
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for missing DEPHEALTH_DEPS")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Dependencies) != 0 {
+		t.Errorf("len(Dependencies) = %d, want 0", len(cfg.Dependencies))
 	}
 }
 

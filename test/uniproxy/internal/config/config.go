@@ -64,16 +64,15 @@ func Load() (*Config, error) {
 	}
 	cfg.CheckInterval = time.Duration(sec * float64(time.Second))
 
-	// Dependencies.
+	// Dependencies (optional — service may have none).
 	depsStr := os.Getenv("DEPHEALTH_DEPS")
-	if depsStr == "" {
-		return nil, fmt.Errorf("DEPHEALTH_DEPS is required")
+	if depsStr != "" {
+		deps, err := parseDeps(depsStr)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Dependencies = deps
 	}
-	deps, err := parseDeps(depsStr)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Dependencies = deps
 
 	return cfg, nil
 }
@@ -108,9 +107,6 @@ func parseDeps(s string) ([]Dependency, error) {
 		deps = append(deps, dep)
 	}
 
-	if len(deps) == 0 {
-		return nil, fmt.Errorf("DEPHEALTH_DEPS: no dependencies defined")
-	}
 	return deps, nil
 }
 

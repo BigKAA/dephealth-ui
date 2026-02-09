@@ -35,6 +35,7 @@ type Server struct {
 }
 
 // New creates a new Server wired to the given dephealth instance.
+// dh may be nil if the service has no dependencies.
 func New(dh *dephealth.DepHealth, name string) *Server {
 	s := &Server{
 		dh:   dh,
@@ -62,11 +63,15 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	var health map[string]bool
+	if s.dh != nil {
+		health = s.dh.Health()
+	}
 	resp := StatusResponse{
 		Name:      s.name,
 		PodName:   os.Getenv("POD_NAME"),
 		Namespace: os.Getenv("NAMESPACE"),
-		Health:    s.dh.Health(),
+		Health:    health,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
