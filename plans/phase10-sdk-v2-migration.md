@@ -228,7 +228,7 @@ group by (name, namespace, dependency, type, host, port, critical) (app_dependen
 
 ---
 
-## Phase 10.3: Update Helm charts
+## Phase 10.3: Update Helm charts [COMPLETED]
 
 ### Task 10.3.1: Update `deployment.yml` template
 
@@ -260,13 +260,14 @@ env:
         fieldPath: metadata.namespace
 ```
 
-- [ ] Remove volume and volumeMount for ConfigMap
-- [ ] Add env var block with DEPHEALTH_* variables
-- [ ] Generate `DEPHEALTH_DEPS` from connections list
+- [x] Remove volume and volumeMount for ConfigMap
+- [x] Add env var block with DEPHEALTH_* variables
+- [x] Generate `DEPHEALTH_DEPS` from connections list via `depsValue` helper
+- [x] Support both `url` and `host`+`port` modes per dependency
 
 ### Task 10.3.2: Delete `configmap.yml` template
 
-- [ ] Remove `templates/configmap.yml` — no longer needed
+- [x] Remove `templates/configmap.yml` — no longer needed
 
 ### Task 10.3.3: Add Helm helper for env name conversion
 
@@ -278,8 +279,9 @@ In `_helpers.tpl`, add helper to convert `uniproxy-02` → `UNIPROXY_02`:
 {{- end -}}
 ```
 
-- [ ] Add `envName` helper template
-- [ ] Use in deployment template
+- [x] Add `envName` helper template
+- [x] Add `depsValue` helper template
+- [x] Use in deployment template
 
 ### Task 10.3.4: Update instance files
 
@@ -326,13 +328,14 @@ instances:
         critical: "yes"
 ```
 
-- [ ] Update `instances/ns1-homelab.yaml` — add `url`, `critical`, remove `host`/`port` where URL used
-- [ ] Update `instances/ns2-homelab.yaml` — same format
+- [x] Update `instances/ns1-homelab.yaml` — add `url`, `critical`, `healthPath`
+- [x] Update `instances/ns2-homelab.yaml` — same format
 
 ### Task 10.3.5: Update `values.yaml` and `values-homelab.yaml`
 
-- [ ] Update default image tag
-- [ ] Review/simplify checkInterval handling
+- [x] Update `values-homelab.yaml` image tag to v0.2.0
+- [x] Update `checkInterval` to plain seconds (no suffix)
+- [x] Update `Chart.yaml` version to 0.2.0
 
 ---
 

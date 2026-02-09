@@ -4,14 +4,14 @@ instances:
     connections:
       - name: uniproxy-05
         type: http
-        host: uniproxy-05.dephealth-uniproxy-2.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
       - name: uniproxy-06
         type: http
-        host: uniproxy-06.dephealth-uniproxy-2.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-06.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
 
   - name: uniproxy-05
     replicas: 1
@@ -22,33 +22,27 @@ instances:
     connections:
       - name: uniproxy-07
         type: http
-        host: uniproxy-07.dephealth-uniproxy-2.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-07.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
       - name: uniproxy-08
         type: http
-        host: uniproxy-08.dephealth-uniproxy-2.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-08.dephealth-uniproxy-2.svc:8080"
+        critical: "no"
+        healthPath: "/"
 
   - name: uniproxy-07
     replicas: 1
     connections:
       - name: postgresql
         type: postgres
-        host: postgresql.dephealth-postgresql.svc
-        port: "5432"
-        database: dephealth
-        username: dephealth
-        password: dephealth-test-pass
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"
 
   - name: uniproxy-08
     replicas: 1
     connections:
       - name: postgresql
         type: postgres
-        host: postgresql.dephealth-postgresql.svc
-        port: "5432"
-        database: dephealth
-        username: dephealth
-        password: dephealth-test-pass
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"

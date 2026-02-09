@@ -5,39 +5,37 @@ instances:
     connections:
       - name: uniproxy-02
         type: http
-        host: uniproxy-02.dephealth-uniproxy.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-02.dephealth-uniproxy.svc:8080"
+        critical: "yes"
+        healthPath: "/"
       - name: uniproxy-03
         type: http
-        host: uniproxy-03.dephealth-uniproxy.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-03.dephealth-uniproxy.svc:8080"
+        critical: "yes"
+        healthPath: "/"
 
   - name: uniproxy-02
     replicas: 2
     connections:
       - name: redis
         type: redis
-        host: redis.dephealth-redis.svc
-        port: "6379"
+        url: "redis://redis.dephealth-redis.svc:6379"
+        critical: "no"
       - name: grpc-stub
         type: grpc
-        host: grpc-stub.dephealth-grpc-stub.svc
+        host: "grpc-stub.dephealth-grpc-stub.svc"
         port: "9090"
+        critical: "no"
       - name: uniproxy-04
         type: http
-        host: uniproxy-04.dephealth-uniproxy-2.svc
-        port: "8080"
-        path: "/"
+        url: "http://uniproxy-04.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
 
   - name: uniproxy-03
     replicas: 3
     connections:
       - name: postgresql
         type: postgres
-        host: postgresql.dephealth-postgresql.svc
-        port: "5432"
-        database: dephealth
-        username: dephealth
-        password: dephealth-test-pass
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"

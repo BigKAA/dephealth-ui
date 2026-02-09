@@ -14,7 +14,8 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
-checkInterval: "10s"
+# Check interval in seconds (passed as DEPHEALTH_CHECK_INTERVAL env var).
+checkInterval: "10"
 
 resources:
   requests:
