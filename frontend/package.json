@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "bootstrap-icons": "^1.13.1",
     "cytoscape": "^3.28.0",
     "cytoscape-dagre": "^2.5.0",
     "dagre": "^0.8.5",

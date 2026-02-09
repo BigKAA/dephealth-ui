@@ -9,15 +9,15 @@
   <header id="header">
     <span class="header-title">dephealth-ui</span>
     <div class="toolbar">
-      <button id="btn-filter" title="Toggle filters">Filter</button>
-      <button id="btn-refresh" title="Refresh now">Refresh</button>
-      <button id="btn-fit" title="Fit graph to screen">Fit</button>
-      <button id="btn-auto-refresh" class="active" title="Toggle auto-refresh">Auto</button>
-      <button id="btn-theme" title="Toggle dark/light theme">Dark</button>
+      <button id="btn-filter" title="Toggle filters"><i class="bi bi-funnel"></i></button>
+      <button id="btn-refresh" title="Refresh now"><i class="bi bi-arrow-clockwise"></i></button>
+      <button id="btn-fit" title="Fit graph to screen"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btn-auto-refresh" class="active" title="Toggle auto-refresh"><i class="bi bi-play-circle"></i></button>
+      <button id="btn-theme" title="Toggle dark/light theme"><i class="bi bi-moon"></i></button>
     </div>
     <div id="user-info" class="hidden">
       <span id="user-name"></span>
-      <button id="btn-logout" title="Logout">Logout</button>
+      <button id="btn-logout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
     </div>
   </header>
 
@@ -50,6 +50,11 @@
   </div>
 
   <div id="cy">
+    <div id="graph-toolbar" class="graph-toolbar">
+      <button id="btn-zoom-in" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
+      <button id="btn-zoom-out" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
+      <button id="btn-toolbar-fit" title="Fit to screen"><i class="bi bi-arrows-fullscreen"></i></button>
+    </div>
     <div id="empty-state" class="hidden">
       <div class="empty-state-content">
         <span class="empty-state-icon">&empty;</span>

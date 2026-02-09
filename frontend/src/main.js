@@ -1,3 +1,4 @@
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
 import { initGraph, renderGraph, updateGraphTheme } from './graph.js';
@@ -7,6 +8,7 @@ import {
   initFilters, updateFilters, applyFilters, resetFilters,
   hasActiveFilters, updateNamespaceOptions, setNamespaceValue,
 } from './filter.js';
+import { initToolbar } from './toolbar.js';
 
 let cy = null;
 let pollTimer = null;
@@ -182,7 +184,10 @@ function stopPolling() {
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  $('#btn-theme').textContent = theme === 'dark' ? 'Light' : 'Dark';
+  const icon = $('#btn-theme i');
+  if (icon) {
+    icon.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon';
+  }
   updateGraphTheme(cy);
 }
 
@@ -259,6 +264,10 @@ function setupToolbar() {
   $('#btn-auto-refresh').addEventListener('click', () => {
     autoRefresh = !autoRefresh;
     $('#btn-auto-refresh').classList.toggle('active', autoRefresh);
+    const icon = $('#btn-auto-refresh i');
+    if (icon) {
+      icon.className = autoRefresh ? 'bi bi-play-circle' : 'bi bi-pause-circle';
+    }
     if (autoRefresh) {
       startPolling();
     } else {
@@ -276,6 +285,20 @@ function setupToolbar() {
   $('#btn-retry-now').addEventListener('click', () => {
     clearRetryTimers();
     refresh();
+  });
+}
+
+function setupGraphToolbar() {
+  $('#btn-zoom-in').addEventListener('click', () => {
+    if (cy) cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+  });
+
+  $('#btn-zoom-out').addEventListener('click', () => {
+    if (cy) cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+  });
+
+  $('#btn-toolbar-fit').addEventListener('click', () => {
+    if (cy) cy.fit(50);
   });
 }
 
@@ -319,6 +342,8 @@ async function init() {
     cy = initGraph($('#cy'));
     setupToolbar();
     setupFilters();
+    setupGraphToolbar();
+    initToolbar();
     setupGrafanaClickThrough();
 
     // Read namespace from URL.

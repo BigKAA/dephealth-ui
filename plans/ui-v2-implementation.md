@@ -286,13 +286,13 @@ $('#btn-toolbar-fit').addEventListener('click', () => cy.fit(50));
 - Verify zoom buttons work.
 
 **Checklist:**
-- [ ] 12.1 Install bootstrap-icons
-- [ ] 12.2 Replace header text with icons
-- [ ] 12.3 Floating toolbar HTML
-- [ ] 12.4 Floating toolbar CSS
-- [ ] 12.5 Drag & drop (toolbar.js)
-- [ ] 12.6 Wire zoom/fit buttons
-- [ ] 12.7 Manual browser test
+- [x] 12.1 Install bootstrap-icons
+- [x] 12.2 Replace header text with icons
+- [x] 12.3 Floating toolbar HTML
+- [x] 12.4 Floating toolbar CSS
+- [x] 12.5 Drag & drop (toolbar.js)
+- [x] 12.6 Wire zoom/fit buttons
+- [x] 12.7 Manual browser test
 
 ---
 

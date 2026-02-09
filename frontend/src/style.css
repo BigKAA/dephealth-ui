@@ -92,8 +92,13 @@ body {
 }
 
 .toolbar button {
-  padding: 4px 12px;
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 16px;
   border: 1px solid var(--border-light);
   border-radius: 4px;
   background: var(--bg-primary);
@@ -348,6 +353,49 @@ body {
   position: relative;
 }
 
+/* Floating graph toolbar */
+.graph-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 2px 8px var(--shadow);
+  cursor: grab;
+  user-select: none;
+}
+
+.graph-toolbar.dragging {
+  cursor: grabbing;
+  opacity: 0.9;
+}
+
+.graph-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.graph-toolbar button:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--border-hover);
+}
+
 /* Empty state */
 #empty-state {
   position: absolute;
@@ -575,9 +623,9 @@ body {
   }
 
   .toolbar button {
-    padding: 6px 10px;
-    font-size: 12px;
-    min-height: 34px;
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
   }
 
   #user-info {
@@ -622,8 +670,9 @@ body {
   }
 
   .toolbar button {
-    padding: 6px 8px;
-    font-size: 11px;
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
   }
 }
 
@@ -632,9 +681,18 @@ body {
   .toolbar button {
     min-height: 44px;
     min-width: 44px;
+    font-size: 18px;
   }
 
   #btn-logout {
     min-height: 44px;
+    min-width: 44px;
+    font-size: 18px;
+  }
+
+  .graph-toolbar button {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 20px;
   }
 }
