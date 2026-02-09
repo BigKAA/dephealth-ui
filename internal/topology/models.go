@@ -13,19 +13,23 @@ type Node struct {
 	Port            string `json:"port,omitempty"`
 	DependencyCount int    `json:"dependencyCount"`
 	GrafanaURL      string `json:"grafanaUrl,omitempty"`
+	AlertCount      int    `json:"alertCount,omitempty"`
+	AlertSeverity   string `json:"alertSeverity,omitempty"`
 }
 
 // Edge represents a directed dependency edge between two nodes.
 type Edge struct {
-	Source     string  `json:"source"`
-	Target     string  `json:"target"`
-	Type       string  `json:"type,omitempty"`  // grpc, http, postgres, redis, etc.
-	Latency    string  `json:"latency"`         // human-readable "5.2ms"
-	LatencyRaw float64 `json:"latencyRaw"`
-	Health     float64 `json:"health"`          // 0 or 1
-	State      string  `json:"state"`           // "ok", "degraded", "down"
-	Critical   bool    `json:"critical"`
-	GrafanaURL string  `json:"grafanaUrl,omitempty"`
+	Source        string  `json:"source"`
+	Target        string  `json:"target"`
+	Type          string  `json:"type,omitempty"`  // grpc, http, postgres, redis, etc.
+	Latency       string  `json:"latency"`         // human-readable "5.2ms"
+	LatencyRaw    float64 `json:"latencyRaw"`
+	Health        float64 `json:"health"`          // 0 or 1
+	State         string  `json:"state"`           // "ok", "degraded", "down"
+	Critical      bool    `json:"critical"`
+	GrafanaURL    string  `json:"grafanaUrl,omitempty"`
+	AlertCount    int     `json:"alertCount,omitempty"`
+	AlertSeverity string  `json:"alertSeverity,omitempty"`
 }
 
 // AlertInfo represents an active alert associated with the topology.

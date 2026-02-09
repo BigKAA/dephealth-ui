@@ -7,7 +7,17 @@ import (
 	"time"
 
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
+	"github.com/BigKAA/dephealth-ui/internal/config"
 )
+
+// testSeverityLevels returns default severity levels for tests.
+func testSeverityLevels() []config.SeverityLevel {
+	return []config.SeverityLevel{
+		{Value: "critical", Color: "#f44336"},
+		{Value: "warning", Color: "#ff9800"},
+		{Value: "info", Color: "#2196f3"},
+	}
+}
 
 // mockPrometheusClient implements PrometheusClient for testing.
 type mockPrometheusClient struct {
@@ -71,7 +81,7 @@ func TestGraphBuilder_Build(t *testing.T) {
 		LinkStatusDashUID:    "link-dash",
 	}
 
-	builder := NewGraphBuilder(mock, nil, grafana, 15*time.Second, nil)
+	builder := NewGraphBuilder(mock, nil, grafana, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -197,7 +207,7 @@ func TestGraphBuilder_Dedup(t *testing.T) {
 		avg: map[EdgeKey]float64{},
 	}
 
-	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -301,7 +311,7 @@ func TestDependencyNodeColoring(t *testing.T) {
 				avg:    map[EdgeKey]float64{},
 			}
 
-			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 			resp, err := builder.Build(context.Background(), QueryOptions{})
 			if err != nil {
 				t.Fatalf("Build() error: %v", err)
@@ -374,7 +384,7 @@ func TestGrafanaURLGeneration(t *testing.T) {
 		BaseURL:              "https://grafana.example.com",
 		ServiceStatusDashUID: "svc-dash",
 		LinkStatusDashUID:    "link-dash",
-	}, 15*time.Second, nil)
+	}, 15*time.Second, nil, testSeverityLevels())
 
 	svcURL := builder.serviceGrafanaURL("order-service")
 	if svcURL != "https://grafana.example.com/d/svc-dash?var-name=order-service" {
@@ -388,7 +398,7 @@ func TestGrafanaURLGeneration(t *testing.T) {
 	}
 
 	// Empty base URL → empty URLs.
-	emptyBuilder := NewGraphBuilder(nil, nil, GrafanaConfig{}, 15*time.Second, nil)
+	emptyBuilder := NewGraphBuilder(nil, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	if emptyBuilder.serviceGrafanaURL("svc") != "" {
 		t.Error("expected empty URL when BaseURL is empty")
 	}
@@ -436,7 +446,7 @@ func TestBuildWithAlerts(t *testing.T) {
 		},
 	}
 
-	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil)
+	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -463,6 +473,18 @@ func TestBuildWithAlerts(t *testing.T) {
 	if pgEdge.Health != 0 {
 		t.Errorf("pg:5432 edge Health = %v, want 0", pgEdge.Health)
 	}
+	if pgEdge.AlertCount != 1 {
+		t.Errorf("pg:5432 edge AlertCount = %d, want 1", pgEdge.AlertCount)
+	}
+	if pgEdge.AlertSeverity != "critical" {
+		t.Errorf("pg:5432 edge AlertSeverity = %q, want %q", pgEdge.AlertSeverity, "critical")
+	}
+
+	// redis edge should have no alerts.
+	redisEdge := edgeByTarget["redis:6379"]
+	if redisEdge.AlertCount != 0 {
+		t.Errorf("redis:6379 edge AlertCount = %d, want 0", redisEdge.AlertCount)
+	}
 
 	// svc-go node should be degraded (1 down + 1 ok).
 	nodeByID := make(map[string]Node)
@@ -471,6 +493,12 @@ func TestBuildWithAlerts(t *testing.T) {
 	}
 	if nodeByID["svc-go"].State != "degraded" {
 		t.Errorf("svc-go State = %q, want %q", nodeByID["svc-go"].State, "degraded")
+	}
+	if nodeByID["svc-go"].AlertCount != 1 {
+		t.Errorf("svc-go AlertCount = %d, want 1", nodeByID["svc-go"].AlertCount)
+	}
+	if nodeByID["svc-go"].AlertSeverity != "critical" {
+		t.Errorf("svc-go AlertSeverity = %q, want %q", nodeByID["svc-go"].AlertSeverity, "critical")
 	}
 }
 
@@ -485,7 +513,7 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 		avg: map[EdgeKey]float64{},
 	}
 
-	builder := NewGraphBuilder(promMock, nil, GrafanaConfig{}, 15*time.Second, nil)
+	builder := NewGraphBuilder(promMock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -513,7 +541,7 @@ func TestGraphBuilder_ConnectedGraph(t *testing.T) {
 		avg: map[EdgeKey]float64{},
 	}
 
-	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -590,7 +618,7 @@ func TestGraphBuilder_ConnectedGraphWithAlerts(t *testing.T) {
 		},
 	}
 
-	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil)
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -683,7 +711,7 @@ func TestBuildPartialData(t *testing.T) {
 				edgesErr:  tt.edgesErr,
 			}
 
-			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 			resp, err := builder.Build(context.Background(), QueryOptions{})
 
 			if tt.wantErr {
@@ -731,7 +759,7 @@ func TestBuildPartialWithAlertFailure(t *testing.T) {
 		err: errors.New("alertmanager unreachable"),
 	}
 
-	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil)
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -742,5 +770,83 @@ func TestBuildPartialWithAlertFailure(t *testing.T) {
 	}
 	if len(resp.Meta.Errors) != 1 {
 		t.Errorf("expected 1 error, got %d", len(resp.Meta.Errors))
+	}
+}
+
+func TestAlertSeverityPriority(t *testing.T) {
+	// Two alerts on the same service: warning + critical → worst should be critical.
+	promMock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	amMock := &mockAlertManagerClient{
+		alerts: []alerts.Alert{
+			{
+				AlertName:  "DependencyDegraded",
+				Service:    "svc-go",
+				Dependency: "redis",
+				Severity:   "warning",
+				State:      "firing",
+				Since:      "2026-02-08T10:00:00Z",
+			},
+			{
+				AlertName:  "DependencyDown",
+				Service:    "svc-go",
+				Dependency: "postgres",
+				Severity:   "critical",
+				State:      "firing",
+				Since:      "2026-02-08T10:00:00Z",
+			},
+		},
+	}
+
+	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// svc-go has 2 alerts, worst is critical.
+	svcGo := nodeByID["svc-go"]
+	if svcGo.AlertCount != 2 {
+		t.Errorf("svc-go AlertCount = %d, want 2", svcGo.AlertCount)
+	}
+	if svcGo.AlertSeverity != "critical" {
+		t.Errorf("svc-go AlertSeverity = %q, want %q", svcGo.AlertSeverity, "critical")
+	}
+
+	// Edge to pg should be critical, edge to redis should be warning.
+	edgeByKey := make(map[string]Edge)
+	for _, e := range resp.Edges {
+		edgeByKey[e.Source+"→"+e.Target] = e
+	}
+
+	pgEdge := edgeByKey["svc-go→pg:5432"]
+	if pgEdge.AlertSeverity != "critical" {
+		t.Errorf("pg edge AlertSeverity = %q, want %q", pgEdge.AlertSeverity, "critical")
+	}
+	if pgEdge.AlertCount != 1 {
+		t.Errorf("pg edge AlertCount = %d, want 1", pgEdge.AlertCount)
+	}
+
+	redisEdge := edgeByKey["svc-go→redis:6379"]
+	if redisEdge.AlertSeverity != "warning" {
+		t.Errorf("redis edge AlertSeverity = %q, want %q", redisEdge.AlertSeverity, "warning")
+	}
+	if redisEdge.AlertCount != 1 {
+		t.Errorf("redis edge AlertCount = %d, want 1", redisEdge.AlertCount)
 	}
 }

@@ -40,6 +40,14 @@ func newTestServer() *Server {
 				LinkStatus:    "link-dash",
 			},
 		},
+		Alerts: config.AlertsConfig{
+			SeverityLabel: "severity",
+			SeverityLevels: []config.SeverityLevel{
+				{Value: "critical", Color: "#f44336"},
+				{Value: "warning", Color: "#ff9800"},
+				{Value: "info", Color: "#2196f3"},
+			},
+		},
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	promClient := topology.NewPrometheusClient(topology.PrometheusConfig{URL: promSrv.URL})
@@ -48,7 +56,7 @@ func newTestServer() *Server {
 		ServiceStatusDashUID: cfg.Grafana.Dashboards.ServiceStatus,
 		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
 	}
-	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, logger)
+	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, logger, cfg.Alerts.SeverityLevels)
 	topologyCache := cache.New(cfg.Cache.TTL)
 	authenticator, _ := auth.NewFromConfig(config.AuthConfig{Type: "none"})
 	return New(cfg, logger, builder, nil, topologyCache, authenticator)
@@ -125,6 +133,15 @@ func TestConfigReturnsGrafana(t *testing.T) {
 	}
 	if resp.Auth.Type != "none" {
 		t.Errorf("Auth.Type = %q, want %q", resp.Auth.Type, "none")
+	}
+	if len(resp.Alerts.SeverityLevels) != 3 {
+		t.Fatalf("Alerts.SeverityLevels = %d, want 3", len(resp.Alerts.SeverityLevels))
+	}
+	if resp.Alerts.SeverityLevels[0].Value != "critical" {
+		t.Errorf("SeverityLevels[0].Value = %q, want %q", resp.Alerts.SeverityLevels[0].Value, "critical")
+	}
+	if resp.Alerts.SeverityLevels[0].Color != "#f44336" {
+		t.Errorf("SeverityLevels[0].Color = %q, want %q", resp.Alerts.SeverityLevels[0].Color, "#f44336")
 	}
 }
 

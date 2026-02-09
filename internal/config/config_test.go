@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+// validAlerts returns a valid AlertsConfig for use in test cases.
+func validAlerts() AlertsConfig {
+	return AlertsConfig{
+		SeverityLabel: "severity",
+		SeverityLevels: []SeverityLevel{
+			{Value: "critical", Color: "#f44336"},
+			{Value: "warning", Color: "#ff9800"},
+			{Value: "info", Color: "#2196f3"},
+		},
+	}
+}
+
 func TestLoadFromFile(t *testing.T) {
 	content := `
 server:
@@ -126,6 +138,7 @@ func TestValidate(t *testing.T) {
 			cfg: Config{
 				Server:      ServerConfig{Listen: ":8080"},
 				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Alerts:      validAlerts(),
 			},
 			wantErr: false,
 		},
@@ -154,6 +167,7 @@ func TestValidate(t *testing.T) {
 						Users: []BasicUser{{Username: "admin", PasswordHash: "$2a$10$hash"}},
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: false,
 		},
@@ -163,6 +177,7 @@ func TestValidate(t *testing.T) {
 				Server:      ServerConfig{Listen: ":8080"},
 				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
 				Auth:        AuthConfig{Type: "basic"},
+				Alerts:      validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -177,6 +192,7 @@ func TestValidate(t *testing.T) {
 						Users: []BasicUser{{Username: "", PasswordHash: "$2a$10$hash"}},
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -191,6 +207,7 @@ func TestValidate(t *testing.T) {
 						Users: []BasicUser{{Username: "admin", PasswordHash: ""}},
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -207,6 +224,7 @@ func TestValidate(t *testing.T) {
 						RedirectURL: "https://dephealth.example.com/auth/callback",
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: false,
 		},
@@ -222,6 +240,7 @@ func TestValidate(t *testing.T) {
 						RedirectURL: "https://dephealth.example.com/auth/callback",
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -237,6 +256,7 @@ func TestValidate(t *testing.T) {
 						RedirectURL: "https://dephealth.example.com/auth/callback",
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -252,6 +272,7 @@ func TestValidate(t *testing.T) {
 						ClientID: "dephealth-ui",
 					},
 				},
+				Alerts: validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -261,6 +282,53 @@ func TestValidate(t *testing.T) {
 				Server:      ServerConfig{Listen: ":8080"},
 				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
 				Auth:        AuthConfig{Type: "ldap"},
+				Alerts:      validAlerts(),
+			},
+			wantErr: true,
+		},
+		// Alerts validation test cases.
+		{
+			name: "alerts severity levels empty",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Alerts:      AlertsConfig{SeverityLabel: "severity"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "alerts severity level empty value",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Alerts: AlertsConfig{
+					SeverityLabel:  "severity",
+					SeverityLevels: []SeverityLevel{{Value: "", Color: "#f44336"}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "alerts severity level empty color",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Alerts: AlertsConfig{
+					SeverityLabel:  "severity",
+					SeverityLevels: []SeverityLevel{{Value: "critical", Color: ""}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "alerts severity level invalid color",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Alerts: AlertsConfig{
+					SeverityLabel:  "severity",
+					SeverityLevels: []SeverityLevel{{Value: "critical", Color: "red"}},
+				},
 			},
 			wantErr: true,
 		},
@@ -382,5 +450,94 @@ func TestOIDCEnvOverrides(t *testing.T) {
 	}
 	if cfg.Auth.OIDC.RedirectURL != "https://env-app.example.com/auth/callback" {
 		t.Errorf("OIDC.RedirectURL = %q, want env value", cfg.Auth.OIDC.RedirectURL)
+	}
+}
+
+func TestDefaultAlertsConfig(t *testing.T) {
+	cfg, err := Load("/nonexistent/config.yaml")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Alerts.SeverityLabel != "severity" {
+		t.Errorf("Alerts.SeverityLabel = %q, want %q", cfg.Alerts.SeverityLabel, "severity")
+	}
+	if len(cfg.Alerts.SeverityLevels) != 3 {
+		t.Fatalf("got %d severity levels, want 3", len(cfg.Alerts.SeverityLevels))
+	}
+	if cfg.Alerts.SeverityLevels[0].Value != "critical" {
+		t.Errorf("SeverityLevels[0].Value = %q, want %q", cfg.Alerts.SeverityLevels[0].Value, "critical")
+	}
+	if cfg.Alerts.SeverityLevels[0].Color != "#f44336" {
+		t.Errorf("SeverityLevels[0].Color = %q, want %q", cfg.Alerts.SeverityLevels[0].Color, "#f44336")
+	}
+	if cfg.Alerts.SeverityLevels[1].Value != "warning" {
+		t.Errorf("SeverityLevels[1].Value = %q, want %q", cfg.Alerts.SeverityLevels[1].Value, "warning")
+	}
+	if cfg.Alerts.SeverityLevels[2].Value != "info" {
+		t.Errorf("SeverityLevels[2].Value = %q, want %q", cfg.Alerts.SeverityLevels[2].Value, "info")
+	}
+}
+
+func TestLoadAlertsFromYAML(t *testing.T) {
+	content := `
+server:
+  listen: ":8080"
+datasources:
+  prometheus:
+    url: "http://vm:8428"
+alerts:
+  severityLabel: "priority"
+  severityLevels:
+    - value: "p1"
+      color: "#ff0000"
+    - value: "p2"
+      color: "#ffaa00"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Alerts.SeverityLabel != "priority" {
+		t.Errorf("Alerts.SeverityLabel = %q, want %q", cfg.Alerts.SeverityLabel, "priority")
+	}
+	if len(cfg.Alerts.SeverityLevels) != 2 {
+		t.Fatalf("got %d severity levels, want 2", len(cfg.Alerts.SeverityLevels))
+	}
+	if cfg.Alerts.SeverityLevels[0].Value != "p1" {
+		t.Errorf("SeverityLevels[0].Value = %q, want %q", cfg.Alerts.SeverityLevels[0].Value, "p1")
+	}
+	if cfg.Alerts.SeverityLevels[0].Color != "#ff0000" {
+		t.Errorf("SeverityLevels[0].Color = %q, want %q", cfg.Alerts.SeverityLevels[0].Color, "#ff0000")
+	}
+}
+
+func TestAlertsEnvOverrides(t *testing.T) {
+	t.Setenv("DEPHEALTH_ALERTS_SEVERITYLABEL", "level")
+	t.Setenv("DEPHEALTH_ALERTS_SEVERITYLEVELS", `[{"value":"high","color":"#ff0000"},{"value":"low","color":"#00ff00"}]`)
+
+	cfg, err := Load("/nonexistent/config.yaml")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Alerts.SeverityLabel != "level" {
+		t.Errorf("Alerts.SeverityLabel = %q, want %q", cfg.Alerts.SeverityLabel, "level")
+	}
+	if len(cfg.Alerts.SeverityLevels) != 2 {
+		t.Fatalf("got %d severity levels, want 2", len(cfg.Alerts.SeverityLevels))
+	}
+	if cfg.Alerts.SeverityLevels[0].Value != "high" {
+		t.Errorf("SeverityLevels[0].Value = %q, want %q", cfg.Alerts.SeverityLevels[0].Value, "high")
+	}
+	if cfg.Alerts.SeverityLevels[1].Color != "#00ff00" {
+		t.Errorf("SeverityLevels[1].Color = %q, want %q", cfg.Alerts.SeverityLevels[1].Color, "#00ff00")
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
+	"github.com/BigKAA/dephealth-ui/internal/config"
 )
 
 // GrafanaConfig holds Grafana URL generation settings.
@@ -26,24 +27,26 @@ type depAlertKey struct {
 
 // GraphBuilder constructs a TopologyResponse from Prometheus and AlertManager data.
 type GraphBuilder struct {
-	prom    PrometheusClient
-	am      alerts.AlertManagerClient
-	grafana GrafanaConfig
-	ttl     time.Duration
-	logger  *slog.Logger
+	prom           PrometheusClient
+	am             alerts.AlertManagerClient
+	grafana        GrafanaConfig
+	ttl            time.Duration
+	logger         *slog.Logger
+	severityLevels []config.SeverityLevel
 }
 
 // NewGraphBuilder creates a new GraphBuilder.
-func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafana GrafanaConfig, ttl time.Duration, logger *slog.Logger) *GraphBuilder {
+func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafana GrafanaConfig, ttl time.Duration, logger *slog.Logger, severityLevels []config.SeverityLevel) *GraphBuilder {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &GraphBuilder{
-		prom:    prom,
-		am:      am,
-		grafana: grafana,
-		ttl:     ttl,
-		logger:  logger,
+		prom:           prom,
+		am:             am,
+		grafana:        grafana,
+		ttl:            ttl,
+		logger:         logger,
+		severityLevels: severityLevels,
 	}
 }
 
@@ -307,10 +310,17 @@ func (b *GraphBuilder) linkGrafanaURL(name, dependency, host, port string) strin
 }
 
 // enrichWithAlerts applies alert-based state overrides to edges and nodes,
+// computes alertCount and alertSeverity for nodes and edges,
 // and returns the list of topology-mapped AlertInfo entries.
 func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []alerts.Alert, depLookup map[depAlertKey]EdgeKey) []AlertInfo {
 	if len(fetched) == 0 {
 		return []AlertInfo{}
+	}
+
+	// Build severity priority index: value → priority (lower = more critical).
+	severityPriority := make(map[string]int, len(b.severityLevels))
+	for i, level := range b.severityLevels {
+		severityPriority[level.Value] = i
 	}
 
 	// Build edge index: (source, target) → index in edges slice.
@@ -324,6 +334,13 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 
 	// Track alert-based health overrides per source node.
 	nodeAlertHealth := make(map[string][]float64)
+	// Track alert counts and worst severity per node and edge.
+	nodeAlertCounts := make(map[string]int)
+	nodeWorstSeverity := make(map[string]int)  // node ID → best (lowest) severity priority
+	edgeWorstSeverity := make(map[int]int)      // edge index → best (lowest) severity priority
+
+	// Initialize worst severity to a value beyond all levels.
+	const maxPriority = 999
 
 	var alertInfos []AlertInfo
 	for _, a := range fetched {
@@ -336,6 +353,16 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 			Since:      a.Since,
 			Summary:    a.Summary,
 		})
+
+		// Count alert per service node.
+		nodeAlertCounts[a.Service]++
+
+		// Track worst severity for the service node.
+		if pri, ok := severityPriority[a.Severity]; ok {
+			if cur, exists := nodeWorstSeverity[a.Service]; !exists || pri < cur {
+				nodeWorstSeverity[a.Service] = pri
+			}
+		}
 
 		// Translate alert labels (name, dependency_name) to edge via reverse lookup.
 		alertKey := depAlertKey{Name: a.Service, Dependency: a.Dependency}
@@ -355,6 +382,14 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 			}
 		}
 
+		// Track edge alert count and worst severity.
+		edges[idx].AlertCount++
+		if pri, ok := severityPriority[a.Severity]; ok {
+			if cur, exists := edgeWorstSeverity[idx]; !exists || pri < cur {
+				edgeWorstSeverity[idx] = pri
+			}
+		}
+
 		// Alert-based state override (alerts are more authoritative).
 		switch a.AlertName {
 		case "DependencyDown":
@@ -369,13 +404,35 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 		}
 	}
 
+	// Apply worst severity to edges.
+	for idx, pri := range edgeWorstSeverity {
+		if pri < len(b.severityLevels) {
+			edges[idx].AlertSeverity = b.severityLevels[pri].Value
+		}
+	}
+
+	// Build node index for applying alert counts and severity.
+	nodeIdx := make(map[string]int, len(nodes))
+	for i, n := range nodes {
+		nodeIdx[n.ID] = i
+	}
+
+	// Apply alert counts and worst severity to nodes.
+	for nodeID, count := range nodeAlertCounts {
+		if idx, ok := nodeIdx[nodeID]; ok {
+			nodes[idx].AlertCount = count
+		}
+	}
+	for nodeID, pri := range nodeWorstSeverity {
+		if idx, ok := nodeIdx[nodeID]; ok {
+			if pri < len(b.severityLevels) {
+				nodes[idx].AlertSeverity = b.severityLevels[pri].Value
+			}
+		}
+	}
+
 	// Recalculate node states for nodes affected by alerts.
 	if len(nodeAlertHealth) > 0 {
-		nodeIdx := make(map[string]int, len(nodes))
-		for i, n := range nodes {
-			nodeIdx[n.ID] = i
-		}
-
 		// Collect all edge health values per source node (with alert overrides applied).
 		nodeHealth := make(map[string][]float64)
 		for _, e := range edges {

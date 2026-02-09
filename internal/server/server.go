@@ -236,6 +236,11 @@ type configResponse struct {
 	Grafana configGrafana `json:"grafana"`
 	Cache   configCache   `json:"cache"`
 	Auth    configAuth    `json:"auth"`
+	Alerts  configAlerts  `json:"alerts"`
+}
+
+type configAlerts struct {
+	SeverityLevels []config.SeverityLevel `json:"severityLevels"`
 }
 
 type configAuth struct {
@@ -270,6 +275,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		},
 		Auth: configAuth{
 			Type: s.cfg.Auth.Type,
+		},
+		Alerts: configAlerts{
+			SeverityLevels: s.cfg.Alerts.SeverityLevels,
 		},
 	}
 

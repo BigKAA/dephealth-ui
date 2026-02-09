@@ -1,12 +1,16 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+var hexColorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Config holds the complete application configuration.
 type Config struct {
@@ -15,6 +19,19 @@ type Config struct {
 	Cache       CacheConfig       `yaml:"cache"`
 	Auth        AuthConfig        `yaml:"auth"`
 	Grafana     GrafanaConfig     `yaml:"grafana"`
+	Alerts      AlertsConfig      `yaml:"alerts"`
+}
+
+// AlertsConfig holds alert severity display settings.
+type AlertsConfig struct {
+	SeverityLabel  string          `yaml:"severityLabel"`
+	SeverityLevels []SeverityLevel `yaml:"severityLevels"`
+}
+
+// SeverityLevel defines a single alert severity level with its display color.
+type SeverityLevel struct {
+	Value string `yaml:"value" json:"value"`
+	Color string `yaml:"color" json:"color"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -142,6 +159,23 @@ func (c *Config) Validate() error {
 	default:
 		return fmt.Errorf("unknown auth.type: %q (supported: none, basic, oidc)", c.Auth.Type)
 	}
+
+	// Validate alerts config.
+	if len(c.Alerts.SeverityLevels) == 0 {
+		return fmt.Errorf("alerts.severityLevels must not be empty")
+	}
+	for i, level := range c.Alerts.SeverityLevels {
+		if level.Value == "" {
+			return fmt.Errorf("alerts.severityLevels[%d].value is required", i)
+		}
+		if level.Color == "" {
+			return fmt.Errorf("alerts.severityLevels[%d].color is required", i)
+		}
+		if !hexColorRe.MatchString(level.Color) {
+			return fmt.Errorf("alerts.severityLevels[%d].color %q is not a valid hex color (#RRGGBB)", i, level.Color)
+		}
+	}
+
 	return nil
 }
 
@@ -155,6 +189,14 @@ func defaultConfig() *Config {
 		},
 		Auth: AuthConfig{
 			Type: "none",
+		},
+		Alerts: AlertsConfig{
+			SeverityLabel: "severity",
+			SeverityLevels: []SeverityLevel{
+				{Value: "critical", Color: "#f44336"},
+				{Value: "warning", Color: "#ff9800"},
+				{Value: "info", Color: "#2196f3"},
+			},
 		},
 	}
 }
@@ -191,5 +233,14 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("DEPHEALTH_GRAFANA_BASEURL"); v != "" {
 		cfg.Grafana.BaseURL = v
+	}
+	if v := os.Getenv("DEPHEALTH_ALERTS_SEVERITYLABEL"); v != "" {
+		cfg.Alerts.SeverityLabel = v
+	}
+	if v := os.Getenv("DEPHEALTH_ALERTS_SEVERITYLEVELS"); v != "" {
+		var levels []SeverityLevel
+		if err := json.Unmarshal([]byte(v), &levels); err == nil {
+			cfg.Alerts.SeverityLevels = levels
+		}
 	}
 }
