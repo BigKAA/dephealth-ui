@@ -105,6 +105,12 @@ func (b *GraphBuilder) buildGraph(
 	health map[EdgeKey]float64,
 	avgLatency map[EdgeKey]float64,
 ) ([]Node, []Edge, map[depAlertKey]EdgeKey) {
+	// First pass: collect all known service names (sources that report metrics).
+	serviceNames := make(map[string]bool)
+	for _, e := range rawEdges {
+		serviceNames[e.Name] = true
+	}
+
 	// Collect unique nodes (services = names, dependencies = host:port).
 	type nodeInfo struct {
 		typ       string
@@ -125,6 +131,16 @@ func (b *GraphBuilder) buildGraph(
 	// Reverse lookup: (name, dependency_name) → EdgeKey for alert matching.
 	depLookup := make(map[depAlertKey]EdgeKey)
 
+	// resolveTarget returns the target node ID for a dependency edge.
+	// If the dependency name matches a known service, link to that service node
+	// to build a connected (through) graph. Otherwise, use host:port.
+	resolveTarget := func(e TopologyEdge) string {
+		if serviceNames[e.Dependency] {
+			return e.Dependency
+		}
+		return e.Host + ":" + e.Port
+	}
+
 	for _, e := range rawEdges {
 		key := EdgeKey{Name: e.Name, Host: e.Host, Port: e.Port}
 		edgeMap[key] = e
@@ -132,8 +148,7 @@ func (b *GraphBuilder) buildGraph(
 		// Build reverse lookup for alerts.
 		depLookup[depAlertKey{Name: e.Name, Dependency: e.Dependency}] = key
 
-		// Dependency node ID is host:port.
-		depNodeID := e.Host + ":" + e.Port
+		depNodeID := resolveTarget(e)
 
 		// Register source node (service).
 		if _, ok := nodeMap[e.Name]; !ok {
@@ -145,13 +160,15 @@ func (b *GraphBuilder) buildGraph(
 		}
 		nodeMap[e.Name].deps[depNodeID] = true
 
-		// Register target node (dependency) — dedup by host:port.
-		if _, ok := nodeMap[depNodeID]; !ok {
-			nodeMap[depNodeID] = &nodeInfo{
-				typ:  e.Type,
-				host: e.Host,
-				port: e.Port,
-				deps: make(map[string]bool),
+		// Register target node (dependency) — only if not a known service.
+		if !serviceNames[e.Dependency] {
+			if _, ok := nodeMap[depNodeID]; !ok {
+				nodeMap[depNodeID] = &nodeInfo{
+					typ:  e.Type,
+					host: e.Host,
+					port: e.Port,
+					deps: make(map[string]bool),
+				}
 			}
 		}
 	}
@@ -174,7 +191,7 @@ func (b *GraphBuilder) buildGraph(
 			state = "down"
 		}
 
-		depNodeID := raw.Host + ":" + raw.Port
+		depNodeID := resolveTarget(raw)
 
 		edge := Edge{
 			Source:     raw.Name,
@@ -327,10 +344,15 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 			continue
 		}
 
+		// Try host:port target first, then dependency name (service-to-service edges).
 		ref := edgeRef{source: a.Service, target: ek.Host + ":" + ek.Port}
 		idx, ok := edgeIdx[ref]
 		if !ok {
-			continue
+			ref = edgeRef{source: a.Service, target: a.Dependency}
+			idx, ok = edgeIdx[ref]
+			if !ok {
+				continue
+			}
 		}
 
 		// Alert-based state override (alerts are more authoritative).

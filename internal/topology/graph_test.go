@@ -496,6 +496,130 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 	}
 }
 
+func TestGraphBuilder_ConnectedGraph(t *testing.T) {
+	// Service-to-service edges should produce a connected (through) graph.
+	// uniproxy-01 → uniproxy-02 → redis
+	// The edge from uniproxy-01 to uniproxy-02 should target the service node "uniproxy-02",
+	// not a separate dependency node "uniproxy-02.ns.svc:8080".
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "uniproxy-01", Namespace: "ns1", Dependency: "uniproxy-02", Type: "http", Host: "uniproxy-02.ns1.svc", Port: "8080", Critical: true},
+			{Name: "uniproxy-02", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis.ns2.svc", Port: "6379", Critical: false},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "uniproxy-01", Host: "uniproxy-02.ns1.svc", Port: "8080"}: 1,
+			{Name: "uniproxy-02", Host: "redis.ns2.svc", Port: "6379"}:       1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil)
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// Nodes: uniproxy-01, uniproxy-02, redis.ns2.svc:6379 = 3 (NOT 4!)
+	if len(resp.Nodes) != 3 {
+		t.Errorf("got %d nodes, want 3 (uniproxy-02 should be a single service node)", len(resp.Nodes))
+		for _, n := range resp.Nodes {
+			t.Logf("  node: id=%q type=%q", n.ID, n.Type)
+		}
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// uniproxy-02 must be a service node (not a dependency node).
+	if n, ok := nodeByID["uniproxy-02"]; !ok {
+		t.Error("missing uniproxy-02 service node")
+	} else if n.Type != "service" {
+		t.Errorf("uniproxy-02.Type = %q, want %q", n.Type, "service")
+	}
+
+	// No separate host:port node for uniproxy-02.
+	if _, ok := nodeByID["uniproxy-02.ns1.svc:8080"]; ok {
+		t.Error("unexpected separate dependency node uniproxy-02.ns1.svc:8080; should be merged into service node")
+	}
+
+	// Edge from uniproxy-01 should target the service node "uniproxy-02".
+	edgeByKey := make(map[string]Edge)
+	for _, e := range resp.Edges {
+		edgeByKey[e.Source+"→"+e.Target] = e
+	}
+
+	if _, ok := edgeByKey["uniproxy-01→uniproxy-02"]; !ok {
+		t.Error("missing edge uniproxy-01→uniproxy-02")
+		for _, e := range resp.Edges {
+			t.Logf("  edge: %s→%s", e.Source, e.Target)
+		}
+	}
+
+	// Edge from uniproxy-02 to redis should use host:port (redis is not a service).
+	if _, ok := edgeByKey["uniproxy-02→redis.ns2.svc:6379"]; !ok {
+		t.Error("missing edge uniproxy-02→redis.ns2.svc:6379")
+	}
+}
+
+func TestGraphBuilder_ConnectedGraphWithAlerts(t *testing.T) {
+	// Alert on a service-to-service edge should correctly find the edge.
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-a", Namespace: "ns", Dependency: "svc-b", Type: "http", Host: "svc-b.ns.svc", Port: "8080", Critical: true},
+			{Name: "svc-b", Namespace: "ns", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-a", Host: "svc-b.ns.svc", Port: "8080"}: 1,
+			{Name: "svc-b", Host: "pg", Port: "5432"}:           1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	amMock := &mockAlertManagerClient{
+		alerts: []alerts.Alert{
+			{
+				AlertName:  "DependencyDown",
+				Service:    "svc-a",
+				Dependency: "svc-b",
+				Severity:   "critical",
+				State:      "firing",
+				Since:      "2026-02-09T10:00:00Z",
+			},
+		},
+	}
+
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil)
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// Edge svc-a→svc-b should be overridden to "down" by the alert.
+	edgeByKey := make(map[string]Edge)
+	for _, e := range resp.Edges {
+		edgeByKey[e.Source+"→"+e.Target] = e
+	}
+
+	edge, ok := edgeByKey["svc-a→svc-b"]
+	if !ok {
+		t.Fatal("missing edge svc-a→svc-b")
+	}
+	if edge.State != "down" {
+		t.Errorf("svc-a→svc-b State = %q, want %q", edge.State, "down")
+	}
+
+	// svc-a should be degraded (1 edge down).
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+	if nodeByID["svc-a"].State != "down" {
+		t.Errorf("svc-a State = %q, want %q", nodeByID["svc-a"].State, "down")
+	}
+}
+
 func TestBuildPartialData(t *testing.T) {
 	baseEdges := []TopologyEdge{
 		{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
