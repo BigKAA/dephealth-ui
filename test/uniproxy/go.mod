@@ -2,10 +2,8 @@ module github.com/BigKAA/uniproxy
 
 go 1.25.6
 
-replace github.com/BigKAA/topologymetrics => ../../../topologymetrics/sdk-go
-
 require (
-	github.com/BigKAA/topologymetrics v0.0.0-00010101000000-000000000000
+	github.com/BigKAA/topologymetrics/sdk-go v0.3.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/prometheus/client_golang v1.23.2
 )

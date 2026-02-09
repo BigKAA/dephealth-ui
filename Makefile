@@ -12,7 +12,6 @@ NAMESPACE     ?= dephealth-ui
 HELM_RELEASE  ?= dephealth-ui
 HELM_CHART    ?= deploy/helm/dephealth-ui
 HELM_VALUES   ?= $(HELM_CHART)/values-homelab.yaml
-SDK_DIR       ?= ../topologymetrics/sdk-go
 
 # Test environment charts
 INFRA_CHART      ?= deploy/helm/dephealth-infra
@@ -54,19 +53,11 @@ docker-push:
 # --- Uniproxy Docker build ---
 
 uniproxy-build:
-	@echo "Building uniproxy with SDK from $(SDK_DIR)"
-	@test -d $(SDK_DIR) || (echo "ERROR: SDK dir not found at $(SDK_DIR)"; exit 1)
-	@rm -rf test/uniproxy/.sdk-go && cp -r $(SDK_DIR) test/uniproxy/.sdk-go
-	cd test/uniproxy && \
-		sed 's|=> .*sdk-go|=> ./.sdk-go|' go.mod > go.mod.docker && \
-		mv go.mod go.mod.bak && mv go.mod.docker go.mod
 	docker buildx build \
 		--platform $(PLATFORMS) \
 		-t $(REGISTRY)/uniproxy:$(TAG) \
 		--push \
 		test/uniproxy/
-	@cd test/uniproxy && mv go.mod.bak go.mod
-	@rm -rf test/uniproxy/.sdk-go
 
 # --- Helm (dephealth-ui) ---
 

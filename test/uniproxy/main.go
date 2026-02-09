@@ -11,9 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/BigKAA/topologymetrics/dephealth"
+	"github.com/BigKAA/topologymetrics/sdk-go/dephealth"
 	// Register built-in checker factories.
-	_ "github.com/BigKAA/topologymetrics/dephealth/checks"
+	_ "github.com/BigKAA/topologymetrics/sdk-go/dephealth/checks"
 
 	"github.com/BigKAA/uniproxy/internal/config"
 	"github.com/BigKAA/uniproxy/internal/server"
@@ -42,32 +42,27 @@ func main() {
 		"checkInterval", cfg.CheckInterval,
 	)
 
-	// Start health checks (only if there are dependencies).
+	// Start health checks.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	var dh *dephealth.DepHealth
-	if len(cfg.Dependencies) > 0 {
-		opts, err := buildOptions(cfg, logger)
-		if err != nil {
-			slog.Error("failed to build options", "error", err)
-			os.Exit(1)
-		}
-
-		dh, err = dephealth.New(cfg.Name, opts...)
-		if err != nil {
-			slog.Error("failed to create dephealth", "error", err)
-			os.Exit(1)
-		}
-
-		if err := dh.Start(ctx); err != nil {
-			slog.Error("failed to start dephealth", "error", err)
-			os.Exit(1)
-		}
-		slog.Info("dephealth started", "name", cfg.Name)
-	} else {
-		slog.Info("no dependencies configured, running without health checks")
+	opts, err := buildOptions(cfg, logger)
+	if err != nil {
+		slog.Error("failed to build options", "error", err)
+		os.Exit(1)
 	}
+
+	dh, err := dephealth.New(cfg.Name, opts...)
+	if err != nil {
+		slog.Error("failed to create dephealth", "error", err)
+		os.Exit(1)
+	}
+
+	if err := dh.Start(ctx); err != nil {
+		slog.Error("failed to start dephealth", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("dephealth started", "name", cfg.Name)
 
 	// Start HTTP server.
 	srv := server.New(dh, cfg.Name)
@@ -86,9 +81,7 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("shutting down")
-	if dh != nil {
-		dh.Stop()
-	}
+	dh.Stop()
 	httpServer.Close()
 }
 
