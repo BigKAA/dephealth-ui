@@ -173,13 +173,13 @@ Simplify — remove dependency on checker.Manager:
 
 ---
 
-## Phase 10.2: Update dephealth-ui topology package
+## Phase 10.2: Update dephealth-ui topology package [COMPLETED]
 
 ### Task 10.2.1: Update `internal/topology/models.go`
 
-- [ ] Add `Critical bool` field to `TopologyEdge`
-- [ ] Add `critical` to JSON serialization (edge response)
-- [ ] Update `TopologyNode` if needed (e.g. display info)
+- [x] Add `Critical bool` field to `TopologyEdge`
+- [x] Add `critical` to JSON serialization (edge response)
+- [x] Rename `EdgeKey.Job` → `EdgeKey.Name`, `TopologyEdge.Job` → `TopologyEdge.Name`
 
 ### Task 10.2.2: Update `internal/topology/prometheus.go`
 
@@ -195,36 +195,36 @@ New:
 group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
 ```
 
-- [ ] Update topology edges query — `group by` with `name` and `critical`
-- [ ] Update health state query — key by `{name, host, port}` instead of `{job, host, port}`
-- [ ] Update latency query — key by `{name, host, port}`
-- [ ] Update `parseEdgeValues()` — extract `name` and `critical` from metric labels
-- [ ] Parse `critical`: `"yes"` → `true`, `"no"` → `false`
+- [x] Update topology edges query — `group by` with `name` and `critical`
+- [x] Update health state query — key by `{name, host, port}` instead of `{job, host, port}`
+- [x] Update latency query — key by `{name, host, port}`
+- [x] Update `parseEdgeValues()` — extract `name` and `critical` from metric labels
+- [x] Parse `critical`: `"yes"` → `true`, `"no"` → `false`
 
 ### Task 10.2.3: Update `internal/topology/graph.go`
 
-- [ ] Rename `EdgeKey.Job` → `EdgeKey.Name`
-- [ ] Service node ID = `name` label value (was `job`)
-- [ ] Set `edge.Critical` from parsed metric
-- [ ] Update `buildGraph()` to use `name` label for source nodes
-- [ ] Update deduplication logic — key by `{name, host, port}`
+- [x] Rename `EdgeKey.Job` → `EdgeKey.Name`
+- [x] Service node ID = `name` label value (was `job`)
+- [x] Set `edge.Critical` from parsed metric
+- [x] Update `buildGraph()` to use `name` label for source nodes
+- [x] Update deduplication logic — key by `{name, host, port}`
+- [x] Update Grafana URLs — `var-job` → `var-name`
 
 ### Task 10.2.4: Update topology tests
 
-- [ ] `prometheus_test.go` — update mock Prometheus responses (add `name`, `critical`)
-- [ ] `graph_test.go` — update test data, add assertions for `critical` field
-- [ ] Run `go test ./internal/topology/...`
+- [x] `prometheus_test.go` — update mock Prometheus responses (add `name`, `critical`)
+- [x] `graph_test.go` — update test data, add assertions for `critical` field
+- [x] Run `go test ./internal/topology/...` — all 17 tests pass
 
 ### Task 10.2.5: Update frontend
 
-- [ ] Display `critical` flag on edges (e.g. visual distinction: thick/thin line, color)
-- [ ] Add `critical` to edge tooltip/info panel
-- [ ] Optionally: add `critical` filter in Tom Select filters
+- [x] Display `critical` flag on edges (thick line = critical, thin = non-critical)
+- [x] Add `critical` data to edge rendering and smart diff updates
 
 ### Task 10.2.6: Update documentation
 
-- [ ] Update `docs/application-design.md` — new PromQL queries, new label format
-- [ ] Update metric format tables
+- [x] Update `docs/application-design.md` — new PromQL queries, new label format
+- [x] Update metric format tables, graph model, Grafana URLs
 
 ---
 

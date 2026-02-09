@@ -24,19 +24,22 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
 | Label | Обязательный | Описание | Пример |
 |-------|:---:|----------|--------|
+| `name` | да | Имя приложения (из SDK) | `uniproxy-01` |
 | `dependency` | да | Логическое имя зависимости | `postgres-main` |
 | `type` | да | Тип подключения | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka` |
 | `host` | да | Адрес endpoint | `pg-master.db.svc.cluster.local` |
 | `port` | да | Порт endpoint | `5432` |
+| `critical` | да | Критичность зависимости | `yes`, `no` |
 | `role` | нет | Роль экземпляра | `primary`, `replica` |
 | `shard` | нет | Идентификатор shard | `shard-01` |
 | `vhost` | нет | AMQP virtual host | `/` |
 
 ### Модель графа
 
-- **Узлы (nodes)** = Prometheus label `job` (имя сервиса из scrape config)
-- **Рёбра (edges)** = комбинация `{job → dependency, type, host, port}`
-- Каждая уникальная комбинация `{job, dependency, host, port}` = одно направленное ребро
+- **Узлы (nodes)** = Prometheus label `name` (имя приложения из dephealth SDK)
+- **Рёбра (edges)** = комбинация `{name → dependency, type, host, port, critical}`
+- Каждая уникальная комбинация `{name, dependency, host, port}` = одно направленное ребро
+- Флаг `critical` определяет визуальную толщину ребра на графе
 
 ### Правила алертов (из Helm chart topologymetrics)
 
@@ -124,7 +127,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 |-----------------|--------|
 | **Запросы к Prometheus** | `app_dependency_health`, latency histogram через `prometheus/client_golang/api/v1` |
 | **Запросы к AlertManager** | `GET /api/v2/alerts` с фильтрами, стандартный HTTP client |
-| **Построение графа** | Узлы из label `job`, рёбра из labels `dependency/type/host/port` |
+| **Построение графа** | Узлы из label `name`, рёбра из labels `dependency/type/host/port/critical` |
 | **Вычисление состояний** | Корреляция метрик + алертов → OK / DEGRADED / DOWN для каждого узла и ребра |
 | **Кэширование** | In-memory cache с настраиваемым TTL (по умолчанию 15с). Один цикл запросов к Prometheus обслуживает всех подключённых пользователей |
 | **Генерация Grafana URL** | Формирование URL dashboards с правильными query-параметрами из конфигурации |
@@ -148,7 +151,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
       "state": "ok",
       "type": "service",
       "dependencyCount": 3,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-job=order-service"
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-name=order-service"
     },
     {
       "id": "postgres-main",
@@ -165,7 +168,8 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
       "latencyRaw": 0.0052,
       "health": 1,
       "state": "ok",
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-job=order-service&var-dep=postgres-main"
+      "critical": true,
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-name=order-service&var-dep=postgres-main"
     }
   ],
   "alerts": [
@@ -245,7 +249,7 @@ Frontend — тонкий слой визуализации. Вся трансф
 ### Визуализация
 
 - **Узлы:** цвет зависит от `state` — зелёный (OK), жёлтый (DEGRADED), красный (DOWN)
-- **Рёбра:** направленные стрелки с постоянными подписями latency; цвет ребра по `state`
+- **Рёбра:** направленные стрелки с постоянными подписями latency; цвет ребра по `state`; толщина ребра по `critical` (критичные — толще)
 - **Клик по узлу/ребру:** открывает соответствующий Grafana dashboard (`grafanaUrl`)
 - **Layout:** dagre (hierarchical, направление `LR` или `TB`)
 
@@ -287,7 +291,7 @@ Multi-stage build:
 
 ```promql
 # Все рёбра топологии
-group by (job, dependency, type, host, port) (app_dependency_health)
+group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
 
 # Текущее состояние всех зависимостей
 app_dependency_health
@@ -299,9 +303,9 @@ rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_secon
 histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 
 # Degraded: часть endpoints up, часть down
-(count by (job, namespace, dependency, type) (app_dependency_health == 0) > 0)
+(count by (name, namespace, dependency, type) (app_dependency_health == 0) > 0)
 and
-(count by (job, namespace, dependency, type) (app_dependency_health == 1) > 0)
+(count by (name, namespace, dependency, type) (app_dependency_health == 1) > 0)
 ```
 
 ---

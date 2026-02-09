@@ -49,19 +49,19 @@ func (m *mockPrometheusClient) QueryP99Latency(_ context.Context, _ QueryOptions
 func TestGraphBuilder_Build(t *testing.T) {
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
-			{Job: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432"},
-			{Job: "svc-go", Namespace: "default", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
-			{Job: "svc-python", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432"},
+			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432", Critical: true},
+			{Name: "svc-go", Namespace: "default", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
+			{Name: "svc-python", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "pg-primary", Port: "5432"}:    1,
-			{Job: "svc-go", Host: "redis", Port: "6379"}:         0,
-			{Job: "svc-python", Host: "pg-primary", Port: "5432"}: 1,
+			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}:         0,
+			{Name: "svc-python", Host: "pg-primary", Port: "5432"}: 1,
 		},
 		avg: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "pg-primary", Port: "5432"}:    0.0052,
-			{Job: "svc-go", Host: "redis", Port: "6379"}:         0.001,
-			{Job: "svc-python", Host: "pg-primary", Port: "5432"}: 0.003,
+			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:    0.0052,
+			{Name: "svc-go", Host: "redis", Port: "6379"}:         0.001,
+			{Name: "svc-python", Host: "pg-primary", Port: "5432"}: 0.003,
 		},
 	}
 
@@ -160,10 +160,24 @@ func TestGraphBuilder_Build(t *testing.T) {
 		}
 	}
 
-	// Check edge types are populated.
+	// Check edge types and critical flags are populated.
+	edgeByTarget := make(map[string]Edge)
 	for _, e := range resp.Edges {
 		if e.Type == "" {
 			t.Errorf("edge %s→%s has empty Type", e.Source, e.Target)
+		}
+		edgeByTarget[e.Source+"→"+e.Target] = e
+	}
+
+	// Check critical flag on edges.
+	if e, ok := edgeByTarget["svc-go→pg-primary:5432"]; ok {
+		if !e.Critical {
+			t.Errorf("edge svc-go→pg-primary:5432 Critical = false, want true")
+		}
+	}
+	if e, ok := edgeByTarget["svc-go→redis:6379"]; ok {
+		if e.Critical {
+			t.Errorf("edge svc-go→redis:6379 Critical = true, want false")
 		}
 	}
 }
@@ -173,12 +187,12 @@ func TestGraphBuilder_Dedup(t *testing.T) {
 	// This should produce a single dependency node.
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
-			{Job: "svc-go", Dependency: "my-redis", Type: "redis", Host: "redis-host", Port: "6379"},
-			{Job: "svc-python", Dependency: "redis-cache", Type: "redis", Host: "redis-host", Port: "6379"},
+			{Name: "svc-go", Dependency: "my-redis", Type: "redis", Host: "redis-host", Port: "6379"},
+			{Name: "svc-python", Dependency: "redis-cache", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "redis-host", Port: "6379"}:    1,
-			{Job: "svc-python", Host: "redis-host", Port: "6379"}: 0,
+			{Name: "svc-go", Host: "redis-host", Port: "6379"}:    1,
+			{Name: "svc-python", Host: "redis-host", Port: "6379"}: 0,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -230,12 +244,12 @@ func TestDependencyNodeColoring(t *testing.T) {
 		{
 			name: "all incoming healthy",
 			edges: []TopologyEdge{
-				{Job: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
-				{Job: "svc-b", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-b", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
 			},
 			health: map[EdgeKey]float64{
-				{Job: "svc-a", Host: "pg", Port: "5432"}: 1,
-				{Job: "svc-b", Host: "pg", Port: "5432"}: 1,
+				{Name: "svc-a", Host: "pg", Port: "5432"}: 1,
+				{Name: "svc-b", Host: "pg", Port: "5432"}: 1,
 			},
 			depNodeID: "pg:5432",
 			wantState: "ok",
@@ -243,12 +257,12 @@ func TestDependencyNodeColoring(t *testing.T) {
 		{
 			name: "all incoming down",
 			edges: []TopologyEdge{
-				{Job: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
-				{Job: "svc-b", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-b", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
 			},
 			health: map[EdgeKey]float64{
-				{Job: "svc-a", Host: "pg", Port: "5432"}: 0,
-				{Job: "svc-b", Host: "pg", Port: "5432"}: 0,
+				{Name: "svc-a", Host: "pg", Port: "5432"}: 0,
+				{Name: "svc-b", Host: "pg", Port: "5432"}: 0,
 			},
 			depNodeID: "pg:5432",
 			wantState: "down",
@@ -256,12 +270,12 @@ func TestDependencyNodeColoring(t *testing.T) {
 		{
 			name: "mixed incoming → degraded",
 			edges: []TopologyEdge{
-				{Job: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
-				{Job: "svc-b", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-b", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
 			},
 			health: map[EdgeKey]float64{
-				{Job: "svc-a", Host: "pg", Port: "5432"}: 1,
-				{Job: "svc-b", Host: "pg", Port: "5432"}: 0,
+				{Name: "svc-a", Host: "pg", Port: "5432"}: 1,
+				{Name: "svc-b", Host: "pg", Port: "5432"}: 0,
 			},
 			depNodeID: "pg:5432",
 			wantState: "degraded",
@@ -269,10 +283,10 @@ func TestDependencyNodeColoring(t *testing.T) {
 		{
 			name: "single service → state from that edge",
 			edges: []TopologyEdge{
-				{Job: "svc-a", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+				{Name: "svc-a", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
 			},
 			health: map[EdgeKey]float64{
-				{Job: "svc-a", Host: "redis", Port: "6379"}: 0,
+				{Name: "svc-a", Host: "redis", Port: "6379"}: 0,
 			},
 			depNodeID: "redis:6379",
 			wantState: "down",
@@ -363,12 +377,12 @@ func TestGrafanaURLGeneration(t *testing.T) {
 	}, 15*time.Second, nil)
 
 	svcURL := builder.serviceGrafanaURL("order-service")
-	if svcURL != "https://grafana.example.com/d/svc-dash?var-job=order-service" {
+	if svcURL != "https://grafana.example.com/d/svc-dash?var-name=order-service" {
 		t.Errorf("serviceGrafanaURL = %q", svcURL)
 	}
 
 	linkURL := builder.linkGrafanaURL("order-service", "postgres-main", "pg-host", "5432")
-	want := "https://grafana.example.com/d/link-dash?var-job=order-service&var-dependency=postgres-main&var-host=pg-host&var-port=5432"
+	want := "https://grafana.example.com/d/link-dash?var-name=order-service&var-dependency=postgres-main&var-host=pg-host&var-port=5432"
 	if linkURL != want {
 		t.Errorf("linkGrafanaURL = %q, want %q", linkURL, want)
 	}
@@ -396,16 +410,16 @@ func (m *mockAlertManagerClient) FetchAlerts(_ context.Context) ([]alerts.Alert,
 func TestBuildWithAlerts(t *testing.T) {
 	promMock := &mockPrometheusClient{
 		edges: []TopologyEdge{
-			{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
-			{Job: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
 		},
 		health: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "pg", Port: "5432"}:    1,
-			{Job: "svc-go", Host: "redis", Port: "6379"}: 1,
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
 		},
 		avg: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "pg", Port: "5432"}:    0.005,
-			{Job: "svc-go", Host: "redis", Port: "6379"}: 0.001,
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    0.005,
+			{Name: "svc-go", Host: "redis", Port: "6379"}: 0.001,
 		},
 	}
 
@@ -463,10 +477,10 @@ func TestBuildWithAlerts(t *testing.T) {
 func TestBuildWithNilAlertManager(t *testing.T) {
 	promMock := &mockPrometheusClient{
 		edges: []TopologyEdge{
-			{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -484,8 +498,8 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 
 func TestBuildPartialData(t *testing.T) {
 	baseEdges := []TopologyEdge{
-		{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
-		{Job: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+		{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+		{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
 	}
 
 	tests := []struct {
@@ -533,12 +547,12 @@ func TestBuildPartialData(t *testing.T) {
 			mock := &mockPrometheusClient{
 				edges: baseEdges,
 				health: map[EdgeKey]float64{
-					{Job: "svc-go", Host: "pg", Port: "5432"}:    1,
-					{Job: "svc-go", Host: "redis", Port: "6379"}: 1,
+					{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+					{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
 				},
 				avg: map[EdgeKey]float64{
-					{Job: "svc-go", Host: "pg", Port: "5432"}:    0.005,
-					{Job: "svc-go", Host: "redis", Port: "6379"}: 0.001,
+					{Name: "svc-go", Host: "pg", Port: "5432"}:    0.005,
+					{Name: "svc-go", Host: "redis", Port: "6379"}: 0.001,
 				},
 				healthErr: tt.healthErr,
 				avgErr:    tt.avgErr,
@@ -581,10 +595,10 @@ func TestBuildPartialData(t *testing.T) {
 func TestBuildPartialWithAlertFailure(t *testing.T) {
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
-			{Job: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Job: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}

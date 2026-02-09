@@ -71,7 +71,7 @@ const cytoscapeStyles = [
   {
     selector: 'edge',
     style: {
-      width: 2,
+      width: (ele) => (ele.data('critical') ? 3 : 1.5),
       'curve-style': 'bezier',
       'target-arrow-shape': 'triangle',
       'target-arrow-color': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color,
@@ -170,6 +170,7 @@ export function renderGraph(cy, data) {
         if (ele.length) {
           ele.data('latency', edge.latency);
           ele.data('state', edge.state);
+          ele.data('critical', edge.critical);
         }
       }
     });
@@ -204,6 +205,7 @@ export function renderGraph(cy, data) {
           target: edge.target,
           latency: edge.latency,
           state: edge.state,
+          critical: edge.critical,
           grafanaUrl: edge.grafanaUrl || undefined,
         },
       });

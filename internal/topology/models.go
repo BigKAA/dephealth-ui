@@ -24,6 +24,7 @@ type Edge struct {
 	LatencyRaw float64 `json:"latencyRaw"`
 	Health     float64 `json:"health"`          // 0 or 1
 	State      string  `json:"state"`           // "ok", "degraded", "down"
+	Critical   bool    `json:"critical"`
 	GrafanaURL string  `json:"grafanaUrl,omitempty"`
 }
 
@@ -58,19 +59,20 @@ type TopologyResponse struct {
 
 // EdgeKey uniquely identifies an edge in the topology.
 type EdgeKey struct {
-	Job  string
+	Name string
 	Host string
 	Port string
 }
 
 // TopologyEdge represents a raw edge discovered from Prometheus metrics.
 type TopologyEdge struct {
-	Job        string
+	Name       string
 	Namespace  string
 	Dependency string
 	Type       string
 	Host       string
 	Port       string
+	Critical   bool
 }
 
 // QueryOptions holds optional parameters for topology queries.

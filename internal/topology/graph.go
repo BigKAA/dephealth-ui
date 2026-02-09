@@ -18,9 +18,9 @@ type GrafanaConfig struct {
 	LinkStatusDashUID    string
 }
 
-// depAlertKey maps alert labels (job + dependency name) to find the corresponding edge.
+// depAlertKey maps alert labels (name + dependency name) to find the corresponding edge.
 type depAlertKey struct {
-	Job        string
+	Name       string
 	Dependency string
 }
 
@@ -105,7 +105,7 @@ func (b *GraphBuilder) buildGraph(
 	health map[EdgeKey]float64,
 	avgLatency map[EdgeKey]float64,
 ) ([]Node, []Edge, map[depAlertKey]EdgeKey) {
-	// Collect unique nodes (services = jobs, dependencies = host:port).
+	// Collect unique nodes (services = names, dependencies = host:port).
 	type nodeInfo struct {
 		typ       string
 		namespace string
@@ -119,31 +119,31 @@ func (b *GraphBuilder) buildGraph(
 	nodeOutgoingHealth := make(map[string][]float64)
 	nodeIncomingHealth := make(map[string][]float64)
 
-	// Build unique edges keyed by {Job, Host, Port}.
+	// Build unique edges keyed by {Name, Host, Port}.
 	edgeMap := make(map[EdgeKey]TopologyEdge)
 
-	// Reverse lookup: (job, dependency_name) → EdgeKey for alert matching.
+	// Reverse lookup: (name, dependency_name) → EdgeKey for alert matching.
 	depLookup := make(map[depAlertKey]EdgeKey)
 
 	for _, e := range rawEdges {
-		key := EdgeKey{Job: e.Job, Host: e.Host, Port: e.Port}
+		key := EdgeKey{Name: e.Name, Host: e.Host, Port: e.Port}
 		edgeMap[key] = e
 
 		// Build reverse lookup for alerts.
-		depLookup[depAlertKey{Job: e.Job, Dependency: e.Dependency}] = key
+		depLookup[depAlertKey{Name: e.Name, Dependency: e.Dependency}] = key
 
 		// Dependency node ID is host:port.
 		depNodeID := e.Host + ":" + e.Port
 
 		// Register source node (service).
-		if _, ok := nodeMap[e.Job]; !ok {
-			nodeMap[e.Job] = &nodeInfo{
+		if _, ok := nodeMap[e.Name]; !ok {
+			nodeMap[e.Name] = &nodeInfo{
 				typ:       "service",
 				namespace: e.Namespace,
 				deps:      make(map[string]bool),
 			}
 		}
-		nodeMap[e.Job].deps[depNodeID] = true
+		nodeMap[e.Name].deps[depNodeID] = true
 
 		// Register target node (dependency) — dedup by host:port.
 		if _, ok := nodeMap[depNodeID]; !ok {
@@ -177,18 +177,19 @@ func (b *GraphBuilder) buildGraph(
 		depNodeID := raw.Host + ":" + raw.Port
 
 		edge := Edge{
-			Source:     raw.Job,
+			Source:     raw.Name,
 			Target:     depNodeID,
 			Type:       raw.Type,
 			Latency:    formatLatency(lat),
 			LatencyRaw: lat,
 			Health:     h,
 			State:      state,
-			GrafanaURL: b.linkGrafanaURL(raw.Job, raw.Dependency, raw.Host, raw.Port),
+			Critical:   raw.Critical,
+			GrafanaURL: b.linkGrafanaURL(raw.Name, raw.Dependency, raw.Host, raw.Port),
 		}
 		edges = append(edges, edge)
 
-		nodeOutgoingHealth[raw.Job] = append(nodeOutgoingHealth[raw.Job], h)
+		nodeOutgoingHealth[raw.Name] = append(nodeOutgoingHealth[raw.Name], h)
 		nodeIncomingHealth[depNodeID] = append(nodeIncomingHealth[depNodeID], h)
 	}
 
@@ -270,21 +271,21 @@ func formatLatency(seconds float64) string {
 	return fmt.Sprintf("%.2fs", seconds)
 }
 
-func (b *GraphBuilder) serviceGrafanaURL(job string) string {
+func (b *GraphBuilder) serviceGrafanaURL(name string) string {
 	if b.grafana.BaseURL == "" || b.grafana.ServiceStatusDashUID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/d/%s?var-job=%s",
-		b.grafana.BaseURL, b.grafana.ServiceStatusDashUID, url.QueryEscape(job))
+	return fmt.Sprintf("%s/d/%s?var-name=%s",
+		b.grafana.BaseURL, b.grafana.ServiceStatusDashUID, url.QueryEscape(name))
 }
 
-func (b *GraphBuilder) linkGrafanaURL(job, dependency, host, port string) string {
+func (b *GraphBuilder) linkGrafanaURL(name, dependency, host, port string) string {
 	if b.grafana.BaseURL == "" || b.grafana.LinkStatusDashUID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/d/%s?var-job=%s&var-dependency=%s&var-host=%s&var-port=%s",
+	return fmt.Sprintf("%s/d/%s?var-name=%s&var-dependency=%s&var-host=%s&var-port=%s",
 		b.grafana.BaseURL, b.grafana.LinkStatusDashUID,
-		url.QueryEscape(job), url.QueryEscape(dependency),
+		url.QueryEscape(name), url.QueryEscape(dependency),
 		url.QueryEscape(host), url.QueryEscape(port))
 }
 
@@ -319,8 +320,8 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 			Summary:    a.Summary,
 		})
 
-		// Translate alert labels (job, dependency_name) to edge via reverse lookup.
-		alertKey := depAlertKey{Job: a.Service, Dependency: a.Dependency}
+		// Translate alert labels (name, dependency_name) to edge via reverse lookup.
+		alertKey := depAlertKey{Name: a.Service, Dependency: a.Dependency}
 		ek, ok := depLookup[alertKey]
 		if !ok {
 			continue

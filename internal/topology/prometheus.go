@@ -54,7 +54,7 @@ func NewPrometheusClient(cfg PrometheusConfig) PrometheusClient {
 // PromQL query templates for topology construction.
 // When namespace is provided, a label filter is injected.
 const (
-	queryTopologyEdges = `group by (job, namespace, dependency, type, host, port) (app_dependency_health%s)`
+	queryTopologyEdges = `group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health%s)`
 	queryHealthState   = `app_dependency_health%s`
 	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
 	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
@@ -81,7 +81,7 @@ type promData struct {
 }
 
 type promResult struct {
-	Metric map[string]string `json:"metric"`
+	Metric map[string]string  `json:"metric"`
 	Value  [2]json.RawMessage `json:"value"`
 }
 
@@ -139,12 +139,13 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOpt
 	edges := make([]TopologyEdge, 0, len(results))
 	for _, r := range results {
 		edges = append(edges, TopologyEdge{
-			Job:        r.Metric["job"],
+			Name:       r.Metric["name"],
 			Namespace:  r.Metric["namespace"],
 			Dependency: r.Metric["dependency"],
 			Type:       r.Metric["type"],
 			Host:       r.Metric["host"],
 			Port:       r.Metric["port"],
+			Critical:   r.Metric["critical"] == "yes",
 		})
 	}
 	return edges, nil
@@ -181,7 +182,7 @@ func parseEdgeValues(results []promResult) (map[EdgeKey]float64, error) {
 	m := make(map[EdgeKey]float64, len(results))
 	for _, r := range results {
 		key := EdgeKey{
-			Job:  r.Metric["job"],
+			Name: r.Metric["name"],
 			Host: r.Metric["host"],
 			Port: r.Metric["port"],
 		}
