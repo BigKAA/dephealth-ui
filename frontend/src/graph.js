@@ -119,14 +119,14 @@ function computeSignature(data) {
 }
 
 /**
- * Render alert badges on the canvas overlay.
- * Called on each Cytoscape render event.
- * @param {CanvasRenderingContext2D} ctx
+ * Update alert badge HTML overlays.
+ * Renders badges as positioned div elements over the graph.
  * @param {cytoscape.Core} cy
+ * @param {HTMLElement} container - parent container for badges
  */
-function renderAlertBadges(ctx, cy) {
-  const zoom = cy.zoom();
-  const pan = cy.pan();
+function updateAlertBadges(cy, container) {
+  // Clear existing badges
+  container.innerHTML = '';
 
   // Render node badges
   cy.nodes('[alertCount > 0]').forEach((node) => {
@@ -142,20 +142,30 @@ function renderAlertBadges(ctx, cy) {
     // Badge position: top-right corner of node
     const badgeX = pos.x + width / 2 - 10;
     const badgeY = pos.y - height / 2 + 10;
-    const badgeRadius = 10;
 
-    // Draw badge circle
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(badgeX, badgeY, badgeRadius, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // Draw alert count text
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(10, 10 * zoom)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(alertCount.toString(), badgeX, badgeY);
+    // Create badge element
+    const badge = document.createElement('div');
+    badge.className = 'alert-badge';
+    badge.style.cssText = `
+      position: absolute;
+      left: ${badgeX}px;
+      top: ${badgeY}px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: ${color};
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    `;
+    badge.textContent = alertCount;
+    container.appendChild(badge);
   });
 
   // Render edge alert markers
@@ -170,16 +180,24 @@ function renderAlertBadges(ctx, cy) {
     // Marker position: 20% along the edge from source
     const markerX = sourcePos.x + (targetPos.x - sourcePos.x) * 0.2;
     const markerY = sourcePos.y + (targetPos.y - sourcePos.y) * 0.2;
-    const markerRadius = 6;
 
-    // Draw marker circle
-    ctx.fillStyle = color;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(markerX, markerY, markerRadius, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke();
+    // Create marker element
+    const marker = document.createElement('div');
+    marker.className = 'alert-marker';
+    marker.style.cssText = `
+      position: absolute;
+      left: ${markerX}px;
+      top: ${markerY}px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: ${color};
+      border: 2px solid white;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    `;
+    container.appendChild(marker);
   });
 }
 
@@ -211,14 +229,26 @@ export function initGraph(container, config) {
     wheelSensitivity: 0.3,
   });
 
-  // Render alert badges on canvas overlay
-  cy.on('render', (evt) => {
-    const canvas = evt.cy.container().querySelector('canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    renderAlertBadges(ctx, evt.cy);
-  });
+  // Create HTML overlay container for alert badges
+  let badgeContainer = container.querySelector('.alert-badge-container');
+  if (!badgeContainer) {
+    badgeContainer = document.createElement('div');
+    badgeContainer.className = 'alert-badge-container';
+    badgeContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    `;
+    container.appendChild(badgeContainer);
+  }
+
+  // Update badges on render, pan, zoom
+  const updateBadges = () => updateAlertBadges(cy, badgeContainer);
+  cy.on('render pan zoom', updateBadges);
 
   return cy;
 }

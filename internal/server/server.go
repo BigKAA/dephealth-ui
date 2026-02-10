@@ -105,12 +105,14 @@ func (s *Server) setupRoutes() {
 		s.router.Mount("/auth", authRoutes)
 	}
 
-	// API v1
+	// Public API endpoints (no auth required)
+	s.router.Get("/api/v1/config", s.handleConfig)
+
+	// API v1 (requires auth)
 	s.router.Route("/api/v1", func(r chi.Router) {
 		r.Use(s.auth.Middleware())
 		r.Get("/topology", s.handleTopology)
 		r.Get("/alerts", s.handleAlerts)
-		r.Get("/config", s.handleConfig)
 	})
 
 	// SPA static files (embedded via embed.FS)
