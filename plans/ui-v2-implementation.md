@@ -8,8 +8,8 @@ Status: **Not Started**
 ## Table of Contents
 
 - [x] [Phase 11: Backend — Alerts severity config + models](#phase-11-backend--alerts-severity-config--models)
-- [ ] [Phase 12: Frontend — Bootstrap Icons + Floating Toolbar](#phase-12-frontend--bootstrap-icons--floating-toolbar)
-- [ ] [Phase 13: Frontend — Alert Badges + Tooltip](#phase-13-frontend--alert-badges--tooltip)
+- [x] [Phase 12: Frontend — Bootstrap Icons + Floating Toolbar](#phase-12-frontend--bootstrap-icons--floating-toolbar)
+- [x] [Phase 13: Frontend — Alert Badges + Tooltip](#phase-13-frontend--alert-badges--tooltip)
 - [ ] [Phase 14: Frontend — Legend + Node Detail Sidebar](#phase-14-frontend--legend--node-detail-sidebar)
 - [ ] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
 - [ ] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
@@ -398,13 +398,13 @@ Export `initTooltip(cy)`:
 Wire in `main.js` after `initGraph()`.
 
 **Checklist:**
-- [ ] 13.1 Fetch severity config + build color map
-- [ ] 13.2 Pass alertSeverity to Cytoscape data
-- [ ] 13.3 Dynamic CSS badge styles (nodes)
-- [ ] 13.4 Edge alert markers
-- [ ] 13.5 Tooltip HTML
-- [ ] 13.6 Tooltip CSS
-- [ ] 13.7 Tooltip JS logic (tooltip.js)
+- [x] 13.1 Fetch severity config + build color map
+- [x] 13.2 Pass alertSeverity to Cytoscape data
+- [x] 13.3 Dynamic CSS badge styles (nodes)
+- [x] 13.4 Edge alert markers
+- [x] 13.5 Tooltip HTML
+- [x] 13.6 Tooltip CSS
+- [x] 13.7 Tooltip JS logic (tooltip.js)
 
 ---
 
