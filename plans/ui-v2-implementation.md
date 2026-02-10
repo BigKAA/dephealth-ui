@@ -1,7 +1,7 @@
 # Plan: UI v2 — Interface Improvements
 
 Source: `.tasks/interface.md`
-Status: **Not Started**
+Status: **Complete**
 
 ---
 
@@ -14,7 +14,7 @@ Status: **Not Started**
 - [x] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
 - [x] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
 - [x] [Phase 17: Backend+Frontend — Instances API + Sidebar Integration](#phase-17-backendfrontend--instances-api--sidebar-integration)
-- [ ] [Phase 18: Build + Deploy + Verify](#phase-18-build--deploy--verify)
+- [x] [Phase 18: Build + Deploy + Verify](#phase-18-build--deploy--verify)
 
 ---
 
@@ -865,12 +865,12 @@ Open `https://dephealth.kryukov.lan` and verify:
 - [ ] Responsive layout on narrow screens
 
 **Checklist:**
-- [ ] 18.1 Frontend build
-- [ ] 18.2 Go build + tests
-- [ ] 18.3 Docker build
-- [ ] 18.4 Helm chart updates
-- [ ] 18.5 Deploy to K8s
-- [ ] 18.6 Browser verification
+- [x] 18.1 Frontend build
+- [x] 18.2 Go build + tests
+- [x] 18.3 Docker build
+- [x] 18.4 Helm chart updates
+- [x] 18.5 Deploy to K8s
+- [x] 18.6 Browser verification
 
 ---
 
