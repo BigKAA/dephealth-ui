@@ -12,7 +12,7 @@ Status: **Not Started**
 - [x] [Phase 13: Frontend — Alert Badges + Tooltip](#phase-13-frontend--alert-badges--tooltip)
 - [x] [Phase 14: Frontend — Legend + Node Detail Sidebar](#phase-14-frontend--legend--node-detail-sidebar)
 - [x] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
-- [ ] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
+- [x] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
 - [ ] [Phase 17: Backend+Frontend — Pods API + Pod Display](#phase-17-backendfrontend--pods-api--pod-display)
 - [ ] [Phase 18: Build + Deploy + Verify](#phase-18-build--deploy--verify)
 
@@ -709,14 +709,14 @@ Wire in `main.js` — pass action callbacks.
 `Ctrl+K` / `Meta+K` → `openSearch()` (handled separately for modifier keys).
 
 **Checklist:**
-- [ ] 16.1 Alert Drawer button + badge
-- [ ] 16.2 Alert Drawer HTML
-- [ ] 16.3 Alert Drawer CSS
-- [ ] 16.4 Alert Drawer JS logic (alerts.js)
-- [ ] 16.5 Stats summary
-- [ ] 16.6 Fullscreen button
-- [ ] 16.7 Fullscreen JS logic
-- [ ] 16.8 Keyboard shortcuts (shortcuts.js)
+- [x] 16.1 Alert Drawer button + badge
+- [x] 16.2 Alert Drawer HTML
+- [x] 16.3 Alert Drawer CSS
+- [x] 16.4 Alert Drawer JS logic (alerts.js)
+- [x] 16.5 Stats summary
+- [x] 16.6 Fullscreen button
+- [x] 16.7 Fullscreen JS logic
+- [x] 16.8 Keyboard shortcuts (shortcuts.js)
 
 ---
 

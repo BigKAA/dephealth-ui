@@ -12,6 +12,8 @@ import { initToolbar } from './toolbar.js';
 import { initTooltip } from './tooltip.js';
 import { initSidebar, updateSidebarData } from './sidebar.js';
 import { initSearch } from './search.js';
+import { initAlertDrawer, updateAlertDrawer } from './alerts.js';
+import { initShortcuts } from './shortcuts.js';
 
 let cy = null;
 let pollTimer = null;
@@ -77,6 +79,45 @@ function updateStatus(data) {
   }
 
   $('#status-info').textContent = text;
+
+  // Update health stats
+  updateHealthStats(data);
+
+  // Update alert drawer
+  if (appConfig && appConfig.alerts && appConfig.alerts.severityLevels) {
+    updateAlertDrawer(data.alerts || [], appConfig.alerts.severityLevels);
+  }
+}
+
+function updateHealthStats(data) {
+  const statsContainer = $('#status-stats');
+  if (!statsContainer) return;
+
+  // Count nodes by state
+  const counts = { ok: 0, degraded: 0, down: 0, unknown: 0 };
+  if (data.nodes) {
+    data.nodes.forEach((n) => {
+      const state = n.state || 'unknown';
+      counts[state] = (counts[state] || 0) + 1;
+    });
+  }
+
+  // Build stats HTML
+  const parts = [];
+  if (counts.ok > 0) {
+    parts.push(`<span class="stat-ok">${counts.ok} OK</span>`);
+  }
+  if (counts.degraded > 0) {
+    parts.push(`<span class="stat-degraded">${counts.degraded} Degraded</span>`);
+  }
+  if (counts.down > 0) {
+    parts.push(`<span class="stat-down">${counts.down} Down</span>`);
+  }
+  if (counts.unknown > 0) {
+    parts.push(`<span class="stat-unknown">${counts.unknown} Unknown</span>`);
+  }
+
+  statsContainer.innerHTML = parts.length > 0 ? ' | ' + parts.join(' | ') : '';
 }
 
 function setConnectionError() {
@@ -330,6 +371,25 @@ function setupGraphToolbar() {
     a.click();
     showToast('Graph exported as PNG', 'success');
   });
+
+  // Fullscreen button
+  $('#btn-fullscreen').addEventListener('click', () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  });
+
+  // Update fullscreen icon
+  document.addEventListener('fullscreenchange', () => {
+    const isFullscreen = !!document.fullscreenElement;
+    document.body.classList.toggle('fullscreen', isFullscreen);
+    const icon = $('#btn-fullscreen i');
+    if (icon) {
+      icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-fullscreen';
+    }
+  });
 }
 
 function setupLegend() {
@@ -398,6 +458,36 @@ async function init() {
     initToolbar();
     initTooltip(cy);
     initSearch(cy);
+    initAlertDrawer(cy);
+    initShortcuts({
+      refresh: () => refresh(),
+      fit: () => cy && cy.fit(50),
+      zoomIn: () => cy && cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }),
+      zoomOut: () => cy && cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }),
+      openSearch: () => {
+        const searchPanel = $('#search-panel');
+        if (searchPanel && searchPanel.classList.contains('hidden')) {
+          $('#btn-search').click();
+        }
+      },
+      toggleLayout: () => $('#btn-layout-toggle').click(),
+      exportPNG: () => $('#btn-export').click(),
+      closeAll: () => {
+        // Close all panels
+        const searchPanel = $('#search-panel');
+        const sidebar = $('#node-sidebar');
+        const drawer = $('#alert-drawer');
+        if (searchPanel && !searchPanel.classList.contains('hidden')) {
+          $('#btn-search-close').click();
+        }
+        if (sidebar && !sidebar.classList.contains('hidden')) {
+          sidebar.classList.add('hidden');
+        }
+        if (drawer && !drawer.classList.contains('hidden')) {
+          drawer.classList.add('hidden');
+        }
+      },
+    });
 
     // Update layout toggle icon based on saved direction
     const btnLayoutToggle = $('#btn-layout-toggle');
