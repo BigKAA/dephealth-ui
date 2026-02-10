@@ -9,12 +9,14 @@ import {
   hasActiveFilters, updateNamespaceOptions, setNamespaceValue,
 } from './filter.js';
 import { initToolbar } from './toolbar.js';
+import { initTooltip } from './tooltip.js';
 
 let cy = null;
 let pollTimer = null;
 let autoRefresh = true;
 let pollInterval = 15000;
 let selectedNamespace = '';
+let appConfig = null; // Store full config including alerts severity levels
 
 // Connection state
 let isDisconnected = false;
@@ -138,7 +140,7 @@ function checkEmptyState(data) {
 async function refresh() {
   try {
     const data = await fetchTopology(selectedNamespace || undefined);
-    renderGraph(cy, data);
+    renderGraph(cy, data, appConfig);
     updateStatus(data);
     checkEmptyState(data);
     updateNamespaceOptions(data);
@@ -331,6 +333,8 @@ async function init() {
 
   try {
     const config = await withRetry(fetchConfig);
+    appConfig = config; // Store globally for graph rendering
+
     if (config.cache && config.cache.ttl > 0) {
       pollInterval = config.cache.ttl * 1000;
     }
@@ -339,11 +343,12 @@ async function init() {
       await initUserInfo();
     }
 
-    cy = initGraph($('#cy'));
+    cy = initGraph($('#cy'), appConfig);
     setupToolbar();
     setupFilters();
     setupGraphToolbar();
     initToolbar();
+    initTooltip(cy);
     setupGrafanaClickThrough();
 
     // Read namespace from URL.
@@ -351,7 +356,7 @@ async function init() {
     selectedNamespace = params.get('namespace') || '';
 
     const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
-    renderGraph(cy, data);
+    renderGraph(cy, data, appConfig);
     updateStatus(data);
     checkEmptyState(data);
     initFilters(data);

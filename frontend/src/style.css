@@ -595,6 +595,47 @@ body {
   color: #fff;
 }
 
+/* Graph tooltip */
+.graph-tooltip {
+  position: absolute;
+  z-index: 60;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px var(--shadow);
+  pointer-events: none;
+  max-width: 280px;
+  line-height: 1.4;
+}
+
+.graph-tooltip.hidden {
+  display: none;
+}
+
+.graph-tooltip .tooltip-title {
+  font-weight: 600;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.graph-tooltip .tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-secondary);
+  margin: 2px 0;
+}
+
+.graph-tooltip .tooltip-label {
+  color: var(--text-muted);
+}
+
+.graph-tooltip .tooltip-value {
+  font-weight: 500;
+}
+
 /* Responsive: tablet */
 @media (max-width: 900px) {
   #filter-panel {

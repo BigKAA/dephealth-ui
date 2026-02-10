@@ -1,0 +1,164 @@
+/**
+ * Initialize tooltip functionality for the graph.
+ * Shows tooltips on hover for nodes and edges.
+ * @param {cytoscape.Core} cy - Cytoscape instance
+ */
+export function initTooltip(cy) {
+  const tooltip = document.getElementById('graph-tooltip');
+  if (!tooltip) {
+    console.warn('Tooltip element not found');
+    return;
+  }
+
+  let hideTimeout = null;
+
+  /**
+   * Show tooltip with content at specified position.
+   * @param {string} html - HTML content for tooltip
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   */
+  function showTooltip(html, x, y) {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      hideTimeout = null;
+    }
+
+    tooltip.innerHTML = html;
+    tooltip.classList.remove('hidden');
+
+    // Position tooltip near cursor, adjust for viewport bounds
+    const rect = tooltip.getBoundingClientRect();
+    const containerRect = cy.container().getBoundingClientRect();
+
+    let left = x + 12;
+    let top = y + 12;
+
+    // Adjust if tooltip would overflow right edge
+    if (left + rect.width > containerRect.right) {
+      left = x - rect.width - 12;
+    }
+
+    // Adjust if tooltip would overflow bottom edge
+    if (top + rect.height > containerRect.bottom) {
+      top = y - rect.height - 12;
+    }
+
+    tooltip.style.left = `${left - containerRect.left}px`;
+    tooltip.style.top = `${top - containerRect.top}px`;
+  }
+
+  /**
+   * Hide tooltip with a small delay.
+   */
+  function hideTooltip() {
+    hideTimeout = setTimeout(() => {
+      tooltip.classList.add('hidden');
+    }, 100);
+  }
+
+  /**
+   * Format state value with capitalized first letter.
+   * @param {string} state
+   * @returns {string}
+   */
+  function formatState(state) {
+    if (!state) return 'unknown';
+    return state.charAt(0).toUpperCase() + state.slice(1);
+  }
+
+  // Node hover
+  cy.on('mouseover', 'node', (evt) => {
+    const node = evt.target;
+    const data = node.data();
+    const renderedPos = evt.renderedPosition || evt.cyRenderedPosition;
+
+    let html = `<div class="tooltip-title">${data.label || data.id}</div>`;
+
+    // State
+    html += `<div class="tooltip-row">
+      <span class="tooltip-label">State:</span>
+      <span class="tooltip-value">${formatState(data.state)}</span>
+    </div>`;
+
+    // Type
+    if (data.type) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">Type:</span>
+        <span class="tooltip-value">${data.type}</span>
+      </div>`;
+    }
+
+    // Namespace (if available in node data)
+    if (data.namespace) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">Namespace:</span>
+        <span class="tooltip-value">${data.namespace}</span>
+      </div>`;
+    }
+
+    // Alert count
+    if (data.alertCount && data.alertCount > 0) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">Alerts:</span>
+        <span class="tooltip-value">${data.alertCount}</span>
+      </div>`;
+    }
+
+    showTooltip(html, renderedPos.x, renderedPos.y);
+  });
+
+  // Edge hover
+  cy.on('mouseover', 'edge', (evt) => {
+    const edge = evt.target;
+    const data = edge.data();
+    const renderedPos = evt.renderedPosition || evt.cyRenderedPosition;
+
+    const sourceLabel = edge.source().data('label') || edge.source().id();
+    const targetLabel = edge.target().data('label') || edge.target().id();
+
+    let html = `<div class="tooltip-title">${sourceLabel} → ${targetLabel}</div>`;
+
+    // Latency
+    if (data.latency) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">Latency:</span>
+        <span class="tooltip-value">${data.latency}</span>
+      </div>`;
+    }
+
+    // State
+    html += `<div class="tooltip-row">
+      <span class="tooltip-label">State:</span>
+      <span class="tooltip-value">${formatState(data.state)}</span>
+    </div>`;
+
+    // Critical flag
+    if (data.critical) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">Critical:</span>
+        <span class="tooltip-value">Yes</span>
+      </div>`;
+    }
+
+    // Alert count
+    if (data.alertCount && data.alertCount > 0) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">Alerts:</span>
+        <span class="tooltip-value">${data.alertCount}</span>
+      </div>`;
+    }
+
+    showTooltip(html, renderedPos.x, renderedPos.y);
+  });
+
+  // Hide tooltip on mouseout
+  cy.on('mouseout', 'node,edge', () => {
+    hideTooltip();
+  });
+
+  // Also hide tooltip when panning/zooming
+  cy.on('pan zoom', () => {
+    tooltip.classList.add('hidden');
+  });
+}
