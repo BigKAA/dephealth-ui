@@ -29,7 +29,13 @@ const cytoscapeStyles = [
     selector: 'node[type="service"]',
     style: {
       shape: 'round-rectangle',
-      width: 140,
+      width: (ele) => {
+        const label = ele.data('label') || '';
+        const fontSize = 12;
+        const charWidth = fontSize * 0.6; // approximate width per character
+        const padding = 40; // horizontal padding
+        return Math.max(100, label.length * charWidth + padding);
+      },
       height: 40,
       label: 'data(label)',
       'text-valign': 'center',
@@ -50,7 +56,13 @@ const cytoscapeStyles = [
     selector: 'node[type!="service"]',
     style: {
       shape: 'ellipse',
-      width: 120,
+      width: (ele) => {
+        const label = ele.data('label') || '';
+        const fontSize = 11;
+        const charWidth = fontSize * 0.6; // approximate width per character
+        const padding = 50; // extra padding for ellipse shape
+        return Math.max(100, label.length * charWidth + padding);
+      },
       height: 40,
       label: 'data(label)',
       'text-valign': 'center',
