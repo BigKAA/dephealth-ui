@@ -34,11 +34,30 @@ route:
   enabled: false
   hostname: dephealth.example.com
 
-# TLS via cert-manager
+# TLS via cert-manager (for HTTPRoute)
 tls:
   enabled: false
   issuerName: ""
   issuerKind: ClusterIssuer
+
+# Ingress (alternative to HTTPRoute)
+ingress:
+  enabled: false
+  className: ""  # e.g. "nginx", "traefik", or "" for default
+  hostname: dephealth.example.com
+  annotations: {}
+    # Example annotations:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  tls:
+    enabled: false
+    # Option 1: Use existing secret (set secretName)
+    secretName: ""
+    # Option 2: Generate via cert-manager (set certManager.enabled: true)
+    certManager:
+      enabled: false
+      issuerName: ""
+      issuerKind: ClusterIssuer
 
 # Custom CA certificate for OIDC issuer TLS verification
 # The CA is mounted and set via SSL_CERT_FILE env var

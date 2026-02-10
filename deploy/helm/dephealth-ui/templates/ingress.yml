@@ -1,0 +1,51 @@
+{{- if .Values.ingress.enabled }}
+{{- if .Values.ingress.tls.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dephealth-ui-ingress-tls
+  namespace: {{ include "dephealth-ui.namespace" . }}
+  labels:
+    {{- include "dephealth-ui.labels" . | nindent 4 }}
+spec:
+  secretName: dephealth-ui-ingress-tls
+  issuerRef:
+    name: {{ .Values.ingress.tls.certManager.issuerName }}
+    kind: {{ .Values.ingress.tls.certManager.issuerKind }}
+  dnsNames:
+    - {{ .Values.ingress.hostname | quote }}
+---
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dephealth-ui
+  namespace: {{ include "dephealth-ui.namespace" . }}
+  labels:
+    {{- include "dephealth-ui.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostname | quote }}
+      secretName: {{ if .Values.ingress.tls.certManager.enabled }}dephealth-ui-ingress-tls{{ else }}{{ .Values.ingress.tls.secretName }}{{ end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.hostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dephealth-ui
+                port:
+                  number: 8080
+{{- end }}

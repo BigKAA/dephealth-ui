@@ -1,0 +1,71 @@
+# Example 1: Ingress with existing TLS secret
+# Use this when you already have a TLS certificate stored in a Kubernetes Secret
+
+global:
+  pushRegistry: "harbor.kryukov.lan/library"
+  namespace: dephealth-ui
+
+image:
+  name: dephealth-ui
+  tag: v0.10.13
+
+# Disable Gateway API
+route:
+  enabled: false
+
+# Enable Ingress with existing TLS secret
+ingress:
+  enabled: true
+  className: "nginx"  # Use your Ingress controller
+  hostname: dephealth.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+  tls:
+    enabled: true
+    secretName: "my-existing-tls-secret"  # Pre-created Secret with tls.crt and tls.key
+    certManager:
+      enabled: false
+
+config:
+  datasources:
+    prometheus:
+      url: "http://victoriametrics:8428"
+
+---
+# Example 2: Ingress with cert-manager automatic certificate generation
+# Use this when you want cert-manager to automatically provision certificates
+
+global:
+  pushRegistry: "harbor.kryukov.lan/library"
+  namespace: dephealth-ui
+
+image:
+  name: dephealth-ui
+  tag: v0.10.13
+
+# Disable Gateway API
+route:
+  enabled: false
+
+# Enable Ingress with cert-manager
+ingress:
+  enabled: true
+  className: "nginx"
+  hostname: dephealth.example.com
+  annotations:
+    # Optional: Add cert-manager annotation for compatibility
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  tls:
+    enabled: true
+    secretName: ""  # Leave empty when using certManager
+    certManager:
+      enabled: true
+      issuerName: "letsencrypt-prod"  # Your ClusterIssuer or Issuer name
+      issuerKind: ClusterIssuer
+
+config:
+  datasources:
+    prometheus:
+      url: "http://victoriametrics:8428"
