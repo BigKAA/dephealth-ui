@@ -179,6 +179,24 @@ export function applyFilters(cy) {
   }
 
   cy.batch(() => {
+    // If SERVICE filter is active, collect all downstream nodes
+    let downstreamNodes = new Set();
+    if (hasJobFilter) {
+      activeFilters.job.forEach((serviceId) => {
+        const node = cy.getElementById(serviceId);
+        if (node && node.length > 0) {
+          downstreamNodes.add(node);
+          // Get all descendants using Cytoscape traversal
+          const descendants = node.successors();
+          descendants.forEach((element) => {
+            if (element.isNode()) {
+              downstreamNodes.add(element);
+            }
+          });
+        }
+      });
+    }
+
     // First pass: determine node visibility.
     cy.nodes().forEach((node) => {
       const type = node.data('type');
@@ -186,14 +204,22 @@ export function applyFilters(cy) {
       const id = node.data('id');
       let visible = true;
 
-      if (type === 'service') {
-        if (hasJobFilter && !activeFilters.job.has(id)) {
+      // If SERVICE filter is active and node is in downstream set, always show it
+      if (hasJobFilter && downstreamNodes.has(node)) {
+        // Check state filter only
+        if (hasStateFilter && !activeFilters.state.has(state)) {
+          visible = false;
+        }
+      } else if (type === 'service') {
+        // Service node not in downstream - hide it
+        if (hasJobFilter) {
           visible = false;
         }
         if (hasStateFilter && !activeFilters.state.has(state)) {
           visible = false;
         }
       } else {
+        // Dependency node
         if (hasTypeFilter && !activeFilters.type.has(type)) {
           visible = false;
         }

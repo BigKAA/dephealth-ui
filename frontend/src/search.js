@@ -8,6 +8,7 @@ let cy = null;
 let searchActive = false;
 let matchedNodes = [];
 let currentMatchIndex = -1;
+let visibleElements = null; // Set of visible nodes and edges during search
 
 /**
  * Initialize search panel and interactions.
@@ -83,26 +84,54 @@ function performSearch(query) {
     return label.includes(lowerQuery) || id.includes(lowerQuery);
   });
 
-  // Update opacity
+  // Collect all downstream nodes and edges using Cytoscape graph traversal
+  const visibleNodes = new Set();
+  const visibleEdges = new Set();
+  
+  // For each matched node, get all descendants (downstream)
+  matchedNodes.forEach((node) => {
+    // Add the matched node itself
+    visibleNodes.add(node);
+    
+    // Get all descendants using Cytoscape's breadth-first search
+    // This traverses all outgoing edges recursively
+    const descendants = node.successors();
+    
+    descendants.forEach((element) => {
+      if (element.isNode()) {
+        visibleNodes.add(element);
+      } else if (element.isEdge()) {
+        visibleEdges.add(element);
+      }
+    });
+  });
+
+  // Store visible elements globally for badge filtering
+  visibleElements = new Set([...visibleNodes, ...visibleEdges]);
+  
+  // Update opacity for nodes
   cy.nodes().forEach((node) => {
-    if (matchedNodes.includes(node)) {
+    if (visibleNodes.has(node)) {
       node.style('opacity', 1);
     } else {
       node.style('opacity', 0.15);
     }
   });
 
-  // Fade edges based on node visibility
+  // Update opacity for edges (only visible edges from downstream collection)
   cy.edges().forEach((edge) => {
-    const source = edge.source();
-    const target = edge.target();
-    const bothVisible =
-      matchedNodes.includes(source) && matchedNodes.includes(target);
-    edge.style('opacity', bothVisible ? 1 : 0.15);
+    if (visibleEdges.has(edge)) {
+      edge.style('opacity', 1);
+    } else {
+      edge.style('opacity', 0.15);
+    }
   });
 
   currentMatchIndex = matchedNodes.length > 0 ? 0 : -1;
   updateCount();
+
+  // Trigger badge update (badges will be filtered by opacity in graph.js)
+  cy.trigger('render');
 }
 
 /**
@@ -147,7 +176,29 @@ function closeSearch() {
   matchedNodes = [];
   currentMatchIndex = -1;
   searchActive = false;
+  visibleElements = null; // Clear visible elements filter
   const input = $('#search-input');
   if (input) input.value = '';
   updateCount();
+  
+  // Trigger badge update to restore all badges
+  cy.trigger('render');
+}
+
+/**
+ * Check if an element (node or edge) is visible in current search.
+ * Returns true if search is inactive (all visible) or if element is in visible set.
+ * @param {cytoscape.NodeSingular|cytoscape.EdgeSingular} element
+ * @returns {boolean}
+ */
+export function isElementVisible(element) {
+  // Check if search filter is active
+  if (searchActive && visibleElements) {
+    if (!visibleElements.has(element)) {
+      return false;
+    }
+  }
+  
+  // Check Cytoscape visibility (for SERVICE and other filters)
+  return element.visible();
 }

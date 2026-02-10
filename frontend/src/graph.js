@@ -1,5 +1,6 @@
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
+import { isElementVisible } from './search.js';
 
 cytoscape.use(dagre);
 
@@ -130,8 +131,10 @@ function updateAlertBadges(cy, container) {
   // Clear existing badges
   container.innerHTML = '';
 
-  // Render node badges
+  // Render node badges (only for visible nodes)
   cy.nodes('[alertCount > 0]').forEach((node) => {
+    // Skip if node is hidden by search filter
+    if (!isElementVisible(node)) return;
     const alertCount = node.data('alertCount');
     const alertSeverity = node.data('alertSeverity');
     if (!alertCount || !alertSeverity) return;
@@ -170,8 +173,11 @@ function updateAlertBadges(cy, container) {
     container.appendChild(badge);
   });
 
-  // Render edge alert markers
+  // Render edge alert markers (only for visible edges)
   cy.edges('[alertCount > 0]').forEach((edge) => {
+    // Skip if edge is hidden by search filter
+    if (!isElementVisible(edge)) return;
+    
     const alertSeverity = edge.data('alertSeverity');
     if (!alertSeverity) return;
 
