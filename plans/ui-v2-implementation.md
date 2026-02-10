@@ -13,7 +13,7 @@ Status: **Not Started**
 - [x] [Phase 14: Frontend — Legend + Node Detail Sidebar](#phase-14-frontend--legend--node-detail-sidebar)
 - [x] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
 - [x] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
-- [ ] [Phase 17: Backend+Frontend — Pods API + Pod Display](#phase-17-backendfrontend--pods-api--pod-display)
+- [x] [Phase 17: Backend+Frontend — Instances API + Sidebar Integration](#phase-17-backendfrontend--instances-api--sidebar-integration)
 - [ ] [Phase 18: Build + Deploy + Verify](#phase-18-build--deploy--verify)
 
 ---
@@ -720,69 +720,84 @@ Wire in `main.js` — pass action callbacks.
 
 ---
 
-## Phase 17: Backend+Frontend — Pods API + Pod Display
+## Phase 17: Backend+Frontend — Instances API + Sidebar Integration
 
-**Goal:** Show pods belonging to a service node when "Show pods" button is clicked.
+**Goal:** Display service instances (pods/containers) automatically in node sidebar.
 
 **Source:** interface.md §1
 
-> **Design decision required:** How to get pod data.
-> Options:
-> a) **Kubernetes API** — query pods by label selector matching service name.
->    Requires K8s service account with pod list permissions.
-> b) **Prometheus metric labels** — `instance` or `pod` labels from scrape targets.
->    Requires no extra permissions but depends on metric labeling.
-> c) **dephealth SDK** — if SDK reports pod name as a label on metrics.
->
-> **Recommendation:** Option (b) — use Prometheus `instance` label from scrape targets
-> or `pod` label if available. Avoids K8s API dependency. Discuss with user before implementing.
+**Implementation approach:** Option B (Prometheus metric labels) — query `instance` and `pod` labels from `app_dependency_health` metrics. No additional K8s API permissions required.
 
-### 17.1. Backend — pod data source
+**UX improvements:**
+- Integrated instances directly into sidebar (no separate button/mode)
+- Added sidebar toggle behavior (click same node to close)
+- Grouped connected edges into incoming/outgoing sections
 
-Design depends on decision above. Likely:
+### 17.1. Backend — Instance model and API
+
+**File:** `internal/topology/models.go`
+
+Added `Instance` struct:
+```go
+type Instance struct {
+    Instance string `json:"instance"`
+    Pod      string `json:"pod,omitempty"`
+    Job      string `json:"job,omitempty"`
+    Service  string `json:"service,omitempty"`
+}
+```
 
 **File:** `internal/topology/prometheus.go`
 
-New method `QueryPods(ctx, serviceName)` — query Prometheus for:
+Added `QueryInstances(ctx, serviceName)` method:
 ```promql
-group by (pod, instance) (app_dependency_health{name="<serviceName>"})
+group by (instance, pod, job) (app_dependency_health{name="<serviceName>"})
 ```
 
-Returns list of `{pod, instance}` for the service.
+**File:** `internal/server/server.go`
 
-### 17.2. Backend — API endpoint or extend topology response
+Added endpoint: `GET /api/v1/instances?service=<name>`
 
-Option A: New endpoint `GET /api/v1/pods?service=<name>` — on-demand.
-Option B: Include pods in `Node.Pods []PodInfo` in topology response.
+### 17.2. Frontend — Sidebar integration
 
-Recommend Option A (on-demand) to keep main topology response lightweight.
+**File:** `frontend/src/sidebar.js`
 
-### 17.3. Frontend — "Show pods" button
+- Added `renderInstances()` async function
+- Auto-loads instances for service nodes (type === 'service')
+- Displays table with Instance and Pod columns
+- Shows loading/empty/error states
 
-In floating toolbar: `<i class="bi bi-grid-3x3-gap"></i>`.
-On click → toggle pods mode. When pods mode is active, clicking a service node
-fetches pods and expands the node to show a table.
+**UX improvements:**
+- Toggle behavior: click same node to close sidebar
+- Grouped edges: "Исходящие связи" and "Входящие связи"
 
-### 17.4. Frontend — Pod table rendering
+**File:** `frontend/src/api.js`
 
-Use Cytoscape compound nodes or an HTML overlay for pod table.
-Compound node approach: add child nodes (one per pod) to the service node,
-re-run layout.
+Added `fetchInstances(serviceName)` function.
 
-Alternative: HTML overlay table positioned over the node.
+**File:** `frontend/index.html`
 
-### 17.5. Testing
+Added `<div id="sidebar-instances">` section.
 
-- Test API endpoint returns correct pod list.
-- Test frontend shows pods for selected node.
+**File:** `frontend/src/style.css`
+
+Added styles for instances table and edge groups.
+
+### 17.3. Testing
+
+- ✅ Backend tests: mock `QueryInstances` added to `graph_test.go`
+- ✅ API endpoint: returns JSON array of instances
+- ✅ Frontend: instances displayed in sidebar for service nodes
+- ✅ Manual testing: deployed v0.10.6 to K8s cluster
 
 **Checklist:**
-- [ ] 17.0 Design decision: pod data source
-- [ ] 17.1 Backend: pod data query
-- [ ] 17.2 Backend: API endpoint
-- [ ] 17.3 Frontend: "Show pods" button
-- [ ] 17.4 Frontend: pod table rendering
-- [ ] 17.5 Testing
+- [x] 17.0 Design decision: Prometheus labels approach
+- [x] 17.1 Backend: Instance model, QueryInstances method
+- [x] 17.2 Backend: /api/v1/instances endpoint
+- [x] 17.3 Frontend: Sidebar integration (no separate button)
+- [x] 17.4 Frontend: Instances table rendering with async loading
+- [x] 17.5 Testing: backend tests and manual verification
+- [x] 17.6 UX improvements: sidebar toggle, grouped edges
 
 ---
 
