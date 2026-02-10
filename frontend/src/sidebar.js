@@ -1,9 +1,12 @@
 /**
  * Node detail sidebar functionality.
- * Shows node info, related alerts, and connected edges on node click.
+ * Shows node info, related alerts, instances, and connected edges on node click.
  */
 
+import { fetchInstances } from './api.js';
+
 let topologyDataCache = null;
+let currentNodeId = null; // Track currently opened node for toggle behavior
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -18,10 +21,18 @@ export function initSidebar(cy, topologyData) {
   const sidebar = $('#node-sidebar');
   const closeBtn = $('#btn-sidebar-close');
 
-  // Single tap on node: open sidebar
+  // Single tap on node: toggle sidebar
   cy.on('tap', 'node', (evt) => {
     const node = evt.target;
-    openSidebar(node, cy);
+    const nodeId = node.data('id');
+    const sidebar = $('#node-sidebar');
+
+    // If clicking the same node while sidebar is open - close it
+    if (currentNodeId === nodeId && !sidebar.classList.contains('hidden')) {
+      closeSidebar();
+    } else {
+      openSidebar(node, cy);
+    }
   });
 
   // Double tap on node with Grafana URL: open Grafana in new tab
@@ -68,6 +79,9 @@ function openSidebar(node, cy) {
   const sidebar = $('#node-sidebar');
   const data = node.data();
 
+  // Track current node for toggle behavior
+  currentNodeId = data.id;
+
   // Title
   $('#sidebar-title').textContent = data.label || data.id;
 
@@ -76,6 +90,13 @@ function openSidebar(node, cy) {
 
   // Alerts section
   renderAlerts(data.id);
+
+  // Instances section (for service nodes only)
+  if (data.type === 'service') {
+    renderInstances(data.id, data.label || data.id);
+  } else {
+    $('#sidebar-instances').innerHTML = '';
+  }
 
   // Connected edges section
   renderEdges(node, cy);
@@ -92,6 +113,7 @@ function openSidebar(node, cy) {
  */
 function closeSidebar() {
   $('#node-sidebar').classList.add('hidden');
+  currentNodeId = null; // Reset tracked node
 }
 
 /**
@@ -176,34 +198,70 @@ function renderEdges(node, cy) {
     return;
   }
 
-  const edgeInfos = connectedEdges.map((edge) => {
+  // Separate incoming and outgoing edges
+  const outgoing = [];
+  const incoming = [];
+
+  connectedEdges.forEach((edge) => {
     const source = edge.source();
     const target = edge.target();
     const data = edge.data();
 
     const isOutgoing = source.id() === node.id();
     const otherNode = isOutgoing ? target : source;
-    const direction = isOutgoing ? '→' : '←';
 
-    return {
-      label: `${direction} ${otherNode.data('label') || otherNode.id()}`,
+    const edgeInfo = {
+      label: otherNode.data('label') || otherNode.id(),
       latency: data.latency || '—',
     };
+
+    if (isOutgoing) {
+      outgoing.push(edgeInfo);
+    } else {
+      incoming.push(edgeInfo);
+    }
   });
 
-  section.innerHTML = `
-    <div class="sidebar-section-title">Connected Edges (${edgeInfos.length})</div>
-    ${edgeInfos
-      .map(
-        (info) => `
-      <div class="sidebar-edge-item">
-        <span class="sidebar-edge-label">${info.label}</span>
-        <span class="sidebar-edge-latency">${info.latency}</span>
+  // Build HTML with separated groups
+  let html = `<div class="sidebar-section-title">Connected Edges (${connectedEdges.length})</div>`;
+
+  if (outgoing.length > 0) {
+    html += `
+      <div class="sidebar-edge-group">
+        <div class="sidebar-edge-group-title">Исходящие связи (${outgoing.length})</div>
+        ${outgoing
+          .map(
+            (info) => `
+          <div class="sidebar-edge-item">
+            <span class="sidebar-edge-label">→ ${info.label}</span>
+            <span class="sidebar-edge-latency">${info.latency}</span>
+          </div>
+        `
+          )
+          .join('')}
       </div>
-    `
-      )
-      .join('')}
-  `;
+    `;
+  }
+
+  if (incoming.length > 0) {
+    html += `
+      <div class="sidebar-edge-group">
+        <div class="sidebar-edge-group-title">Входящие связи (${incoming.length})</div>
+        ${incoming
+          .map(
+            (info) => `
+          <div class="sidebar-edge-item">
+            <span class="sidebar-edge-label">← ${info.label}</span>
+            <span class="sidebar-edge-latency">${info.latency}</span>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+  }
+
+  section.innerHTML = html;
 }
 
 /**
@@ -228,4 +286,62 @@ function renderActions(data) {
   $('#sidebar-grafana-btn').addEventListener('click', () => {
     window.open(data.grafanaUrl, '_blank');
   });
+}
+
+/**
+ * Render instances section (pods/containers).
+ * @param {string} serviceId - Service ID
+ * @param {string} serviceName - Service display name
+ */
+async function renderInstances(serviceId, serviceName) {
+  const section = $('#sidebar-instances');
+
+  // Show loading state
+  section.innerHTML = `
+    <div class="sidebar-section-title">Instances</div>
+    <div class="sidebar-instances-loading">Loading...</div>
+  `;
+
+  try {
+    const instances = await fetchInstances(serviceId);
+
+    if (!instances || instances.length === 0) {
+      section.innerHTML = `
+        <div class="sidebar-section-title">Instances</div>
+        <div class="sidebar-instances-empty">No instances found</div>
+      `;
+      return;
+    }
+
+    // Render instances table
+    const tableHTML = `
+      <div class="sidebar-section-title">Instances (${instances.length})</div>
+      <div class="sidebar-instances-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Instance</th>
+              <th>Pod</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${instances.map(inst => `
+              <tr>
+                <td class="instance-cell" title="${inst.instance}">${inst.instance || '—'}</td>
+                <td class="pod-cell" title="${inst.pod || ''}">${inst.pod || '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    section.innerHTML = tableHTML;
+  } catch (err) {
+    console.error('Failed to fetch instances:', err);
+    section.innerHTML = `
+      <div class="sidebar-section-title">Instances</div>
+      <div class="sidebar-instances-error">Failed to load instances</div>
+    `;
+  }
 }

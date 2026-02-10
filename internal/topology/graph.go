@@ -448,3 +448,8 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 
 	return alertInfos
 }
+
+// QueryInstances returns all instances (pods/containers) for a given service.
+func (b *GraphBuilder) QueryInstances(ctx context.Context, serviceName string) ([]Instance, error) {
+	return b.prom.QueryInstances(ctx, serviceName)
+}

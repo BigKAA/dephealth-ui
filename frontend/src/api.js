@@ -82,6 +82,20 @@ export async function fetchUserInfo() {
 }
 
 /**
+ * Fetch instances (pods/containers) for a given service.
+ * @param {string} serviceName - service name to query instances for
+ * @returns {Promise<Array<{instance: string, pod?: string, job?: string}>>}
+ */
+export async function fetchInstances(serviceName) {
+  const url = `/api/v1/instances?service=${encodeURIComponent(serviceName)}`;
+  const resp = await authenticatedFetch(url);
+  if (!resp.ok) {
+    throw new Error(`Instances API error: ${resp.status} ${resp.statusText}`);
+  }
+  return resp.json();
+}
+
+/**
  * Retry a function with exponential backoff.
  * @param {Function} fn - async function to retry
  * @param {number} maxRetries - max number of retries (default 3)

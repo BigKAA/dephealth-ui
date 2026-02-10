@@ -113,6 +113,7 @@ func (s *Server) setupRoutes() {
 		r.Use(s.auth.Middleware())
 		r.Get("/topology", s.handleTopology)
 		r.Get("/alerts", s.handleAlerts)
+		r.Get("/instances", s.handleInstances)
 	})
 
 	// SPA static files (embedded via embed.FS)
@@ -230,6 +231,35 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("failed to encode alerts response", "error", err)
+	}
+}
+
+// handleInstances returns instances (pods/containers) for a given service.
+func (s *Server) handleInstances(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("service")
+	if serviceName == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"missing required query parameter: service"}`)
+		return
+	}
+
+	instances, err := s.builder.QueryInstances(r.Context(), serviceName)
+	if err != nil {
+		s.logger.Error("failed to fetch instances", "error", err, "service", serviceName)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprintf(w, `{"error":"failed to fetch instances: %s"}`, err.Error())
+		return
+	}
+
+	if instances == nil {
+		instances = []topology.Instance{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(instances); err != nil {
+		s.logger.Error("failed to encode instances response", "error", err)
 	}
 }
 

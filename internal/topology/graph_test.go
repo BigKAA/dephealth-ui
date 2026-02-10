@@ -56,6 +56,10 @@ func (m *mockPrometheusClient) QueryP99Latency(_ context.Context, _ QueryOptions
 	return m.p99, m.err
 }
 
+func (m *mockPrometheusClient) QueryInstances(_ context.Context, _ string) ([]Instance, error) {
+	return nil, m.err
+}
+
 func TestGraphBuilder_Build(t *testing.T) {
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{

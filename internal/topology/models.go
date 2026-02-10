@@ -83,3 +83,11 @@ type TopologyEdge struct {
 type QueryOptions struct {
 	Namespace string
 }
+
+// Instance represents a single instance (pod or container) of a service.
+type Instance struct {
+	Instance string `json:"instance"`           // Required: host:port or instance identifier
+	Pod      string `json:"pod,omitempty"`      // Optional: Kubernetes pod name
+	Job      string `json:"job,omitempty"`      // Optional: Prometheus job label
+	Service  string `json:"service,omitempty"`  // Service name this instance belongs to
+}

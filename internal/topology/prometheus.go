@@ -24,6 +24,9 @@ type PrometheusClient interface {
 
 	// QueryP99Latency returns the P99 latency per edge.
 	QueryP99Latency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error)
+
+	// QueryInstances returns all instances (pods/containers) for a given service.
+	QueryInstances(ctx context.Context, serviceName string) ([]Instance, error)
 }
 
 // PrometheusConfig holds Prometheus connection settings.
@@ -58,6 +61,7 @@ const (
 	queryHealthState   = `app_dependency_health%s`
 	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
 	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
+	queryInstances     = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
 )
 
 // nsFilter returns a PromQL label filter for the given namespace.
@@ -176,6 +180,31 @@ func (c *prometheusClient) QueryP99Latency(ctx context.Context, opts QueryOption
 		return nil, err
 	}
 	return parseEdgeValues(results)
+}
+
+// QueryInstances returns all instances (pods/containers) for a given service.
+func (c *prometheusClient) QueryInstances(ctx context.Context, serviceName string) ([]Instance, error) {
+	results, err := c.query(ctx, fmt.Sprintf(queryInstances, serviceName))
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make([]Instance, 0, len(results))
+	for _, r := range results {
+		inst := Instance{
+			Instance: r.Metric["instance"],
+			Pod:      r.Metric["pod"],
+			Job:      r.Metric["job"],
+			Service:  serviceName,
+		}
+		// Skip if instance is empty (shouldn't happen, but defensive)
+		if inst.Instance == "" {
+			continue
+		}
+		instances = append(instances, inst)
+	}
+
+	return instances, nil
 }
 
 func parseEdgeValues(results []promResult) (map[EdgeKey]float64, error) {
