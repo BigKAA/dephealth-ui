@@ -1,6 +1,7 @@
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { isElementVisible } from './search.js';
+import { getNamespaceColor } from './namespace.js';
 
 cytoscape.use(dagre);
 
@@ -31,24 +32,44 @@ const cytoscapeStyles = [
       shape: 'round-rectangle',
       width: (ele) => {
         const label = ele.data('label') || '';
+        const ns = ele.data('namespace') || '';
+        const maxLen = Math.max(label.length, ns.length);
         const fontSize = 12;
-        const charWidth = fontSize * 0.6; // approximate width per character
-        const padding = 40; // horizontal padding
-        return Math.max(100, label.length * charWidth + padding);
+        const charWidth = fontSize * 0.6;
+        const padding = 48; // extra for left stripe
+        return Math.max(110, maxLen * charWidth + padding);
       },
-      height: 40,
-      label: 'data(label)',
+      height: (ele) => (ele.data('namespace') ? 50 : 40),
+      label: (ele) => {
+        const label = ele.data('label') || '';
+        const ns = ele.data('namespace');
+        return ns ? `${label}\n${ns}` : label;
+      },
       'text-valign': 'center',
       'text-halign': 'center',
+      'text-wrap': 'wrap',
+      'text-max-width': 200,
       'font-size': 12,
       color: '#fff',
       'text-outline-width': 0,
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
-      'border-color': (ele) => {
-        const c = STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown;
-        return c;
+      'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
+      // Left namespace stripe via SVG background-image
+      'background-image': (ele) => {
+        const ns = ele.data('namespace');
+        if (!ns) return 'none';
+        const color = getNamespaceColor(ns).replace('#', '%23');
+        return `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='100'><rect width='6' height='100' fill='${color}'/></svg>`;
       },
+      'background-image-opacity': (ele) => (ele.data('namespace') ? 1 : 0),
+      'background-width': '6px',
+      'background-height': '100%',
+      'background-position-x': '0',
+      'background-position-y': '0',
+      'background-fit': 'none',
+      'background-clip': 'node',
+      'bounds-expansion': 0,
     },
   },
   // Dependency nodes
@@ -93,11 +114,11 @@ const cytoscapeStyles = [
       'line-color': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color,
       'line-style': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).lineStyle,
       label: 'data(latency)',
-      'font-size': 10,
+      'font-size': 12,
       color: () => (isDarkTheme() ? '#aaa' : '#555'),
       'text-background-color': () => (isDarkTheme() ? '#2a2a2a' : '#f5f5f5'),
       'text-background-opacity': 0.8,
-      'text-background-padding': '2px',
+      'text-background-padding': '3px',
       'text-rotation': 'autorotate',
     },
   },
@@ -333,6 +354,7 @@ export function renderGraph(cy, data, config) {
           label: node.label,
           state: node.state,
           type: node.type,
+          namespace: node.namespace || undefined,
           alertCount: alertCounts[node.id] || 0,
           alertSeverity: node.alertSeverity || undefined,
           grafanaUrl: node.grafanaUrl || undefined,

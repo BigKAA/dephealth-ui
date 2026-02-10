@@ -2,6 +2,8 @@
  * Node search functionality with highlight and navigation.
  */
 
+import { t } from './i18n.js';
+
 const $ = (sel) => document.querySelector(sel);
 
 let cy = null;
@@ -158,7 +160,7 @@ function navigateToNext() {
 function updateCount() {
   const countEl = $('#search-count');
   if (matchedNodes.length === 0) {
-    countEl.textContent = searchActive ? 'No matches' : '';
+    countEl.textContent = searchActive ? t('search.noMatches') : '';
   } else {
     const total = cy.nodes().length;
     const current = currentMatchIndex >= 0 ? currentMatchIndex + 1 : 1;

@@ -1,6 +1,8 @@
 // Alert Drawer module
 // Displays a slide-in panel with grouped alerts and interactive navigation
 
+import { t } from './i18n.js';
+
 let alertsData = [];
 let severityLevels = [];
 let cyInstance = null;
@@ -77,7 +79,7 @@ function renderAlertList() {
   container.innerHTML = '';
 
   if (alertsData.length === 0) {
-    container.innerHTML = '<div class="alert-empty">No active alerts</div>';
+    container.innerHTML = `<div class="alert-empty">${t('alerts.empty')}</div>`;
     return;
   }
 
@@ -135,7 +137,7 @@ function createAlertItem(alert, color) {
 
   const name = document.createElement('div');
   name.className = 'alert-name';
-  name.textContent = alert.alertname || 'Unknown alert';
+  name.textContent = alert.alertname || t('alerts.unknownAlert');
   item.appendChild(name);
 
   const meta = document.createElement('div');
@@ -149,7 +151,7 @@ function createAlertItem(alert, color) {
     meta.appendChild(link);
   } else if (alert.service) {
     const service = document.createElement('span');
-    service.textContent = `Service: ${alert.service}`;
+    service.textContent = t('alerts.service', { name: alert.service });
     meta.appendChild(service);
   }
 
@@ -204,10 +206,10 @@ function formatTimeSince(timestamp) {
   const start = new Date(timestamp);
   const diff = Math.floor((now - start) / 1000); // seconds
 
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return t('time.secondsAgo', { value: diff });
+  if (diff < 3600) return t('time.minutesAgo', { value: Math.floor(diff / 60) });
+  if (diff < 86400) return t('time.hoursAgo', { value: Math.floor(diff / 3600) });
+  return t('time.daysAgo', { value: Math.floor(diff / 86400) });
 }
 
 /**

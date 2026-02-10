@@ -78,6 +78,7 @@ make env-status    # check pod status
 
 ## Plans
 
+- **All development plans must use the template from [`.templates/DEVELOPMENT_PLAN_TEMPLATE.md`](.templates/DEVELOPMENT_PLAN_TEMPLATE.md)**
 - Plans must be detailed and broken into phases
 - Each phase should fit within a single AI context window
 - Mark completed phases in the plan file

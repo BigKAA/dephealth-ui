@@ -14,6 +14,9 @@ import { initSidebar, updateSidebarData } from './sidebar.js';
 import { initSearch } from './search.js';
 import { initAlertDrawer, updateAlertDrawer } from './alerts.js';
 import { initShortcuts } from './shortcuts.js';
+import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js';
+import { getNamespaceColor } from './namespace.js';
+import { initContextMenu } from './contextmenu.js';
 
 let cy = null;
 let pollTimer = null;
@@ -40,21 +43,21 @@ const RETRY_MAX = 30000;
 function updateStatus(data) {
   const now = new Date().toLocaleTimeString();
   const { nodeCount, edgeCount } = data.meta;
-  let text = `Updated ${now} | ${nodeCount} nodes, ${edgeCount} edges`;
+  let text = t('status.updated', { time: now, nodes: nodeCount, edges: edgeCount });
 
   if (data.alerts && data.alerts.length > 0) {
     const critical = data.alerts.filter((a) => a.severity === 'critical').length;
     const warning = data.alerts.filter((a) => a.severity === 'warning').length;
     const parts = [];
-    if (critical > 0) parts.push(`${critical} critical`);
-    if (warning > 0) parts.push(`${warning} warning`);
-    text += ` | Alerts: ${parts.join(', ') || data.alerts.length}`;
+    if (critical > 0) parts.push(t('status.critical', { count: critical }));
+    if (warning > 0) parts.push(t('status.warning', { count: warning }));
+    text += ' | ' + t('status.alerts', { details: parts.join(', ') || data.alerts.length });
   }
 
   const dot = $('#status-connection');
 
   if (data.meta.partial) {
-    text += ' | Partial data';
+    text += ' | ' + t('status.partialData');
     dot.classList.add('partial');
     dot.classList.remove('connected', 'disconnected');
 
@@ -64,7 +67,7 @@ function updateStatus(data) {
     const lastKey = lastPartialErrors.join('|');
     if (errorsKey !== lastKey) {
       for (const err of currentErrors) {
-        showToast(`Data source error: ${err}`, 'warning');
+        showToast(t('toast.dataSourceError', { error: err }), 'warning');
       }
       lastPartialErrors = currentErrors;
     }
@@ -75,7 +78,7 @@ function updateStatus(data) {
   }
 
   if (hasActiveFilters()) {
-    text += ' | Filtered';
+    text += ' | ' + t('status.filtered');
   }
 
   $('#status-info').textContent = text;
@@ -105,16 +108,16 @@ function updateHealthStats(data) {
   // Build stats HTML
   const parts = [];
   if (counts.ok > 0) {
-    parts.push(`<span class="stat-ok">${counts.ok} OK</span>`);
+    parts.push(`<span class="stat-ok">${counts.ok} ${t('state.ok')}</span>`);
   }
   if (counts.degraded > 0) {
-    parts.push(`<span class="stat-degraded">${counts.degraded} Degraded</span>`);
+    parts.push(`<span class="stat-degraded">${counts.degraded} ${t('state.degraded')}</span>`);
   }
   if (counts.down > 0) {
-    parts.push(`<span class="stat-down">${counts.down} Down</span>`);
+    parts.push(`<span class="stat-down">${counts.down} ${t('state.down')}</span>`);
   }
   if (counts.unknown > 0) {
-    parts.push(`<span class="stat-unknown">${counts.unknown} Unknown</span>`);
+    parts.push(`<span class="stat-unknown">${counts.unknown} ${t('state.unknown')}</span>`);
   }
 
   statsContainer.innerHTML = parts.length > 0 ? ' | ' + parts.join(' | ') : '';
@@ -188,6 +191,7 @@ async function refresh() {
     updateStatus(data);
     checkEmptyState(data);
     updateNamespaceOptions(data);
+    updateNamespaceLegend(data);
     updateFilters(data);
     applyFilters(cy);
     updateSidebarData(data);
@@ -196,7 +200,7 @@ async function refresh() {
       isDisconnected = false;
       retryDelay = RETRY_BASE;
       hideBanner();
-      showToast('Connection restored', 'success');
+      showToast(t('toast.connectionRestored'), 'success');
       startPolling();
     }
   } catch (err) {
@@ -207,7 +211,7 @@ async function refresh() {
       isDisconnected = true;
       retryDelay = RETRY_BASE;
       stopPolling();
-      showToast(`Connection lost: ${err.message}`, 'error');
+      showToast(t('toast.connectionLost', { error: err.message }), 'error');
     }
 
     startRetryCountdown(retryDelay);
@@ -369,7 +373,7 @@ function setupGraphToolbar() {
     a.href = dataUrl;
     a.download = `dephealth-topology-${Date.now()}.png`;
     a.click();
-    showToast('Graph exported as PNG', 'success');
+    showToast(t('toast.exportedPNG'), 'success');
   });
 
   // Fullscreen button
@@ -416,6 +420,52 @@ function setupLegend() {
   });
 }
 
+function setupNamespaceLegend() {
+  const legend = $('#namespace-legend');
+  const btnToggle = $('#btn-ns-legend');
+  const btnClose = $('#btn-ns-legend-close');
+
+  // Restore visibility from localStorage
+  const visible = localStorage.getItem('dephealth-ns-legend') !== 'hidden';
+  if (visible) {
+    legend.classList.remove('hidden');
+  }
+
+  btnToggle.addEventListener('click', () => {
+    const isHidden = legend.classList.toggle('hidden');
+    localStorage.setItem('dephealth-ns-legend', isHidden ? 'hidden' : 'visible');
+  });
+
+  btnClose.addEventListener('click', () => {
+    legend.classList.add('hidden');
+    localStorage.setItem('dephealth-ns-legend', 'hidden');
+  });
+}
+
+function updateNamespaceLegend(data) {
+  const container = $('#ns-legend-items');
+  if (!container) return;
+
+  const namespaces = new Set();
+  if (data.nodes) {
+    for (const node of data.nodes) {
+      if (node.namespace) namespaces.add(node.namespace);
+    }
+  }
+
+  const sorted = [...namespaces].sort();
+  container.innerHTML = sorted
+    .map(
+      (ns) => `
+    <div class="ns-legend-item">
+      <span class="ns-legend-swatch" style="background: ${getNamespaceColor(ns)};"></span>
+      <span class="ns-legend-name" title="${ns}">${ns}</span>
+    </div>
+  `
+    )
+    .join('');
+}
+
 async function initUserInfo() {
   const user = await fetchUserInfo();
   if (user && (user.name || user.email)) {
@@ -428,7 +478,32 @@ async function initUserInfo() {
   }
 }
 
+function setupLanguage() {
+  initI18n();
+
+  // Update lang label to current language
+  const langLabel = $('#lang-label');
+  if (langLabel) {
+    langLabel.textContent = getLanguage().toUpperCase();
+  }
+
+  // Language toggle button
+  $('#btn-lang').addEventListener('click', () => {
+    const next = getLanguage() === 'en' ? 'ru' : 'en';
+    setLanguage(next);
+    if (langLabel) {
+      langLabel.textContent = next.toUpperCase();
+    }
+  });
+
+  // Update DOM on language change
+  window.addEventListener('language-changed', () => {
+    updateI18nDom();
+  });
+}
+
 async function init() {
+  setupLanguage();
   initTheme();
 
   // Restore layout direction from localStorage
@@ -455,6 +530,7 @@ async function init() {
     setupFilters();
     setupGraphToolbar();
     setupLegend();
+    setupNamespaceLegend();
     initToolbar();
     initTooltip(cy);
     initSearch(cy);
@@ -506,11 +582,13 @@ async function init() {
     checkEmptyState(data);
     initFilters(data);
     updateNamespaceOptions(data);
+    updateNamespaceLegend(data);
     if (selectedNamespace) {
       setNamespaceValue(selectedNamespace);
     }
     applyFilters(cy);
     initSidebar(cy, data);
+    initContextMenu(cy);
     updateSidebarData(data);
     startPolling();
   } catch (err) {

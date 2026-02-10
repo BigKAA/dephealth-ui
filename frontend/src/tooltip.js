@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 /**
  * Initialize tooltip functionality for the graph.
  * Shows tooltips on hover for nodes and edges.
@@ -77,14 +79,14 @@ export function initTooltip(cy) {
 
     // State
     html += `<div class="tooltip-row">
-      <span class="tooltip-label">State:</span>
+      <span class="tooltip-label">${t('tooltip.state')}</span>
       <span class="tooltip-value">${formatState(data.state)}</span>
     </div>`;
 
     // Type
     if (data.type) {
       html += `<div class="tooltip-row">
-        <span class="tooltip-label">Type:</span>
+        <span class="tooltip-label">${t('tooltip.type')}</span>
         <span class="tooltip-value">${data.type}</span>
       </div>`;
     }
@@ -92,7 +94,7 @@ export function initTooltip(cy) {
     // Namespace (if available in node data)
     if (data.namespace) {
       html += `<div class="tooltip-row">
-        <span class="tooltip-label">Namespace:</span>
+        <span class="tooltip-label">${t('tooltip.namespace')}</span>
         <span class="tooltip-value">${data.namespace}</span>
       </div>`;
     }
@@ -100,7 +102,7 @@ export function initTooltip(cy) {
     // Alert count
     if (data.alertCount && data.alertCount > 0) {
       html += `<div class="tooltip-row">
-        <span class="tooltip-label">Alerts:</span>
+        <span class="tooltip-label">${t('tooltip.alerts')}</span>
         <span class="tooltip-value">${data.alertCount}</span>
       </div>`;
     }
@@ -122,29 +124,29 @@ export function initTooltip(cy) {
     // Latency
     if (data.latency) {
       html += `<div class="tooltip-row">
-        <span class="tooltip-label">Latency:</span>
+        <span class="tooltip-label">${t('tooltip.latency')}</span>
         <span class="tooltip-value">${data.latency}</span>
       </div>`;
     }
 
     // State
     html += `<div class="tooltip-row">
-      <span class="tooltip-label">State:</span>
+      <span class="tooltip-label">${t('tooltip.state')}</span>
       <span class="tooltip-value">${formatState(data.state)}</span>
     </div>`;
 
     // Critical flag
     if (data.critical) {
       html += `<div class="tooltip-row">
-        <span class="tooltip-label">Critical:</span>
-        <span class="tooltip-value">Yes</span>
+        <span class="tooltip-label">${t('tooltip.critical')}</span>
+        <span class="tooltip-value">${t('tooltip.yes')}</span>
       </div>`;
     }
 
     // Alert count
     if (data.alertCount && data.alertCount > 0) {
       html += `<div class="tooltip-row">
-        <span class="tooltip-label">Alerts:</span>
+        <span class="tooltip-label">${t('tooltip.alerts')}</span>
         <span class="tooltip-value">${data.alertCount}</span>
       </div>`;
     }

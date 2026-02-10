@@ -7,99 +7,109 @@
 </head>
 <body>
   <header id="header">
-    <span class="header-title">dephealth-ui</span>
+    <span class="header-title" data-i18n="header.title">dephealth-ui</span>
     <div class="toolbar">
-      <button id="btn-alerts" title="Active alerts">
+      <button id="btn-alerts" data-i18n-title="toolbar.alerts" title="Active alerts">
         <i class="bi bi-bell"></i>
         <span id="alert-badge" class="header-badge hidden">0</span>
       </button>
-      <button id="btn-filter" title="Toggle filters"><i class="bi bi-funnel"></i></button>
-      <button id="btn-refresh" title="Refresh now"><i class="bi bi-arrow-clockwise"></i></button>
-      <button id="btn-fit" title="Fit graph to screen"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button id="btn-auto-refresh" class="active" title="Toggle auto-refresh"><i class="bi bi-play-circle"></i></button>
-      <button id="btn-theme" title="Toggle dark/light theme"><i class="bi bi-moon"></i></button>
+      <button id="btn-filter" data-i18n-title="toolbar.filter" title="Toggle filters"><i class="bi bi-funnel"></i></button>
+      <button id="btn-refresh" data-i18n-title="toolbar.refresh" title="Refresh now"><i class="bi bi-arrow-clockwise"></i></button>
+      <button id="btn-auto-refresh" class="active" data-i18n-title="toolbar.autoRefresh" title="Toggle auto-refresh"><i class="bi bi-play-circle"></i></button>
+      <button id="btn-fit" data-i18n-title="toolbar.fit" title="Fit graph to screen"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btn-theme" data-i18n-title="toolbar.theme" title="Toggle dark/light theme"><i class="bi bi-moon"></i></button>
+      <button id="btn-lang" title="Language" data-i18n-title="toolbar.language"><span id="lang-label">EN</span></button>
     </div>
     <div id="user-info" class="hidden">
       <span id="user-name"></span>
-      <button id="btn-logout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
+      <button id="btn-logout" data-i18n-title="toolbar.logout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
     </div>
   </header>
 
   <div id="connection-banner" class="hidden">
     <span id="banner-message">Connection lost. Retrying in <span id="banner-countdown">5</span>s...</span>
-    <button id="btn-retry-now">Retry now</button>
+    <button id="btn-retry-now" data-i18n="banner.retry">Retry now</button>
   </div>
 
   <div id="filter-panel" class="hidden">
     <div class="filter-column" id="filter-namespace">
-      <span class="filter-label">Namespace</span>
+      <span class="filter-label" data-i18n="filter.namespace">Namespace</span>
       <select id="namespace-select" placeholder="All namespaces"></select>
     </div>
     <div class="filter-column" id="filter-type">
-      <span class="filter-label">Type</span>
+      <span class="filter-label" data-i18n="filter.type">Type</span>
       <select id="type-select" multiple placeholder="All types"></select>
     </div>
     <div class="filter-column" id="filter-state">
-      <span class="filter-label">State</span>
+      <span class="filter-label" data-i18n="filter.state">State</span>
       <div class="filter-chips" id="state-chips"></div>
     </div>
     <div class="filter-column" id="filter-job">
-      <span class="filter-label">Service</span>
+      <span class="filter-label" data-i18n="filter.service">Service</span>
       <select id="job-select" multiple placeholder="All services"></select>
     </div>
     <div class="filter-column filter-actions">
       <span class="filter-label">&nbsp;</span>
-      <button id="btn-reset-filters" title="Reset all filters">Reset</button>
+      <button id="btn-reset-filters" data-i18n="filter.reset" title="Reset all filters">Reset</button>
     </div>
   </div>
 
   <div id="cy">
     <div id="graph-toolbar" class="graph-toolbar">
-      <button id="btn-zoom-in" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
-      <button id="btn-zoom-out" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
-      <button id="btn-toolbar-fit" title="Fit to screen"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button id="btn-search" title="Search nodes"><i class="bi bi-search"></i></button>
-      <button id="btn-layout-toggle" title="Toggle layout direction"><i class="bi bi-distribute-vertical"></i></button>
-      <button id="btn-export" title="Export as PNG"><i class="bi bi-download"></i></button>
-      <button id="btn-fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
-      <button id="btn-legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
+      <button id="btn-zoom-in" data-i18n-title="graphToolbar.zoomIn" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
+      <button id="btn-zoom-out" data-i18n-title="graphToolbar.zoomOut" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
+      <button id="btn-toolbar-fit" data-i18n-title="graphToolbar.fit" title="Fit to screen"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btn-search" data-i18n-title="graphToolbar.search" title="Search nodes"><i class="bi bi-search"></i></button>
+      <button id="btn-layout-toggle" data-i18n-title="graphToolbar.layout" title="Toggle layout direction"><i class="bi bi-distribute-vertical"></i></button>
+      <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export as PNG"><i class="bi bi-download"></i></button>
+      <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
+      <button id="btn-legend" data-i18n-title="graphToolbar.legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
+      <button id="btn-ns-legend" data-i18n-title="graphToolbar.nsLegend" title="Toggle namespace legend"><i class="bi bi-palette"></i></button>
     </div>
     <div id="search-panel" class="search-panel hidden">
-      <input id="search-input" type="text" placeholder="Search nodes..." autocomplete="off" />
+      <input id="search-input" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search nodes..." autocomplete="off" />
       <span id="search-count"></span>
-      <button id="btn-search-close" class="search-close" title="Close search">×</button>
+      <button id="btn-search-close" class="search-close" data-i18n-title="search.close" title="Close search">×</button>
     </div>
     <div id="graph-legend" class="graph-legend hidden">
       <div class="legend-header">
-        <span class="legend-title">Legend</span>
-        <button id="btn-legend-close" class="legend-close" title="Close legend">×</button>
+        <span class="legend-title" data-i18n="legend.title">Legend</span>
+        <button id="btn-legend-close" class="legend-close" data-i18n-title="legend.close" title="Close legend">×</button>
       </div>
       <div class="legend-section">
-        <div class="legend-section-title">Node States</div>
-        <div class="legend-item"><span class="legend-dot" style="background: #4caf50;"></span> OK</div>
-        <div class="legend-item"><span class="legend-dot" style="background: #ff9800;"></span> Degraded</div>
-        <div class="legend-item"><span class="legend-dot" style="background: #f44336;"></span> Down</div>
-        <div class="legend-item"><span class="legend-dot" style="background: #9e9e9e;"></span> Unknown</div>
+        <div class="legend-section-title" data-i18n="legend.nodeStates">Node States</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #4caf50;"></span> <span data-i18n="legend.ok">OK</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #ff9800;"></span> <span data-i18n="legend.degraded">Degraded</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #f44336;"></span> <span data-i18n="legend.down">Down</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #9e9e9e;"></span> <span data-i18n="legend.unknown">Unknown</span></div>
       </div>
       <div class="legend-section">
-        <div class="legend-section-title">Edge States</div>
-        <div class="legend-item"><span class="legend-line solid" style="border-color: #4caf50;"></span> OK</div>
-        <div class="legend-item"><span class="legend-line dashed" style="border-color: #ff9800;"></span> Degraded</div>
-        <div class="legend-item"><span class="legend-line dotted" style="border-color: #f44336;"></span> Down</div>
+        <div class="legend-section-title" data-i18n="legend.edgeStates">Edge States</div>
+        <div class="legend-item"><span class="legend-line solid" style="border-color: #4caf50;"></span> <span data-i18n="legend.ok">OK</span></div>
+        <div class="legend-item"><span class="legend-line dashed" style="border-color: #ff9800;"></span> <span data-i18n="legend.degraded">Degraded</span></div>
+        <div class="legend-item"><span class="legend-line dotted" style="border-color: #f44336;"></span> <span data-i18n="legend.down">Down</span></div>
       </div>
       <div class="legend-section">
-        <div class="legend-section-title">Alerts</div>
-        <div class="legend-item"><span class="legend-badge critical">!</span> Critical alert</div>
-        <div class="legend-item"><span class="legend-line thick" style="border-color: #999;"></span> Thicker border</div>
+        <div class="legend-section-title" data-i18n="legend.alerts">Alerts</div>
+        <div class="legend-item"><span class="legend-badge critical">!</span> <span data-i18n="legend.criticalAlert">Critical alert</span></div>
+        <div class="legend-item"><span class="legend-line thick" style="border-color: #999;"></span> <span data-i18n="legend.thickerBorder">Thicker border</span></div>
       </div>
+    </div>
+    <div id="namespace-legend" class="namespace-legend hidden">
+      <div class="legend-header">
+        <span class="legend-title" data-i18n="namespaceLegend.title">Namespaces</span>
+        <button id="btn-ns-legend-close" class="legend-close" data-i18n-title="namespaceLegend.close" title="Close">×</button>
+      </div>
+      <div id="ns-legend-items" class="ns-legend-items"></div>
     </div>
     <div id="empty-state" class="hidden">
       <div class="empty-state-content">
         <span class="empty-state-icon">&empty;</span>
-        <h3>No services found</h3>
-        <p>Check that Prometheus is configured with topologymetrics exporter.</p>
+        <h3 data-i18n="empty.title">No services found</h3>
+        <p data-i18n="empty.description">Check that Prometheus is configured with topologymetrics exporter.</p>
       </div>
     </div>
+    <div id="context-menu" class="context-menu hidden"></div>
     <div id="graph-tooltip" class="graph-tooltip hidden"></div>
   </div>
 
@@ -108,7 +118,7 @@
   <div id="node-sidebar" class="node-sidebar hidden">
     <div class="sidebar-header">
       <h3 id="sidebar-title"></h3>
-      <button id="btn-sidebar-close" class="sidebar-close" title="Close">×</button>
+      <button id="btn-sidebar-close" class="sidebar-close" data-i18n-title="sidebar.close" title="Close">×</button>
     </div>
     <div class="sidebar-body">
       <div id="sidebar-details" class="sidebar-section"></div>
@@ -121,23 +131,23 @@
 
   <div id="alert-drawer" class="alert-drawer hidden">
     <div class="drawer-header">
-      <h3>Active Alerts</h3>
-      <button id="btn-drawer-close" class="drawer-close" title="Close">×</button>
+      <h3 data-i18n="alerts.title">Active Alerts</h3>
+      <button id="btn-drawer-close" class="drawer-close" data-i18n-title="alerts.close" title="Close">×</button>
     </div>
     <div id="alert-list" class="alert-list"></div>
   </div>
 
   <footer id="status-bar">
-    <span id="status-connection" class="status-dot" title="Connection status"></span>
-    <span id="status-info">Loading...</span>
+    <span id="status-connection" class="status-dot" data-i18n-title="status.connectionStatus" title="Connection status"></span>
+    <span id="status-info" data-i18n="status.loading">Loading...</span>
     <span id="status-stats"></span>
   </footer>
 
   <div id="error-overlay" class="hidden">
     <div class="error-modal">
-      <h2>Connection Error</h2>
+      <h2 data-i18n="error.title">Connection Error</h2>
       <p id="error-message"></p>
-      <button id="btn-error-retry">Retry</button>
+      <button id="btn-error-retry" data-i18n="error.retry">Retry</button>
     </div>
   </div>
 

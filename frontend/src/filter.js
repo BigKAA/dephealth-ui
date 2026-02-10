@@ -1,4 +1,5 @@
 import TomSelect from 'tom-select';
+import { t } from './i18n.js';
 
 const STORAGE_KEY = 'dephealth-filters';
 const STATES = ['ok', 'degraded', 'down', 'unknown'];
@@ -31,7 +32,7 @@ function initNamespaceSelect() {
   tsNamespace = new TomSelect(el, {
     create: false,
     sortField: { field: 'text', direction: 'asc' },
-    placeholder: 'All namespaces',
+    placeholder: t('filter.allNamespaces'),
     allowEmptyOption: true,
     onChange(value) {
       window.dispatchEvent(new CustomEvent('namespace-changed', { detail: value }));
@@ -44,7 +45,7 @@ function initTypeSelect() {
   tsType = new TomSelect(el, {
     create: false,
     plugins: ['remove_button'],
-    placeholder: 'All types',
+    placeholder: t('filter.allTypes'),
     onChange(values) {
       activeFilters.type = new Set(values);
       saveToStorage();
@@ -58,13 +59,31 @@ function initJobSelect() {
   tsJob = new TomSelect(el, {
     create: false,
     plugins: ['remove_button'],
-    placeholder: 'All services',
+    placeholder: t('filter.allServices'),
     onChange(values) {
       activeFilters.job = new Set(values);
       saveToStorage();
       window.dispatchEvent(new CustomEvent('filters-changed'));
     },
   });
+}
+
+/**
+ * Update Tom Select placeholders on language change.
+ */
+function updateTomSelectPlaceholders() {
+  const updates = [
+    { instance: tsNamespace, key: 'filter.allNamespaces' },
+    { instance: tsType, key: 'filter.allTypes' },
+    { instance: tsJob, key: 'filter.allServices' },
+  ];
+  for (const { instance, key } of updates) {
+    if (!instance) continue;
+    const translated = t(key);
+    instance.settings.placeholder = translated;
+    const input = instance.control_input;
+    if (input) input.setAttribute('placeholder', translated);
+  }
 }
 
 // --- Dynamic option sync ---
@@ -104,6 +123,11 @@ export function initFilters(data) {
   syncTomSelectOptions(tsType, knownValues.type, activeFilters.type);
   syncTomSelectOptions(tsJob, knownValues.job, activeFilters.job);
   renderStateChips();
+
+  // Update placeholders on language change
+  window.addEventListener('language-changed', () => {
+    updateTomSelectPlaceholders();
+  });
 }
 
 /**
@@ -144,7 +168,7 @@ export function updateNamespaceOptions(data) {
   }
 
   tsNamespace.clearOptions();
-  tsNamespace.addOption({ value: '', text: 'All namespaces' });
+  tsNamespace.addOption({ value: '', text: t('filter.allNamespaces') });
   for (const ns of sorted) {
     tsNamespace.addOption({ value: ns, text: ns });
   }

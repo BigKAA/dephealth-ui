@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const MAX_TOASTS = 5;
 const DEFAULT_DURATION = 5000;
 
@@ -36,7 +38,7 @@ export function showToast(message, type = 'info', duration = DEFAULT_DURATION) {
   const close = document.createElement('button');
   close.className = 'toast-close';
   close.textContent = '\u00d7';
-  close.setAttribute('aria-label', 'Close');
+  close.setAttribute('aria-label', t('toast.close'));
   close.addEventListener('click', () => dismissToast(toast));
 
   toast.appendChild(text);

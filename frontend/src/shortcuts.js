@@ -1,6 +1,8 @@
 // Keyboard shortcuts module
 // Provides keyboard navigation and actions for the application
 
+import { t } from './i18n.js';
+
 /**
  * Initialize keyboard shortcuts with action callbacks
  * @param {Object} actions - Object with action callback functions
@@ -55,16 +57,18 @@ export function initShortcuts(actions) {
  * Show keyboard shortcuts help in console
  */
 function showShortcutsHelp() {
-  console.group('%cKeyboard Shortcuts', 'font-size: 14px; font-weight: bold; color: #2196f3');
-  console.log('%cr%c - Refresh graph', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%cf%c - Fit graph to screen', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%c+/=%c - Zoom in', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%c-%c - Zoom out', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%c/%c - Open search', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%cCtrl+K%c - Open search (alternative)', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%cl%c - Toggle layout direction (TB/LR)', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%ce%c - Export graph as PNG', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%cEsc%c - Close all panels', 'font-weight: bold; color: #4caf50', 'color: inherit');
-  console.log('%c?%c - Show this help', 'font-weight: bold; color: #4caf50', 'color: inherit');
+  const s = 'font-weight: bold; color: #4caf50';
+  const n = 'color: inherit';
+  console.group(`%c${t('shortcuts.title')}`, 'font-size: 14px; font-weight: bold; color: #2196f3');
+  console.log(`%cr%c - ${t('shortcuts.refresh')}`, s, n);
+  console.log(`%cf%c - ${t('shortcuts.fit')}`, s, n);
+  console.log(`%c+/=%c - ${t('shortcuts.zoomIn')}`, s, n);
+  console.log(`%c-%c - ${t('shortcuts.zoomOut')}`, s, n);
+  console.log(`%c/%c - ${t('shortcuts.search')}`, s, n);
+  console.log(`%cCtrl+K%c - ${t('shortcuts.searchAlt')}`, s, n);
+  console.log(`%cl%c - ${t('shortcuts.layout')}`, s, n);
+  console.log(`%ce%c - ${t('shortcuts.export')}`, s, n);
+  console.log(`%cEsc%c - ${t('shortcuts.closeAll')}`, s, n);
+  console.log(`%c?%c - ${t('shortcuts.help')}`, s, n);
   console.groupEnd();
 }

@@ -5,6 +5,7 @@
 .serena/
 claudedocs/
 .playwright-mcp
+.templates/
 
 # Go
 /dephealth-ui
