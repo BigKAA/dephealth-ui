@@ -20,9 +20,9 @@ export function initAlertDrawer(cy) {
     return;
   }
 
-  // Open drawer
+  // Toggle drawer (open/close)
   btnOpen.addEventListener('click', () => {
-    drawer.classList.remove('hidden');
+    drawer.classList.toggle('hidden');
   });
 
   // Close drawer
