@@ -10,7 +10,7 @@ import {
 } from './filter.js';
 import { initToolbar } from './toolbar.js';
 import { initTooltip } from './tooltip.js';
-import { initSidebar, updateSidebarData } from './sidebar.js';
+import { initSidebar, updateSidebarData, setGrafanaConfig } from './sidebar.js';
 import { initSearch } from './search.js';
 import { initAlertDrawer, updateAlertDrawer } from './alerts.js';
 import { initShortcuts } from './shortcuts.js';
@@ -517,6 +517,7 @@ async function init() {
   try {
     const config = await withRetry(fetchConfig);
     appConfig = config; // Store globally for graph rendering
+    setGrafanaConfig(config);
 
     if (config.cache && config.cache.ttl > 0) {
       pollInterval = config.cache.ttl * 1000;

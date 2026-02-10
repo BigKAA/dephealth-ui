@@ -98,8 +98,11 @@ type GrafanaConfig struct {
 
 // DashboardsConfig holds Grafana dashboard UIDs.
 type DashboardsConfig struct {
-	ServiceStatus string `yaml:"serviceStatus"`
-	LinkStatus    string `yaml:"linkStatus"`
+	ServiceStatus  string `yaml:"serviceStatus"`
+	LinkStatus     string `yaml:"linkStatus"`
+	ServiceList    string `yaml:"serviceList"`
+	ServicesStatus string `yaml:"servicesStatus"`
+	LinksStatus    string `yaml:"linksStatus"`
 }
 
 // Load reads a YAML config file and applies environment variable overrides.

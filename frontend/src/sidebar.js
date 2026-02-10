@@ -8,6 +8,7 @@ import { t } from './i18n.js';
 
 let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
+let grafanaConfig = null; // Grafana config from /api/v1/config
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -72,6 +73,16 @@ export function updateSidebarData(topologyData) {
 }
 
 /**
+ * Set Grafana config for sidebar dashboard links.
+ * @param {object} config - Config object from /api/v1/config
+ */
+export function setGrafanaConfig(config) {
+  if (config && config.grafana) {
+    grafanaConfig = config.grafana;
+  }
+}
+
+/**
  * Open sidebar with node details.
  * @param {cytoscape.NodeSingular} node - Cytoscape node
  * @param {cytoscape.Core} cy - Cytoscape instance
@@ -104,6 +115,9 @@ export function openSidebar(node, cy) {
 
   // Actions section
   renderActions(data);
+
+  // Grafana dashboards section
+  renderGrafanaDashboards(data);
 
   // Show sidebar
   sidebar.classList.remove('hidden');
@@ -287,6 +301,92 @@ function renderActions(data) {
   $('#sidebar-grafana-btn').addEventListener('click', () => {
     window.open(data.grafanaUrl, '_blank');
   });
+}
+
+/**
+ * Render Grafana dashboards section with links to all dashboards.
+ * Context-aware: pre-fills variables when a node is selected.
+ * @param {object} data - Currently selected node data
+ */
+function renderGrafanaDashboards(data) {
+  const section = $('#sidebar-grafana');
+  if (!section) return;
+
+  if (!grafanaConfig || !grafanaConfig.baseUrl) {
+    section.innerHTML = '';
+    return;
+  }
+
+  const base = grafanaConfig.baseUrl;
+  const db = grafanaConfig.dashboards || {};
+
+  // Build dashboard links with context-aware parameters
+  const dashboards = [];
+
+  if (db.serviceList) {
+    dashboards.push({
+      label: t('sidebar.grafana.serviceList'),
+      url: `${base}/d/${db.serviceList}/`,
+    });
+  }
+  if (db.servicesStatus) {
+    dashboards.push({
+      label: t('sidebar.grafana.servicesStatus'),
+      url: `${base}/d/${db.servicesStatus}/`,
+    });
+  }
+  if (db.linksStatus) {
+    dashboards.push({
+      label: t('sidebar.grafana.linksStatus'),
+      url: `${base}/d/${db.linksStatus}/`,
+    });
+  }
+  if (db.serviceStatus) {
+    let url = `${base}/d/${db.serviceStatus}/`;
+    // Context-aware: add service variable when a service node is selected
+    if (data && data.type === 'service' && data.id) {
+      url += `?var-service=${encodeURIComponent(data.id)}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.serviceStatus'),
+      url,
+    });
+  }
+  if (db.linkStatus) {
+    let url = `${base}/d/${db.linkStatus}/`;
+    // Context-aware: add link variables when node has connection details
+    if (data && data.host && data.port) {
+      const params = new URLSearchParams();
+      if (data.label) params.set('var-dependency', data.label);
+      if (data.host) params.set('var-host', data.host);
+      if (data.port) params.set('var-port', data.port);
+      url += `?${params.toString()}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.linkStatus'),
+      url,
+    });
+  }
+
+  if (dashboards.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  section.innerHTML = `
+    <div class="sidebar-section-title">${t('sidebar.grafanaDashboards')}</div>
+    ${dashboards
+      .map(
+        (d) => `
+      <a href="${d.url}" target="_blank" rel="noopener" class="sidebar-grafana-link">
+        <i class="bi bi-graph-up"></i>
+        <span>${d.label}</span>
+        <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>
+      </a>
+    `
+      )
+      .join('')}
+  `;
 }
 
 /**

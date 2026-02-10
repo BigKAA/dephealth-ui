@@ -85,3 +85,6 @@ config:
     dashboards:
       serviceStatus: "dephealth-service-status"
       linkStatus: "dephealth-link-status"
+      serviceList: "dephealth-service-list"
+      servicesStatus: "dephealth-services-status"
+      linksStatus: "dephealth-links-status"

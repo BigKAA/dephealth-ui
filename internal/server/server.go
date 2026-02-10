@@ -285,8 +285,11 @@ type configGrafana struct {
 }
 
 type configDashboards struct {
-	ServiceStatus string `json:"serviceStatus"`
-	LinkStatus    string `json:"linkStatus"`
+	ServiceStatus  string `json:"serviceStatus"`
+	LinkStatus     string `json:"linkStatus"`
+	ServiceList    string `json:"serviceList"`
+	ServicesStatus string `json:"servicesStatus"`
+	LinksStatus    string `json:"linksStatus"`
 }
 
 type configCache struct {
@@ -298,8 +301,11 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		Grafana: configGrafana{
 			BaseURL: s.cfg.Grafana.BaseURL,
 			Dashboards: configDashboards{
-				ServiceStatus: s.cfg.Grafana.Dashboards.ServiceStatus,
-				LinkStatus:    s.cfg.Grafana.Dashboards.LinkStatus,
+				ServiceStatus:  s.cfg.Grafana.Dashboards.ServiceStatus,
+				LinkStatus:     s.cfg.Grafana.Dashboards.LinkStatus,
+				ServiceList:    s.cfg.Grafana.Dashboards.ServiceList,
+				ServicesStatus: s.cfg.Grafana.Dashboards.ServicesStatus,
+				LinksStatus:    s.cfg.Grafana.Dashboards.LinksStatus,
 			},
 		},
 		Cache: configCache{

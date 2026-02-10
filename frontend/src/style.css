@@ -1172,6 +1172,39 @@ body {
   cursor: not-allowed;
 }
 
+.sidebar-grafana-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin: 2px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.sidebar-grafana-link:hover {
+  background: var(--bg-secondary);
+  color: var(--btn-primary-bg);
+}
+
+.sidebar-grafana-link .bi-graph-up {
+  color: var(--btn-primary-bg);
+  font-size: 14px;
+}
+
+.sidebar-grafana-external {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.4;
+}
+
+.sidebar-grafana-link:hover .sidebar-grafana-external {
+  opacity: 0.8;
+}
+
 /* Responsive: tablet */
 @media (max-width: 900px) {
   #filter-panel {

@@ -391,12 +391,12 @@ func TestGrafanaURLGeneration(t *testing.T) {
 	}, 15*time.Second, nil, testSeverityLevels())
 
 	svcURL := builder.serviceGrafanaURL("order-service")
-	if svcURL != "https://grafana.example.com/d/svc-dash?var-name=order-service" {
+	if svcURL != "https://grafana.example.com/d/svc-dash?var-service=order-service" {
 		t.Errorf("serviceGrafanaURL = %q", svcURL)
 	}
 
-	linkURL := builder.linkGrafanaURL("order-service", "postgres-main", "pg-host", "5432")
-	want := "https://grafana.example.com/d/link-dash?var-name=order-service&var-dependency=postgres-main&var-host=pg-host&var-port=5432"
+	linkURL := builder.linkGrafanaURL("postgres-main", "pg-host", "5432")
+	want := "https://grafana.example.com/d/link-dash?var-dependency=postgres-main&var-host=pg-host&var-port=5432"
 	if linkURL != want {
 		t.Errorf("linkGrafanaURL = %q, want %q", linkURL, want)
 	}
@@ -406,7 +406,7 @@ func TestGrafanaURLGeneration(t *testing.T) {
 	if emptyBuilder.serviceGrafanaURL("svc") != "" {
 		t.Error("expected empty URL when BaseURL is empty")
 	}
-	if emptyBuilder.linkGrafanaURL("svc", "dep", "host", "port") != "" {
+	if emptyBuilder.linkGrafanaURL("dep", "host", "port") != "" {
 		t.Error("expected empty link URL when BaseURL is empty")
 	}
 }

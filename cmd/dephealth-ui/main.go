@@ -55,9 +55,12 @@ func main() {
 	})
 
 	grafanaCfg := topology.GrafanaConfig{
-		BaseURL:              cfg.Grafana.BaseURL,
-		ServiceStatusDashUID: cfg.Grafana.Dashboards.ServiceStatus,
-		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
+		BaseURL:               cfg.Grafana.BaseURL,
+		ServiceStatusDashUID:  cfg.Grafana.Dashboards.ServiceStatus,
+		LinkStatusDashUID:     cfg.Grafana.Dashboards.LinkStatus,
+		ServiceListDashUID:    cfg.Grafana.Dashboards.ServiceList,
+		ServicesStatusDashUID: cfg.Grafana.Dashboards.ServicesStatus,
+		LinksStatusDashUID:    cfg.Grafana.Dashboards.LinksStatus,
 	}
 
 	builder := topology.NewGraphBuilder(promClient, amClient, grafanaCfg, cfg.Cache.TTL, logger, cfg.Alerts.SeverityLevels)

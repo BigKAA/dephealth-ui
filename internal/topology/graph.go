@@ -14,9 +14,12 @@ import (
 
 // GrafanaConfig holds Grafana URL generation settings.
 type GrafanaConfig struct {
-	BaseURL              string
-	ServiceStatusDashUID string
-	LinkStatusDashUID    string
+	BaseURL               string
+	ServiceStatusDashUID  string
+	LinkStatusDashUID     string
+	ServiceListDashUID    string
+	ServicesStatusDashUID string
+	LinksStatusDashUID    string
 }
 
 // depAlertKey maps alert labels (name + dependency name) to find the corresponding edge.
@@ -205,7 +208,7 @@ func (b *GraphBuilder) buildGraph(
 			Health:     h,
 			State:      state,
 			Critical:   raw.Critical,
-			GrafanaURL: b.linkGrafanaURL(raw.Name, raw.Dependency, raw.Host, raw.Port),
+			GrafanaURL: b.linkGrafanaURL(raw.Dependency, raw.Host, raw.Port),
 		}
 		edges = append(edges, edge)
 
@@ -295,18 +298,17 @@ func (b *GraphBuilder) serviceGrafanaURL(name string) string {
 	if b.grafana.BaseURL == "" || b.grafana.ServiceStatusDashUID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/d/%s?var-name=%s",
+	return fmt.Sprintf("%s/d/%s?var-service=%s",
 		b.grafana.BaseURL, b.grafana.ServiceStatusDashUID, url.QueryEscape(name))
 }
 
-func (b *GraphBuilder) linkGrafanaURL(name, dependency, host, port string) string {
+func (b *GraphBuilder) linkGrafanaURL(dependency, host, port string) string {
 	if b.grafana.BaseURL == "" || b.grafana.LinkStatusDashUID == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/d/%s?var-name=%s&var-dependency=%s&var-host=%s&var-port=%s",
+	return fmt.Sprintf("%s/d/%s?var-dependency=%s&var-host=%s&var-port=%s",
 		b.grafana.BaseURL, b.grafana.LinkStatusDashUID,
-		url.QueryEscape(name), url.QueryEscape(dependency),
-		url.QueryEscape(host), url.QueryEscape(port))
+		url.QueryEscape(dependency), url.QueryEscape(host), url.QueryEscape(port))
 }
 
 // enrichWithAlerts applies alert-based state overrides to edges and nodes,

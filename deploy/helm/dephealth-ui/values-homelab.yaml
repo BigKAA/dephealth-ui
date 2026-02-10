@@ -42,7 +42,10 @@ config:
       clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
       redirectUrl: "https://dephealth.kryukov.lan/auth/callback"
   grafana:
-    baseUrl: ""
+    baseUrl: "http://grafana.kryukov.lan"
     dashboards:
       serviceStatus: "dephealth-service-status"
       linkStatus: "dephealth-link-status"
+      serviceList: "dephealth-service-list"
+      servicesStatus: "dephealth-services-status"
+      linksStatus: "dephealth-links-status"
