@@ -67,24 +67,24 @@ helm-undeploy:
 # --- Test environment ---
 
 env-deploy:
-\thelm upgrade --install dephealth-infra $(INFRA_CHART) \\
-\t\t-f $(INFRA_CHART)/values-homelab.yaml
-\t@echo "Note: uniproxy chart moved to https://github.com/BigKAA/uniproxy"
-\t@echo "To deploy uniproxy:"
-\t@echo "  git clone https://github.com/BigKAA/uniproxy.git /tmp/uniproxy"
-\t@echo "  helm install uniproxy-ns1 /tmp/uniproxy/deploy/helm/uniproxy -f /tmp/uniproxy/deploy/helm/uniproxy/instances/ns1-homelab.yaml -n dephealth-uniproxy --create-namespace"
-\thelm upgrade --install dephealth-monitoring $(MONITORING_CHART) \\
-\t\t-f $(MONITORING_CHART)/values-homelab.yaml \\
-\t\t-n dephealth-monitoring --create-namespace
+	helm upgrade --install dephealth-infra $(INFRA_CHART) \
+		-f $(INFRA_CHART)/values-homelab.yaml
+	@echo "Note: uniproxy chart moved to https://github.com/BigKAA/uniproxy"
+	@echo "To deploy uniproxy:"
+	@echo "  git clone https://github.com/BigKAA/uniproxy.git /tmp/uniproxy"
+	@echo "  helm install uniproxy-ns1 /tmp/uniproxy/deploy/helm/uniproxy -f /tmp/uniproxy/deploy/helm/uniproxy/instances/ns1-homelab.yaml -n dephealth-uniproxy --create-namespace"
+	helm upgrade --install dephealth-monitoring $(MONITORING_CHART) \
+		-f $(MONITORING_CHART)/values-homelab.yaml \
+		-n dephealth-monitoring --create-namespace
 
 env-undeploy:
-\t-helm uninstall dephealth-monitoring -n dephealth-monitoring
-\t-helm uninstall uniproxy-ns1 -n dephealth-uniproxy 2>/dev/null || true
-\t-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2 2>/dev/null || true
-\t-helm uninstall dephealth-infra
-\t-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \\
-\t\tdephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \\
-\t\t--ignore-not-found
+	-helm uninstall dephealth-monitoring -n dephealth-monitoring
+	-helm uninstall uniproxy-ns1 -n dephealth-uniproxy 2>/dev/null || true
+	-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2 2>/dev/null || true
+	-helm uninstall dephealth-infra
+	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
+		dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
+		--ignore-not-found
 
 env-status:
 	@echo "=== dephealth-redis ==="

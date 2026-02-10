@@ -15,7 +15,7 @@ import { initSearch } from './search.js';
 import { initAlertDrawer, updateAlertDrawer } from './alerts.js';
 import { initShortcuts } from './shortcuts.js';
 import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js';
-import { getNamespaceColor } from './namespace.js';
+import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu } from './contextmenu.js';
 
 let cy = null;
@@ -449,7 +449,8 @@ function updateNamespaceLegend(data) {
   const namespaces = new Set();
   if (data.nodes) {
     for (const node of data.nodes) {
-      if (node.namespace) namespaces.add(node.namespace);
+      const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
+      if (ns) namespaces.add(ns);
     }
   }
 

@@ -36,11 +36,12 @@ function hashString(str) {
 /**
  * Get a deterministic color for a namespace.
  * Same namespace always returns the same color.
+ * Returns white for unknown namespace (e.g. non-Kubernetes environments).
  * @param {string} namespace
  * @returns {string} CSS color
  */
 export function getNamespaceColor(namespace) {
-  if (!namespace) return '#9e9e9e';
+  if (!namespace) return '#ffffff';
   return NAMESPACE_PALETTE[hashString(namespace) % NAMESPACE_PALETTE.length];
 }
 
@@ -55,4 +56,40 @@ export function getNamespaceColorMap(namespaces) {
     map[ns] = getNamespaceColor(ns);
   }
   return map;
+}
+
+/**
+ * Extract Kubernetes namespace from a dependency host string.
+ * Supports K8s DNS patterns:
+ *   - <service>.<namespace>.svc
+ *   - <service>.<namespace>.svc.cluster.local
+ * Returns null for non-K8s hosts (plain hostnames, IPs, external FQDNs).
+ * @param {string} host - dependency host (e.g. "redis.dephealth-redis.svc")
+ * @returns {string|null} namespace or null if not detectable
+ */
+export function extractNamespaceFromHost(host) {
+  if (!host) return null;
+  const parts = host.split('.');
+  const svcIdx = parts.indexOf('svc');
+  if (svcIdx >= 2) {
+    return parts[svcIdx - 1];
+  }
+  return null;
+}
+
+// Cache for base64-encoded SVG stripe images (color -> data URI)
+const stripeCache = {};
+
+/**
+ * Get a base64-encoded SVG data URI for a 1x1 colored pixel.
+ * Used as background-image for namespace stripes on graph nodes.
+ * @param {string} color - CSS hex color (e.g. "#2196f3")
+ * @returns {string} data URI
+ */
+export function getStripeDataUri(color) {
+  if (stripeCache[color]) return stripeCache[color];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='${color}'/></svg>`;
+  const uri = 'data:image/svg+xml;base64,' + btoa(svg);
+  stripeCache[color] = uri;
+  return uri;
 }

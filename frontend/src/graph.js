@@ -1,7 +1,7 @@
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { isElementVisible } from './search.js';
-import { getNamespaceColor } from './namespace.js';
+import { getNamespaceColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
 
 cytoscape.use(dagre);
 
@@ -55,21 +55,19 @@ const cytoscapeStyles = [
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
       'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      // Left namespace stripe via SVG background-image
+      // Left namespace stripe via base64-encoded SVG
       'background-image': (ele) => {
         const ns = ele.data('namespace');
         if (!ns) return 'none';
-        const color = getNamespaceColor(ns).replace('#', '%23');
-        return `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='100'><rect width='6' height='100' fill='${color}'/></svg>`;
+        return getStripeDataUri(getNamespaceColor(ns));
       },
-      'background-image-opacity': (ele) => (ele.data('namespace') ? 1 : 0),
-      'background-width': '6px',
+      'background-image-opacity': 1,
+      'background-width': '12px',
       'background-height': '100%',
-      'background-position-x': '0',
-      'background-position-y': '0',
-      'background-fit': 'none',
+      'background-position-x': '0%',
+      'background-position-y': '50%',
       'background-clip': 'node',
-      'bounds-expansion': 0,
+      'background-image-containment': 'over',
     },
   },
   // Dependency nodes
@@ -79,21 +77,42 @@ const cytoscapeStyles = [
       shape: 'ellipse',
       width: (ele) => {
         const label = ele.data('label') || '';
+        const ns = ele.data('namespace') || '';
+        const maxLen = Math.max(label.length, ns.length);
         const fontSize = 11;
-        const charWidth = fontSize * 0.6; // approximate width per character
-        const padding = 50; // extra padding for ellipse shape
-        return Math.max(100, label.length * charWidth + padding);
+        const charWidth = fontSize * 0.6;
+        const padding = 50;
+        return Math.max(100, maxLen * charWidth + padding);
       },
-      height: 40,
-      label: 'data(label)',
+      height: (ele) => (ele.data('namespace') ? 48 : 40),
+      label: (ele) => {
+        const label = ele.data('label') || '';
+        const ns = ele.data('namespace');
+        return ns ? `${label}\n${ns}` : label;
+      },
       'text-valign': 'center',
       'text-halign': 'center',
+      'text-wrap': 'wrap',
+      'text-max-width': 200,
       'font-size': 11,
       color: '#fff',
       'text-outline-width': 0,
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
       'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
+      // Left namespace stripe via base64-encoded SVG
+      'background-image': (ele) => {
+        const ns = ele.data('namespace');
+        if (!ns) return 'none';
+        return getStripeDataUri(getNamespaceColor(ns));
+      },
+      'background-image-opacity': 1,
+      'background-width': '12px',
+      'background-height': '100%',
+      'background-position-x': '0%',
+      'background-position-y': '50%',
+      'background-clip': 'node',
+      'background-image-containment': 'over',
     },
   },
   // Nodes with grafanaUrl get pointer cursor
@@ -347,6 +366,8 @@ export function renderGraph(cy, data, config) {
     cy.elements().remove();
 
     for (const node of data.nodes) {
+      // For dependency nodes without namespace, try to extract from host label
+      const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
       cy.add({
         group: 'nodes',
         data: {
@@ -354,7 +375,7 @@ export function renderGraph(cy, data, config) {
           label: node.label,
           state: node.state,
           type: node.type,
-          namespace: node.namespace || undefined,
+          namespace: ns || undefined,
           alertCount: alertCounts[node.id] || 0,
           alertSeverity: node.alertSeverity || undefined,
           grafanaUrl: node.grafanaUrl || undefined,
