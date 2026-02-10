@@ -151,7 +151,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
       "state": "ok",
       "type": "service",
       "dependencyCount": 3,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-name=order-service"
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service"
     },
     {
       "id": "postgres-main",
@@ -169,7 +169,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
       "health": 1,
       "state": "ok",
       "critical": true,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-name=order-service&var-dep=postgres-main"
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-host&var-port=5432"
     }
   ],
   "alerts": [
@@ -191,7 +191,45 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
 ### `GET /api/v1/config`
 
-Возвращает конфигурацию, необходимую фронтенду (Grafana base URL, настройки отображения).
+Возвращает конфигурацию, необходимую фронтенду (Grafana base URL, dashboard UID, настройки отображения).
+
+```json
+{
+  "grafana": {
+    "baseUrl": "https://grafana.example.com",
+    "dashboards": {
+      "serviceStatus": "dephealth-service-status",
+      "linkStatus": "dephealth-link-status",
+      "serviceList": "dephealth-service-list",
+      "servicesStatus": "dephealth-services-status",
+      "linksStatus": "dephealth-links-status"
+    }
+  },
+  "cache": {
+    "ttl": 15
+  },
+  "auth": {
+    "type": "oidc"
+  },
+  "alerts": {
+    "severityLevels": [
+      {"value": "critical", "color": "#f44336"},
+      {"value": "warning", "color": "#ff9800"},
+      {"value": "info", "color": "#2196f3"}
+    ]
+  }
+}
+```
+
+**Dashboards:**
+
+| UID | Назначение | Query-параметры |
+|-----|-----------|-----------------|
+| `serviceStatus` | Состояние одного сервиса | `?var-service=<name>` |
+| `linkStatus` | Состояние одной зависимости | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
+| `serviceList` | Список всех сервисов | — |
+| `servicesStatus` | Обзор состояния всех сервисов | — |
+| `linksStatus` | Обзор состояния всех связей | — |
 
 ---
 
@@ -232,6 +270,9 @@ grafana:
   dashboards:
     serviceStatus: "dephealth-service-status"
     linkStatus: "dephealth-link-status"
+    serviceList: "dephealth-service-list"
+    servicesStatus: "dephealth-services-status"
+    linksStatus: "dephealth-links-status"
 ```
 
 ---
@@ -248,10 +289,28 @@ Frontend — тонкий слой визуализации. Вся трансф
 
 ### Визуализация
 
-- **Узлы:** цвет зависит от `state` — зелёный (OK), жёлтый (DEGRADED), красный (DOWN)
+- **Узлы:** цвет зависит от `state` — зелёный (OK), жёлтый (DEGRADED), красный (DOWN); динамический размер по длине текста; цветная полоска namespace
 - **Рёбра:** направленные стрелки с постоянными подписями latency; цвет ребра по `state`; толщина ребра по `critical` (критичные — толще)
-- **Клик по узлу/ребру:** открывает соответствующий Grafana dashboard (`grafanaUrl`)
+- **Клик по узлу/ребру:** открывает боковую панель с деталями (состояние, namespace, инстансы, связи, алерты) и секцией ссылок на Grafana dashboards
+- **Контекстное меню (правый клик):** Open in Grafana, Copy Grafana URL, Show Details
 - **Layout:** dagre (hierarchical, направление `LR` или `TB`)
+
+### Боковая панель (Sidebar)
+
+При клике по узлу или ребру открывается боковая панель с:
+- Основная информация (state, type, namespace)
+- Активные алерты (с severity)
+- Список инстансов (pod name, IP:port) — для service-узлов
+- Связанные рёбра (входящие/исходящие с latency)
+- Кнопка «Open in Grafana» (открывает serviceStatus/linkStatus dashboard)
+- Секция **Grafana Dashboards** — 5 ссылок на все dashboards с контекстно-зависимыми query-параметрами:
+  - Обзорные (serviceList, servicesStatus, linksStatus) — без параметров
+  - serviceStatus — с `?var-service=<name>` для выбранного сервиса
+  - linkStatus — с `?var-dependency=...&var-host=...&var-port=...` для выбранной зависимости
+
+### Интернационализация (i18n)
+
+Фронтенд поддерживает EN и RU. Кнопка переключения языка в тулбаре. Все элементы UI, фильтры, легенда, статусбар, боковая панель и контекстное меню локализованы. Язык сохраняется в `localStorage`.
 
 ---
 

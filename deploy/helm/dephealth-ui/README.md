@@ -126,6 +126,24 @@ config:
       url: "http://alertmanager.monitoring.svc:9093"
 ```
 
+### Grafana Integration
+
+Configure Grafana base URL and dashboard UIDs to enable direct links from the UI:
+
+```yaml
+config:
+  grafana:
+    baseUrl: "https://grafana.example.com"
+    dashboards:
+      serviceStatus: "dephealth-service-status"   # Single service status
+      linkStatus: "dephealth-link-status"          # Single dependency status
+      serviceList: "dephealth-service-list"        # All services list
+      servicesStatus: "dephealth-services-status"  # All services overview
+      linksStatus: "dephealth-links-status"        # All links overview
+```
+
+If `grafana.baseUrl` is empty, Grafana links are hidden in the UI.
+
 ## Examples
 
 See `values-homelab.yaml` for a complete homelab example with Gateway API.
@@ -152,6 +170,18 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 | `ingress.tls.certManager.issuerName` | cert-manager Issuer name | `""` |
 | `ingress.tls.certManager.issuerKind` | cert-manager Issuer kind | `ClusterIssuer` |
 | `config.auth.type` | Auth type: `none`, `basic`, `oidc` | `none` |
+| `config.datasources.prometheus.url` | Prometheus/VictoriaMetrics URL | `http://victoriametrics:8428` |
+| `config.datasources.alertmanager.url` | AlertManager URL | `""` |
+| `config.cache.ttl` | Cache TTL duration | `15s` |
+| `config.grafana.baseUrl` | Grafana base URL (empty = links hidden) | `""` |
+| `config.grafana.dashboards.serviceStatus` | Service Status dashboard UID | `dephealth-service-status` |
+| `config.grafana.dashboards.linkStatus` | Link Status dashboard UID | `dephealth-link-status` |
+| `config.grafana.dashboards.serviceList` | Service List dashboard UID | `dephealth-service-list` |
+| `config.grafana.dashboards.servicesStatus` | Services Status dashboard UID | `dephealth-services-status` |
+| `config.grafana.dashboards.linksStatus` | Links Status dashboard UID | `dephealth-links-status` |
+| `customCA.enabled` | Mount custom CA certificate | `false` |
+| `customCA.configMapName` | ConfigMap name with CA cert | `""` |
+| `customCA.key` | Key in ConfigMap containing cert | `ca.crt` |
 
 ## Requirements
 

@@ -1,8 +1,8 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.10.13-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.11.4-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
-[![Helm Chart](https://img.shields.io/badge/helm-0.5.0-0F1689.svg)](./deploy/helm/dephealth-ui)
+[![Helm Chart](https://img.shields.io/badge/helm-0.5.1-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
 
 **Real-time microservices topology and health visualization tool**
@@ -37,8 +37,11 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Smart search with fuzzy matching
 - Multi-filter support (namespace, type, state, service)
 - Alert drawer with severity-based grouping
-- Node detail sidebar with instance information
-- Grafana dashboard integration (click-through)
+- Node detail sidebar with instance information and Grafana dashboard links
+- Grafana integration: context menu, sidebar links to all 5 dashboards with context-aware parameters
+- Context menu (right-click) on nodes/edges: Open in Grafana, Copy URL, Show Details
+- Internationalization (i18n): English and Russian
+- Namespace color coding with deterministic palette
 - Legend, statistics, and export to PNG
 - Keyboard shortcuts and fullscreen mode
 - Dark theme support
@@ -194,6 +197,9 @@ grafana:
   dashboards:
     serviceStatus: "dephealth-service-status"
     linkStatus: "dephealth-link-status"
+    serviceList: "dephealth-service-list"
+    servicesStatus: "dephealth-services-status"
+    linksStatus: "dephealth-links-status"
 ```
 
 ### Environment Variables
@@ -278,12 +284,12 @@ go build -o dephealth-ui ./cmd/dephealth-ui
 
 ```bash
 # Build multi-arch image
-make docker-build TAG=v0.10.13
+make docker-build TAG=v0.11.4
 
 # Or manually
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t harbor.kryukov.lan/library/dephealth-ui:v0.10.13 \
+  -t harbor.kryukov.lan/library/dephealth-ui:v0.11.4 \
   --push .
 ```
 
@@ -404,8 +410,11 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 - Умный поиск с fuzzy matching
 - Множественные фильтры (namespace, тип, состояние, сервис)
 - Drawer алертов с группировкой по severity
-- Боковая панель с деталями узла и списком инстансов
-- Интеграция с Grafana (переход по клику)
+- Боковая панель с деталями узла, списком инстансов и ссылками на Grafana дашборды
+- Интеграция с Grafana: контекстное меню, ссылки на все 5 дашбордов с контекстно-зависимыми параметрами
+- Контекстное меню (правый клик) на узлах/рёбрах: Открыть в Grafana, Копировать URL, Детали
+- Интернационализация (i18n): английский и русский
+- Цветовая кодировка namespace с детерминированной палитрой
 - Легенда, статистика, экспорт в PNG
 - Горячие клавиши и полноэкранный режим
 - Поддержка тёмной темы

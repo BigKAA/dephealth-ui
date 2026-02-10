@@ -51,7 +51,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
       "type": "service",
       "namespace": "production",
       "dependencyCount": 3,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-service?var-name=order-service",
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
       "alertSeverity": ""
     },
@@ -76,7 +76,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
       "health": 1,
       "state": "ok",
       "critical": true,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-link?var-name=order-service&var-dep=postgres-main"
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-master.db.svc&var-port=5432"
     }
   ],
   "alerts": [
@@ -150,7 +150,7 @@ Returns all active alerts from AlertManager aggregated by service/dependency.
 
 #### `GET /api/v1/config`
 
-Returns frontend configuration (Grafana URLs, severity colors, display settings).
+Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, display settings).
 
 **Response:** `200 OK`
 
@@ -160,19 +160,39 @@ Returns frontend configuration (Grafana URLs, severity colors, display settings)
     "baseUrl": "https://grafana.example.com",
     "dashboards": {
       "serviceStatus": "dephealth-service-status",
-      "linkStatus": "dephealth-link-status"
+      "linkStatus": "dephealth-link-status",
+      "serviceList": "dephealth-service-list",
+      "servicesStatus": "dephealth-services-status",
+      "linksStatus": "dephealth-links-status"
     }
   },
+  "cache": {
+    "ttl": 15
+  },
+  "auth": {
+    "type": "oidc"
+  },
   "alerts": {
-    "severityColors": {
-      "critical": "#f44336",
-      "warning": "#ff9800",
-      "info": "#2196f3"
-    },
-    "severityOrder": ["critical", "warning", "info"]
+    "severityLevels": [
+      {"value": "critical", "color": "#f44336"},
+      {"value": "warning", "color": "#ff9800"},
+      {"value": "info", "color": "#2196f3"}
+    ]
   }
 }
 ```
+
+**Dashboard UIDs:**
+
+| Key | Purpose | URL Parameters |
+|-----|---------|----------------|
+| `serviceStatus` | Single service health | `?var-service=<name>` |
+| `linkStatus` | Single dependency health | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
+| `serviceList` | All services table | — |
+| `servicesStatus` | All services overview | — |
+| `linksStatus` | All links overview | — |
+
+If `grafana.baseUrl` is empty, Grafana integration features are hidden in the UI.
 
 ---
 
@@ -364,7 +384,7 @@ dephealth-ui предоставляет REST API для визуализации
       "type": "service",
       "namespace": "production",
       "dependencyCount": 3,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-service?var-name=order-service",
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
       "alertSeverity": ""
     }
@@ -442,7 +462,7 @@ dephealth-ui предоставляет REST API для визуализации
 
 #### `GET /api/v1/config`
 
-Возвращает конфигурацию для фронтенда (Grafana URL, цвета severity, настройки отображения).
+Возвращает конфигурацию для фронтенда (Grafana URL, UID дашбордов, цвета severity, настройки отображения).
 
 **Ответ:** `200 OK`
 
@@ -452,19 +472,39 @@ dephealth-ui предоставляет REST API для визуализации
     "baseUrl": "https://grafana.example.com",
     "dashboards": {
       "serviceStatus": "dephealth-service-status",
-      "linkStatus": "dephealth-link-status"
+      "linkStatus": "dephealth-link-status",
+      "serviceList": "dephealth-service-list",
+      "servicesStatus": "dephealth-services-status",
+      "linksStatus": "dephealth-links-status"
     }
   },
+  "cache": {
+    "ttl": 15
+  },
+  "auth": {
+    "type": "oidc"
+  },
   "alerts": {
-    "severityColors": {
-      "critical": "#f44336",
-      "warning": "#ff9800",
-      "info": "#2196f3"
-    },
-    "severityOrder": ["critical", "warning", "info"]
+    "severityLevels": [
+      {"value": "critical", "color": "#f44336"},
+      {"value": "warning", "color": "#ff9800"},
+      {"value": "info", "color": "#2196f3"}
+    ]
   }
 }
 ```
+
+**UID дашбордов:**
+
+| Ключ | Назначение | URL-параметры |
+|------|-----------|---------------|
+| `serviceStatus` | Состояние одного сервиса | `?var-service=<name>` |
+| `linkStatus` | Состояние одной зависимости | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
+| `serviceList` | Таблица всех сервисов | — |
+| `servicesStatus` | Обзор состояния сервисов | — |
+| `linksStatus` | Обзор состояния связей | — |
+
+Если `grafana.baseUrl` пуст, элементы интеграции с Grafana скрыты в UI.
 
 ---
 
