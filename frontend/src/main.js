@@ -10,6 +10,7 @@ import {
 } from './filter.js';
 import { initToolbar } from './toolbar.js';
 import { initTooltip } from './tooltip.js';
+import { initSidebar, updateSidebarData } from './sidebar.js';
 
 let cy = null;
 let pollTimer = null;
@@ -146,6 +147,7 @@ async function refresh() {
     updateNamespaceOptions(data);
     updateFilters(data);
     applyFilters(cy);
+    updateSidebarData(data);
 
     if (isDisconnected) {
       isDisconnected = false;
@@ -304,15 +306,27 @@ function setupGraphToolbar() {
   });
 }
 
-function setupGrafanaClickThrough() {
-  cy.on('tap', 'node[grafanaUrl]', (evt) => {
-    const url = evt.target.data('grafanaUrl');
-    if (url) window.open(url, '_blank');
+function setupLegend() {
+  const legend = $('#graph-legend');
+  const btnToggle = $('#btn-legend');
+  const btnClose = $('#btn-legend-close');
+
+  // Restore legend visibility from localStorage
+  const legendVisible = localStorage.getItem('dephealth-legend') !== 'hidden';
+  if (legendVisible) {
+    legend.classList.remove('hidden');
+  }
+
+  // Toggle button
+  btnToggle.addEventListener('click', () => {
+    const isHidden = legend.classList.toggle('hidden');
+    localStorage.setItem('dephealth-legend', isHidden ? 'hidden' : 'visible');
   });
 
-  cy.on('tap', 'edge[grafanaUrl]', (evt) => {
-    const url = evt.target.data('grafanaUrl');
-    if (url) window.open(url, '_blank');
+  // Close button
+  btnClose.addEventListener('click', () => {
+    legend.classList.add('hidden');
+    localStorage.setItem('dephealth-legend', 'hidden');
   });
 }
 
@@ -347,9 +361,9 @@ async function init() {
     setupToolbar();
     setupFilters();
     setupGraphToolbar();
+    setupLegend();
     initToolbar();
     initTooltip(cy);
-    setupGrafanaClickThrough();
 
     // Read namespace from URL.
     const params = new URLSearchParams(window.location.search);
@@ -365,6 +379,8 @@ async function init() {
       setNamespaceValue(selectedNamespace);
     }
     applyFilters(cy);
+    initSidebar(cy, data);
+    updateSidebarData(data);
     startPolling();
   } catch (err) {
     console.error('Initialization failed:', err);

@@ -54,6 +54,31 @@
       <button id="btn-zoom-in" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
       <button id="btn-zoom-out" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
       <button id="btn-toolbar-fit" title="Fit to screen"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btn-legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
+    </div>
+    <div id="graph-legend" class="graph-legend hidden">
+      <div class="legend-header">
+        <span class="legend-title">Legend</span>
+        <button id="btn-legend-close" class="legend-close" title="Close legend">×</button>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Node States</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #4caf50;"></span> OK</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #ff9800;"></span> Degraded</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #f44336;"></span> Down</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #9e9e9e;"></span> Unknown</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Edge States</div>
+        <div class="legend-item"><span class="legend-line solid" style="border-color: #4caf50;"></span> OK</div>
+        <div class="legend-item"><span class="legend-line dashed" style="border-color: #ff9800;"></span> Degraded</div>
+        <div class="legend-item"><span class="legend-line dotted" style="border-color: #f44336;"></span> Down</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Alerts</div>
+        <div class="legend-item"><span class="legend-badge critical">!</span> Critical alert</div>
+        <div class="legend-item"><span class="legend-line thick" style="border-color: #999;"></span> Thicker border</div>
+      </div>
     </div>
     <div id="empty-state" class="hidden">
       <div class="empty-state-content">
@@ -66,6 +91,19 @@
   </div>
 
   <div id="toast-container"></div>
+
+  <div id="node-sidebar" class="node-sidebar hidden">
+    <div class="sidebar-header">
+      <h3 id="sidebar-title"></h3>
+      <button id="btn-sidebar-close" class="sidebar-close" title="Close">×</button>
+    </div>
+    <div class="sidebar-body">
+      <div id="sidebar-details" class="sidebar-section"></div>
+      <div id="sidebar-alerts" class="sidebar-section"></div>
+      <div id="sidebar-edges" class="sidebar-section"></div>
+      <div id="sidebar-actions" class="sidebar-section"></div>
+    </div>
+  </div>
 
   <footer id="status-bar">
     <span id="status-connection" class="status-dot" title="Connection status"></span>

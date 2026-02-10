@@ -10,7 +10,7 @@ Status: **Not Started**
 - [x] [Phase 11: Backend — Alerts severity config + models](#phase-11-backend--alerts-severity-config--models)
 - [x] [Phase 12: Frontend — Bootstrap Icons + Floating Toolbar](#phase-12-frontend--bootstrap-icons--floating-toolbar)
 - [x] [Phase 13: Frontend — Alert Badges + Tooltip](#phase-13-frontend--alert-badges--tooltip)
-- [ ] [Phase 14: Frontend — Legend + Node Detail Sidebar](#phase-14-frontend--legend--node-detail-sidebar)
+- [x] [Phase 14: Frontend — Legend + Node Detail Sidebar](#phase-14-frontend--legend--node-detail-sidebar)
 - [ ] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
 - [ ] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
 - [ ] [Phase 17: Backend+Frontend — Pods API + Pod Display](#phase-17-backendfrontend--pods-api--pod-display)
@@ -496,13 +496,13 @@ Remove `setupGrafanaClickThrough()` — replaced by sidebar + dblclick logic in 
 Keep edge tap → Grafana (or optionally show edge detail in sidebar).
 
 **Checklist:**
-- [ ] 14.1 Legend HTML
-- [ ] 14.2 Legend CSS
-- [ ] 14.3 Legend toggle button in toolbar
-- [ ] 14.4 Sidebar HTML
-- [ ] 14.5 Sidebar CSS
-- [ ] 14.6 Sidebar JS logic (sidebar.js)
-- [ ] 14.7 Update Grafana click-through
+- [x] 14.1 Legend HTML
+- [x] 14.2 Legend CSS
+- [x] 14.3 Legend toggle button in toolbar
+- [x] 14.4 Sidebar HTML
+- [x] 14.5 Sidebar CSS
+- [x] 14.6 Sidebar JS logic (sidebar.js)
+- [x] 14.7 Update Grafana click-through
 
 ---
 
