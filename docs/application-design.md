@@ -295,6 +295,8 @@ Frontend — тонкий слой визуализации. Вся трансф
 - **Контекстное меню (правый клик):** Open in Grafana, Copy Grafana URL, Show Details
 - **Layout:** dagre (hierarchical, направление `LR` или `TB`)
 
+![Context menu on a service node](./images/context-menu-grafana.png)
+
 ### Боковая панель (Sidebar)
 
 При клике по узлу или ребру открывается боковая панель с:
@@ -308,9 +310,15 @@ Frontend — тонкий слой визуализации. Вся трансф
   - serviceStatus — с `?var-service=<name>` для выбранного сервиса
   - linkStatus — с `?var-dependency=...&var-host=...&var-port=...` для выбранной зависимости
 
+![Sidebar with Grafana dashboard links (EN)](./images/sidebar-grafana-section.png)
+
 ### Интернационализация (i18n)
 
 Фронтенд поддерживает EN и RU. Кнопка переключения языка в тулбаре. Все элементы UI, фильтры, легенда, статусбар, боковая панель и контекстное меню локализованы. Язык сохраняется в `localStorage`.
+
+| EN | RU |
+|----|----|
+| ![UI in English](./images/sidebar-grafana-section.png) | ![UI на русском](./images/sidebar-grafana-russian-dashboards.png) |
 
 ---
 
