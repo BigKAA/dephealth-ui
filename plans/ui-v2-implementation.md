@@ -11,7 +11,7 @@ Status: **Not Started**
 - [x] [Phase 12: Frontend — Bootstrap Icons + Floating Toolbar](#phase-12-frontend--bootstrap-icons--floating-toolbar)
 - [x] [Phase 13: Frontend — Alert Badges + Tooltip](#phase-13-frontend--alert-badges--tooltip)
 - [x] [Phase 14: Frontend — Legend + Node Detail Sidebar](#phase-14-frontend--legend--node-detail-sidebar)
-- [ ] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
+- [x] [Phase 15: Frontend — Search + Layout Toggle + Export PNG](#phase-15-frontend--search--layout-toggle--export-png)
 - [ ] [Phase 16: Frontend — Alert Drawer + Stats + Fullscreen + Hotkeys](#phase-16-frontend--alert-drawer--stats--fullscreen--hotkeys)
 - [ ] [Phase 17: Backend+Frontend — Pods API + Pod Display](#phase-17-backendfrontend--pods-api--pod-display)
 - [ ] [Phase 18: Build + Deploy + Verify](#phase-18-build--deploy--verify)
@@ -583,13 +583,13 @@ $('#btn-export').addEventListener('click', () => {
 ```
 
 **Checklist:**
-- [ ] 15.1 Search UI (button + input overlay)
-- [ ] 15.2 Search CSS
-- [ ] 15.3 Search JS logic (search.js)
-- [ ] 15.4 Layout toggle button
-- [ ] 15.5 Layout toggle JS logic
-- [ ] 15.6 Export PNG button
-- [ ] 15.7 Export PNG JS logic
+- [x] 15.1 Search UI (button + input overlay)
+- [x] 15.2 Search CSS
+- [x] 15.3 Search JS logic (search.js)
+- [x] 15.4 Layout toggle button
+- [x] 15.5 Layout toggle JS logic
+- [x] 15.6 Export PNG button
+- [x] 15.7 Export PNG JS logic
 
 ---
 

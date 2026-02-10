@@ -54,7 +54,15 @@
       <button id="btn-zoom-in" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
       <button id="btn-zoom-out" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
       <button id="btn-toolbar-fit" title="Fit to screen"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btn-search" title="Search nodes"><i class="bi bi-search"></i></button>
+      <button id="btn-layout-toggle" title="Toggle layout direction"><i class="bi bi-distribute-vertical"></i></button>
+      <button id="btn-export" title="Export as PNG"><i class="bi bi-download"></i></button>
       <button id="btn-legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
+    </div>
+    <div id="search-panel" class="search-panel hidden">
+      <input id="search-input" type="text" placeholder="Search nodes..." autocomplete="off" />
+      <span id="search-count"></span>
+      <button id="btn-search-close" class="search-close" title="Close search">×</button>
     </div>
     <div id="graph-legend" class="graph-legend hidden">
       <div class="legend-header">

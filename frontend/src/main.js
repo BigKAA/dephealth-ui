@@ -1,7 +1,7 @@
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
-import { initGraph, renderGraph, updateGraphTheme } from './graph.js';
+import { initGraph, renderGraph, updateGraphTheme, relayout, setLayoutDirection } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 import { showToast } from './toast.js';
 import {
@@ -11,6 +11,7 @@ import {
 import { initToolbar } from './toolbar.js';
 import { initTooltip } from './tooltip.js';
 import { initSidebar, updateSidebarData } from './sidebar.js';
+import { initSearch } from './search.js';
 
 let cy = null;
 let pollTimer = null;
@@ -18,6 +19,7 @@ let autoRefresh = true;
 let pollInterval = 15000;
 let selectedNamespace = '';
 let appConfig = null; // Store full config including alerts severity levels
+let layoutDirection = 'TB'; // Current layout direction: 'TB' or 'LR'
 
 // Connection state
 let isDisconnected = false;
@@ -304,6 +306,30 @@ function setupGraphToolbar() {
   $('#btn-toolbar-fit').addEventListener('click', () => {
     if (cy) cy.fit(50);
   });
+
+  // Layout toggle button
+  const btnLayoutToggle = $('#btn-layout-toggle');
+  btnLayoutToggle.addEventListener('click', () => {
+    layoutDirection = layoutDirection === 'TB' ? 'LR' : 'TB';
+    const icon = btnLayoutToggle.querySelector('i');
+    if (icon) {
+      icon.className = layoutDirection === 'TB' ? 'bi bi-distribute-vertical' : 'bi bi-distribute-horizontal';
+    }
+    localStorage.setItem('dephealth-layout-direction', layoutDirection);
+    relayout(cy, layoutDirection);
+  });
+
+  // Export PNG button
+  $('#btn-export').addEventListener('click', () => {
+    if (!cy) return;
+    const bg = document.documentElement.dataset.theme === 'dark' ? '#1e1e1e' : '#ffffff';
+    const dataUrl = cy.png({ full: true, scale: 2, bg });
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `dephealth-topology-${Date.now()}.png`;
+    a.click();
+    showToast('Graph exported as PNG', 'success');
+  });
 }
 
 function setupLegend() {
@@ -345,6 +371,13 @@ async function initUserInfo() {
 async function init() {
   initTheme();
 
+  // Restore layout direction from localStorage
+  const savedDirection = localStorage.getItem('dephealth-layout-direction');
+  if (savedDirection === 'LR' || savedDirection === 'TB') {
+    layoutDirection = savedDirection;
+    setLayoutDirection(layoutDirection); // Set in graph.js
+  }
+
   try {
     const config = await withRetry(fetchConfig);
     appConfig = config; // Store globally for graph rendering
@@ -364,6 +397,14 @@ async function init() {
     setupLegend();
     initToolbar();
     initTooltip(cy);
+    initSearch(cy);
+
+    // Update layout toggle icon based on saved direction
+    const btnLayoutToggle = $('#btn-layout-toggle');
+    const icon = btnLayoutToggle.querySelector('i');
+    if (icon) {
+      icon.className = layoutDirection === 'TB' ? 'bi bi-distribute-vertical' : 'bi bi-distribute-horizontal';
+    }
 
     // Read namespace from URL.
     const params = new URLSearchParams(window.location.search);

@@ -636,6 +636,73 @@ body {
   font-weight: 500;
 }
 
+/* Search panel */
+.search-panel {
+  position: absolute;
+  top: 16px;
+  right: 70px;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 2px 8px var(--shadow);
+  min-width: 280px;
+  transition: opacity 0.2s ease;
+}
+
+.search-panel.hidden {
+  display: none;
+}
+
+.search-panel input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  padding: 4px 6px;
+}
+
+.search-panel input::placeholder {
+  color: var(--text-muted);
+}
+
+#search-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: right;
+}
+
+.search-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.search-close:hover {
+  background: var(--btn-hover-bg);
+  color: var(--text-primary);
+}
+
 /* Legend panel */
 .graph-legend {
   position: absolute;

@@ -3,6 +3,8 @@ import dagre from 'cytoscape-dagre';
 
 cytoscape.use(dagre);
 
+let layoutDirection = 'TB'; // Global layout direction: 'TB' or 'LR'
+
 function isDarkTheme() {
   return document.documentElement.dataset.theme === 'dark';
 }
@@ -340,7 +342,7 @@ export function renderGraph(cy, data, config) {
 
   cy.layout({
     name: 'dagre',
-    rankDir: 'TB',
+    rankDir: layoutDirection,
     nodeSep: 80,
     rankSep: 120,
     animate: false,
@@ -360,4 +362,30 @@ export function updateGraphTheme(cy) {
   if (cy) {
     cy.style().update();
   }
+}
+
+/**
+ * Set the layout direction for future renders.
+ * @param {string} direction - Layout direction: 'TB' or 'LR'
+ */
+export function setLayoutDirection(direction) {
+  layoutDirection = direction;
+}
+
+/**
+ * Re-run layout with specified direction.
+ * @param {cytoscape.Core} cy - Cytoscape instance
+ * @param {string} direction - Layout direction: 'TB' (top-bottom) or 'LR' (left-right)
+ */
+export function relayout(cy, direction = 'TB') {
+  if (!cy) return;
+  layoutDirection = direction; // Update global direction
+  cy.layout({
+    name: 'dagre',
+    rankDir: direction,
+    nodeSep: 80,
+    rankSep: 120,
+    animate: true,
+    animationDuration: 500,
+  }).run();
 }
