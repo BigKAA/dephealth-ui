@@ -372,6 +372,7 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 ## Related Projects
 
 - [dephealth SDK](https://github.com/BigKAA/topologymetrics) — Instrumentation library for Go, Python, Java, .NET
+- [uniproxy](https://github.com/BigKAA/uniproxy) — Universal test proxy for dependency health monitoring
 - [VictoriaMetrics](https://victoriametrics.com/) — High-performance Prometheus-compatible TSDB
 - [Cytoscape.js](https://js.cytoscape.org/) — Graph visualization library
 
