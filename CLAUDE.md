@@ -51,6 +51,12 @@ Follow **GitHub Flow + Semantic Versioning** (see [GIT-WORKFLOW.md](GIT-WORKFLOW
 - Releases via git tags `vX.Y.Z` on `master`
 - Quick fixes (typos, small fixes) can be committed directly to `master`
 
+### Image tagging convention
+
+- **Development:** `vX.Y.Z-N` (e.g. `v0.11.4-1`, `v0.11.4-2`) — increment `-N` suffix for each build
+- **Release:** `vX.Y.Z` (e.g. `v0.11.5`) — drop the suffix, bump patch version
+- **Minor version** (second digit) — only bump with explicit user approval
+
 ## Project Structure
 
 ```

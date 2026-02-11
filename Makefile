@@ -1,5 +1,6 @@
 .PHONY: build lint test frontend-build docker-build docker-push \
        helm-deploy helm-undeploy dev clean \
+       uniproxy-deploy uniproxy-undeploy \
        env-deploy env-undeploy env-status
 
 # --- Variables ---
@@ -16,8 +17,7 @@ HELM_VALUES   ?= $(HELM_CHART)/values-homelab.yaml
 # Test environment charts
 INFRA_CHART      ?= deploy/helm/dephealth-infra
 MONITORING_CHART ?= deploy/helm/dephealth-monitoring
-# Note: uniproxy chart moved to separate repository:
-# https://github.com/BigKAA/uniproxy
+UNIPROXY_CHART   ?= $(HOME)/Projects/personal/topologymetrics/uniproxy/deploy/helm/uniproxy
 
 # --- Local ---
 
@@ -51,8 +51,21 @@ docker-build:
 docker-push:
 	@echo "Image pushed during docker-build (--push flag)"
 
-# --- Uniproxy (moved to separate repository) ---
-# See: https://github.com/BigKAA/uniproxy
+# --- Uniproxy ---
+
+uniproxy-deploy:
+	helm upgrade --install uniproxy-ns1 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns1-homelab.yaml \
+		-n dephealth-uniproxy --create-namespace
+	helm upgrade --install uniproxy-ns2 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns2-homelab.yaml \
+		-n dephealth-uniproxy-2 --create-namespace
+
+uniproxy-undeploy:
+	-helm uninstall uniproxy-ns1 -n dephealth-uniproxy
+	-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2
 
 # --- Helm (dephealth-ui) ---
 
@@ -69,18 +82,14 @@ helm-undeploy:
 env-deploy:
 	helm upgrade --install dephealth-infra $(INFRA_CHART) \
 		-f $(INFRA_CHART)/values-homelab.yaml
-	@echo "Note: uniproxy chart moved to https://github.com/BigKAA/uniproxy"
-	@echo "To deploy uniproxy:"
-	@echo "  git clone https://github.com/BigKAA/uniproxy.git /tmp/uniproxy"
-	@echo "  helm install uniproxy-ns1 /tmp/uniproxy/deploy/helm/uniproxy -f /tmp/uniproxy/deploy/helm/uniproxy/instances/ns1-homelab.yaml -n dephealth-uniproxy --create-namespace"
+	$(MAKE) uniproxy-deploy
 	helm upgrade --install dephealth-monitoring $(MONITORING_CHART) \
 		-f $(MONITORING_CHART)/values-homelab.yaml \
 		-n dephealth-monitoring --create-namespace
 
 env-undeploy:
 	-helm uninstall dephealth-monitoring -n dephealth-monitoring
-	-helm uninstall uniproxy-ns1 -n dephealth-uniproxy 2>/dev/null || true
-	-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2 2>/dev/null || true
+	-$(MAKE) uniproxy-undeploy
 	-helm uninstall dephealth-infra
 	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
 		dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
