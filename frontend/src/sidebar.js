@@ -26,9 +26,10 @@ export function initSidebar(cy, topologyData) {
   const sidebar = $('#node-sidebar');
   const closeBtn = $('#btn-sidebar-close');
 
-  // Single tap on node: toggle sidebar
+  // Single tap on node: toggle sidebar (skip namespace group nodes)
   cy.on('tap', 'node', (evt) => {
     const node = evt.target;
+    if (node.data('isGroup')) return;
     const nodeId = node.data('id');
     const sidebar = $('#node-sidebar');
 
@@ -40,8 +41,9 @@ export function initSidebar(cy, topologyData) {
     }
   });
 
-  // Double tap on node with Grafana URL: open Grafana in new tab
+  // Double tap on node with Grafana URL: open Grafana in new tab (skip group nodes)
   cy.on('dbltap', 'node[grafanaUrl]', (evt) => {
+    if (evt.target.data('isGroup')) return;
     const url = evt.target.data('grafanaUrl');
     if (url) window.open(url, '_blank');
   });

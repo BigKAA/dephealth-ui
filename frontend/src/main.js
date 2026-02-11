@@ -18,6 +18,12 @@ import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js'
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu } from './contextmenu.js';
 import { makeDraggable } from './draggable.js';
+import {
+  isGroupingEnabled, setGroupingEnabled,
+  collapseNamespace, expandNamespace, collapseAll, expandAll,
+  hasExpandedGroups, reapplyCollapsedState, getCollapsedNamespaces,
+  getNamespacePrefix,
+} from './grouping.js';
 
 let cy = null;
 let pollTimer = null;
@@ -189,6 +195,9 @@ async function refresh() {
   try {
     const data = await fetchTopology(selectedNamespace || undefined);
     renderGraph(cy, data, appConfig);
+    if (isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
+      reapplyCollapsedState(cy);
+    }
     updateStatus(data);
     checkEmptyState(data);
     updateNamespaceOptions(data);
@@ -365,6 +374,37 @@ function setupGraphToolbar() {
     relayout(cy, layoutDirection);
   });
 
+  // Namespace grouping toggle button
+  const btnGrouping = $('#btn-grouping');
+  const btnCollapseAll = $('#btn-collapse-all');
+  if (isGroupingEnabled()) {
+    btnGrouping.classList.add('active');
+    btnLayoutToggle.classList.add('hidden');
+    btnCollapseAll.classList.remove('hidden');
+  }
+  btnGrouping.addEventListener('click', () => {
+    const next = !isGroupingEnabled();
+    setGroupingEnabled(next);
+    btnGrouping.classList.toggle('active', next);
+    btnLayoutToggle.classList.toggle('hidden', next);
+    btnCollapseAll.classList.toggle('hidden', !next);
+    refresh();
+  });
+
+  // Collapse All / Expand All button
+  btnCollapseAll.addEventListener('click', () => {
+    if (!cy || !isGroupingEnabled()) return;
+    if (hasExpandedGroups(cy)) {
+      collapseAll(cy);
+      const icon = btnCollapseAll.querySelector('i');
+      if (icon) icon.className = 'bi bi-arrows-expand';
+    } else {
+      expandAll(cy);
+      const icon = btnCollapseAll.querySelector('i');
+      if (icon) icon.className = 'bi bi-arrows-collapse';
+    }
+  });
+
   // Export PNG button
   $('#btn-export').addEventListener('click', () => {
     if (!cy) return;
@@ -508,6 +548,27 @@ function setupLanguage() {
   });
 }
 
+function setupGroupingHandlers() {
+  if (!cy) return;
+
+  const NS_PREFIX = getNamespacePrefix();
+
+  // Double-tap on expanded namespace group → collapse
+  cy.on('dbltap', 'node[?isGroup]', (evt) => {
+    if (!isGroupingEnabled()) return;
+    const node = evt.target;
+    if (node.data('isCollapsed')) {
+      // Expand collapsed node
+      const nsName = node.id().replace(NS_PREFIX, '');
+      expandNamespace(cy, nsName);
+    } else {
+      // Collapse expanded group
+      const nsName = node.data('label');
+      collapseNamespace(cy, nsName);
+    }
+  });
+}
+
 async function init() {
   setupLanguage();
   initTheme();
@@ -585,6 +646,9 @@ async function init() {
 
     const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
     renderGraph(cy, data, appConfig);
+    if (isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
+      reapplyCollapsedState(cy);
+    }
     updateStatus(data);
     checkEmptyState(data);
     initFilters(data);
@@ -595,6 +659,7 @@ async function init() {
     }
     applyFilters(cy);
     initSidebar(cy, data);
+    setupGroupingHandlers();
     initContextMenu(cy);
     updateSidebarData(data);
     startPolling();

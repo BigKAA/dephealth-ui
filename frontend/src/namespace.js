@@ -77,6 +77,25 @@ export function extractNamespaceFromHost(host) {
   return null;
 }
 
+/**
+ * Return a contrasting text color (white or dark) for a given hex background.
+ * Uses relative luminance (WCAG formula).
+ * @param {string} hex - CSS hex color (e.g. "#2196f3")
+ * @returns {string} '#fff' or '#1e1e1e'
+ */
+export function getContrastTextColor(hex) {
+  if (!hex || hex.length < 7) return '#fff';
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  // sRGB → linear
+  const lr = r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4;
+  const lg = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4;
+  const lb = b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4;
+  const luminance = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+  return luminance > 0.35 ? '#1e1e1e' : '#fff';
+}
+
 // Cache for base64-encoded SVG stripe images (color -> data URI)
 const stripeCache = {};
 

@@ -36,6 +36,10 @@ export default {
   'graphToolbar.export': 'Export as PNG',
   'graphToolbar.fullscreen': 'Toggle fullscreen',
   'graphToolbar.legend': 'Toggle legend',
+  'graphToolbar.groupByNs': 'Group by namespace',
+  'graphToolbar.ungroupNs': 'Disable namespace grouping',
+  'graphToolbar.collapseAll': 'Collapse all namespaces',
+  'graphToolbar.expandAll': 'Expand all namespaces',
   'graphToolbar.nsLegend': 'Toggle namespace legend',
 
   // Search panel

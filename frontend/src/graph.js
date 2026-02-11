@@ -1,9 +1,12 @@
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
+import fcose from 'cytoscape-fcose';
 import { isElementVisible } from './search.js';
-import { getNamespaceColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
+import { getNamespaceColor, getContrastTextColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
+import { isGroupingEnabled, buildCompoundElements } from './grouping.js';
 
 cytoscape.use(dagre);
+cytoscape.use(fcose);
 
 let layoutDirection = 'TB'; // Global layout direction: 'TB' or 'LR'
 
@@ -116,6 +119,74 @@ const cytoscapeStyles = [
       'background-image-containment': 'over',
     },
   },
+  // Compound (parent) nodes — namespace groups
+  {
+    selector: ':parent',
+    style: {
+      shape: 'round-rectangle',
+      'corner-radius': 6,
+      'border-width': 2,
+      'border-style': 'dashed',
+      'border-color': (ele) => getNamespaceColor(ele.data('label')),
+      'background-color': (ele) => getNamespaceColor(ele.data('label')),
+      'background-opacity': () => (isDarkTheme() ? 0.08 : 0.04),
+      padding: '20px',
+      label: 'data(label)',
+      'text-valign': 'top',
+      'text-halign': 'center',
+      'font-size': 13,
+      'font-weight': 'bold',
+      color: (ele) => getNamespaceColor(ele.data('label')),
+      'text-margin-y': -4,
+      'compound-sizing-wrt-labels': 'include',
+      'min-width': 120,
+      'min-height': 60,
+    },
+  },
+  // Collapsed namespace summary node — namespace color fill, state color border
+  {
+    selector: 'node[?isCollapsed]',
+    style: {
+      shape: 'round-rectangle',
+      'corner-radius': 8,
+      width: (ele) => {
+        const label = ele.data('label') || '';
+        return Math.max(140, label.length * 8 + 40);
+      },
+      height: 55,
+      'background-color': (ele) => getNamespaceColor(ele.data('nsName')),
+      'background-opacity': 1,
+      'border-width': 4,
+      'border-style': 'solid',
+      'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
+      label: 'data(label)',
+      'text-valign': 'center',
+      'text-halign': 'center',
+      'font-size': 14,
+      'font-weight': 'bold',
+      color: (ele) => getContrastTextColor(getNamespaceColor(ele.data('nsName'))),
+      'text-wrap': 'wrap',
+      'text-max-width': 180,
+      'text-outline-width': 2,
+      'text-outline-color': (ele) => {
+        const bg = getNamespaceColor(ele.data('nsName'));
+        // Subtle outline matching background for better readability
+        return getContrastTextColor(bg) === '#fff' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)';
+      },
+      cursor: 'pointer',
+      padding: '0px',
+      'background-image': 'none',
+    },
+  },
+  // Aggregated edges (from collapsed namespaces)
+  {
+    selector: 'edge[?isAggregated]',
+    style: {
+      width: 3,
+      'line-style': 'dashed',
+      'target-arrow-shape': 'triangle',
+    },
+  },
   // Nodes with grafanaUrl get pointer cursor
   {
     selector: 'node[grafanaUrl]',
@@ -172,7 +243,8 @@ let severityLevels = []; // Ordered array of severity levels from config
 function computeSignature(data) {
   const nodeIds = data.nodes.map((n) => n.id).sort();
   const edgeKeys = data.edges.map((e) => `${e.source}->${e.target}`).sort();
-  return nodeIds.join(',') + '|' + edgeKeys.join(',');
+  const groupFlag = isGroupingEnabled() ? 'G' : 'F';
+  return groupFlag + '|' + nodeIds.join(',') + '|' + edgeKeys.join(',');
 }
 
 /**
@@ -369,26 +441,40 @@ export function renderGraph(cy, data, config) {
   }
 
   // Structure changed — full rebuild
+  const grouping = isGroupingEnabled();
+  let parentMap;
+
   cy.batch(() => {
     cy.elements().remove();
+
+    // Add compound parent nodes first when grouping is enabled
+    if (grouping) {
+      const compound = buildCompoundElements(data);
+      parentMap = compound.parentMap;
+      for (const parent of compound.parents) {
+        cy.add(parent);
+      }
+    }
 
     for (const node of data.nodes) {
       // For dependency nodes without namespace, try to extract from host label
       const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
-      cy.add({
-        group: 'nodes',
-        data: {
-          id: node.id,
-          label: node.label,
-          state: node.state,
-          stale: node.stale || false,
-          type: node.type,
-          namespace: ns || undefined,
-          alertCount: alertCounts[node.id] || 0,
-          alertSeverity: node.alertSeverity || undefined,
-          grafanaUrl: node.grafanaUrl || undefined,
-        },
-      });
+      const nodeData = {
+        id: node.id,
+        label: node.label,
+        state: node.state,
+        stale: node.stale || false,
+        type: node.type,
+        namespace: ns || undefined,
+        alertCount: alertCounts[node.id] || 0,
+        alertSeverity: node.alertSeverity || undefined,
+        grafanaUrl: node.grafanaUrl || undefined,
+      };
+      // Assign parent when grouping is enabled and node has a namespace
+      if (grouping && parentMap && parentMap.has(node.id)) {
+        nodeData.parent = parentMap.get(node.id);
+      }
+      cy.add({ group: 'nodes', data: nodeData });
     }
 
     for (const edge of data.edges) {
@@ -413,13 +499,25 @@ export function renderGraph(cy, data, config) {
     }
   });
 
-  cy.layout({
-    name: 'dagre',
-    rankDir: layoutDirection,
-    nodeSep: 80,
-    rankSep: 120,
-    animate: false,
-  }).run();
+  if (grouping) {
+    cy.layout({
+      name: 'fcose',
+      animate: false,
+      quality: 'default',
+      nodeSeparation: 80,
+      idealEdgeLength: 120,
+      nodeRepulsion: 6000,
+      tile: true,
+    }).run();
+  } else {
+    cy.layout({
+      name: 'dagre',
+      rankDir: layoutDirection,
+      nodeSep: 80,
+      rankSep: 120,
+      animate: false,
+    }).run();
+  }
 
   if (isFirstRender) {
     cy.fit(50);
@@ -453,12 +551,25 @@ export function setLayoutDirection(direction) {
 export function relayout(cy, direction = 'TB') {
   if (!cy) return;
   layoutDirection = direction; // Update global direction
-  cy.layout({
-    name: 'dagre',
-    rankDir: direction,
-    nodeSep: 80,
-    rankSep: 120,
-    animate: true,
-    animationDuration: 500,
-  }).run();
+  if (isGroupingEnabled()) {
+    cy.layout({
+      name: 'fcose',
+      animate: true,
+      animationDuration: 500,
+      quality: 'default',
+      nodeSeparation: 80,
+      idealEdgeLength: 120,
+      nodeRepulsion: 6000,
+      tile: true,
+    }).run();
+  } else {
+    cy.layout({
+      name: 'dagre',
+      rankDir: direction,
+      nodeSep: 80,
+      rankSep: 120,
+      animate: true,
+      animationDuration: 500,
+    }).run();
+  }
 }
