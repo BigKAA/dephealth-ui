@@ -17,6 +17,7 @@ import { initShortcuts } from './shortcuts.js';
 import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js';
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu } from './contextmenu.js';
+import { makeDraggable } from './draggable.js';
 
 let cy = null;
 let pollTimer = null;
@@ -418,6 +419,8 @@ function setupLegend() {
     legend.classList.add('hidden');
     localStorage.setItem('dephealth-legend', 'hidden');
   });
+
+  makeDraggable(legend, 'dephealth-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
 }
 
 function setupNamespaceLegend() {
@@ -440,6 +443,8 @@ function setupNamespaceLegend() {
     legend.classList.add('hidden');
     localStorage.setItem('dephealth-ns-legend', 'hidden');
   });
+
+  makeDraggable(legend, 'dephealth-ns-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
 }
 
 function updateNamespaceLegend(data) {

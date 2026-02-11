@@ -899,6 +899,21 @@ body {
   display: none;
 }
 
+.graph-legend .legend-header,
+.namespace-legend .legend-header {
+  cursor: grab;
+}
+
+.graph-legend.dragging .legend-header,
+.namespace-legend.dragging .legend-header {
+  cursor: grabbing;
+}
+
+.graph-legend.dragging,
+.namespace-legend.dragging {
+  opacity: 0.9;
+}
+
 .ns-legend-items {
   overflow-y: auto;
   display: flex;
