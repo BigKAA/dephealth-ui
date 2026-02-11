@@ -107,6 +107,33 @@ export function getCollapsedChildren(nsName) {
   return stored ? stored.children : null;
 }
 
+/**
+ * Find original child node connected to an external node within a collapsed namespace.
+ * Searches stored edges to determine which child was the actual endpoint.
+ * @param {string} nsName - Namespace name (without prefix)
+ * @param {string} externalNodeId - ID of the node outside the namespace
+ * @returns {string|null} ID of the matching child, or sole child if only one exists
+ */
+export function findConnectedChild(nsName, externalNodeId) {
+  const stored = collapsedStore.get(nsName);
+  if (!stored) return null;
+
+  const childIds = new Set(stored.children.map((c) => c.data.id));
+
+  for (const edge of stored.edges) {
+    if (edge.data.source === externalNodeId && childIds.has(edge.data.target)) {
+      return edge.data.target;
+    }
+    if (edge.data.target === externalNodeId && childIds.has(edge.data.source)) {
+      return edge.data.source;
+    }
+  }
+
+  // Fallback: if only one child, return it
+  if (stored.children.length === 1) return stored.children[0].data.id;
+  return null;
+}
+
 // ─── Collapse / Expand ───────────────────────────────────────────────
 
 /**

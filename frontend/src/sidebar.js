@@ -5,7 +5,7 @@
 
 import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
-import { getCollapsedChildren, expandNamespace } from './grouping.js';
+import { getCollapsedChildren, expandNamespace, findConnectedChild } from './grouping.js';
 
 let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
@@ -182,19 +182,38 @@ function openCollapsedSidebar(node, cy) {
   // Instances: empty
   $('#sidebar-instances').innerHTML = '';
 
-  // Services list (from collapsedStore)
+  // Services list (from collapsedStore) — clickable to expand and navigate
   const children = getCollapsedChildren(nsName);
   if (children && children.length > 0) {
     const sorted = [...children].sort((a, b) => (a.data.label || '').localeCompare(b.data.label || ''));
     $('#sidebar-edges').innerHTML = `
       <div class="sidebar-section-title">${t('sidebar.collapsed.services', { count: children.length })}</div>
       ${sorted.map((child) => `
-        <div class="sidebar-node-link">
+        <div class="sidebar-node-link" data-child-id="${child.data.id}">
           <span class="sidebar-state-dot ${child.data.state || 'unknown'}"></span>
           <span class="sidebar-node-link-label">${child.data.label || child.data.id}</span>
+          <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
         </div>
       `).join('')}
     `;
+
+    // Click on service: expand namespace, center on node, show service sidebar
+    $('#sidebar-edges').querySelectorAll('.sidebar-node-link[data-child-id]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const childId = el.dataset.childId;
+        expandNamespace(cy, nsName);
+        // Wait for layout to finish, then navigate to the service node
+        cy.one('layoutstop', () => {
+          const node = cy.getElementById(childId);
+          if (node && node.length) {
+            cy.animate({ center: { eles: node }, duration: 300 });
+            highlightElement(node);
+            openSidebar(node, cy);
+          }
+        });
+      });
+    });
   } else {
     $('#sidebar-edges').innerHTML = '';
   }
@@ -653,7 +672,7 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
 
   section.innerHTML = `
     <div class="sidebar-section-title">${t('sidebar.edge.connectedNodes')}</div>
-    <div class="sidebar-node-link" data-node-id="${sourceNode.id()}">
+    <div class="sidebar-node-link" data-node-id="${sourceNode.id()}" data-other-id="${targetNode.id()}">
       <span class="sidebar-state-dot ${sourceState}"></span>
       <span class="sidebar-node-link-label">
         <span class="sidebar-node-link-role">${t('sidebar.edge.source')}:</span>
@@ -661,7 +680,7 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
       </span>
       <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
     </div>
-    <div class="sidebar-node-link" data-node-id="${targetNode.id()}">
+    <div class="sidebar-node-link" data-node-id="${targetNode.id()}" data-other-id="${sourceNode.id()}">
       <span class="sidebar-state-dot ${targetState}"></span>
       <span class="sidebar-node-link-label">
         <span class="sidebar-node-link-role">${t('sidebar.edge.target')}:</span>
@@ -678,13 +697,23 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
       const nodeId = el.dataset.nodeId;
       const node = cy.getElementById(nodeId);
       if (node && node.length) {
-        // Center node on graph with animation
-        cy.animate({ center: { eles: node }, duration: 300 });
-        highlightElement(node);
-        // Open appropriate sidebar (collapsed vs regular)
         if (node.data('isCollapsed')) {
-          openCollapsedSidebar(node, cy);
+          // Expand namespace and navigate to the original child service
+          const nsName = node.data('nsName');
+          const otherId = el.dataset.otherId;
+          const childId = findConnectedChild(nsName, otherId);
+          expandNamespace(cy, nsName);
+          cy.one('layoutstop', () => {
+            const childNode = childId ? cy.getElementById(childId) : null;
+            if (childNode && childNode.length) {
+              cy.animate({ center: { eles: childNode }, duration: 300 });
+              highlightElement(childNode);
+              openSidebar(childNode, cy);
+            }
+          });
         } else {
+          cy.animate({ center: { eles: node }, duration: 300 });
+          highlightElement(node);
           openSidebar(node, cy);
         }
       }
