@@ -10,6 +10,8 @@ let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
 let currentEdgeId = null; // Track currently opened edge for toggle behavior
 let grafanaConfig = null; // Grafana config from /api/v1/config
+let highlightedElement = null; // Track currently highlighted element for cleanup
+let highlightTimer = null; // Timer for highlight auto-clear
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -142,6 +144,7 @@ function closeSidebar() {
   $('#node-sidebar').classList.add('hidden');
   currentNodeId = null;
   currentEdgeId = null;
+  clearHighlight();
 }
 
 /**
@@ -257,6 +260,7 @@ function renderEdges(node, cy) {
     <div class="sidebar-edge-item${info.stale ? ' stale' : ''}" data-edge-id="${info.edgeId}">
       <span class="sidebar-edge-label">${arrow} ${info.label}</span>
       <span class="sidebar-edge-latency">${info.latency}</span>
+      <span class="sidebar-edge-action">${t('sidebar.edge.goToEdge')} →</span>
     </div>
   `;
 
@@ -291,7 +295,7 @@ function renderEdges(node, cy) {
       const edge = cy.getElementById(edgeId);
       if (edge && edge.length) {
         cy.animate({ center: { eles: edge }, duration: 300 });
-        highlightEdge(edge);
+        highlightElement(edge);
         openEdgeSidebar(edge, cy);
       }
     });
@@ -299,19 +303,36 @@ function renderEdges(node, cy) {
 }
 
 /**
- * Briefly highlight an edge on the graph for visual feedback.
- * @param {cytoscape.EdgeSingular} edge
+ * Clear highlight from previously highlighted element.
+ * Removes inline overlay styles and cancels the auto-clear timer.
  */
-function highlightEdge(edge) {
-  const origWidth = parseFloat(edge.style('width')) || 1.5;
-  const origColor = edge.style('line-color');
-  edge.animate({
-    style: { width: 6, 'line-color': '#2196f3' },
-    duration: 200,
-  }).animate({
-    style: { width: origWidth, 'line-color': origColor },
-    duration: 400,
+function clearHighlight() {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer);
+    highlightTimer = null;
+  }
+  if (highlightedElement) {
+    highlightedElement.removeStyle('overlay-color overlay-opacity overlay-padding');
+    highlightedElement = null;
+  }
+}
+
+/**
+ * Highlight an element (node or edge) with a visible overlay dot.
+ * Sets overlay immediately, auto-clears after 1.5s.
+ * @param {cytoscape.NodeSingular|cytoscape.EdgeSingular} ele
+ */
+function highlightElement(ele) {
+  clearHighlight();
+  highlightedElement = ele;
+
+  ele.style({
+    'overlay-color': '#2196f3',
+    'overlay-opacity': 0.35,
+    'overlay-padding': ele.isEdge() ? 8 : 14,
   });
+
+  highlightTimer = setTimeout(() => clearHighlight(), 1500);
 }
 
 /**
@@ -579,6 +600,7 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
       if (node && node.length) {
         // Center node on graph with animation
         cy.animate({ center: { eles: node }, duration: 300 });
+        highlightElement(node);
         // Open node sidebar
         openSidebar(node, cy);
       }

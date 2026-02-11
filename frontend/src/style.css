@@ -1180,6 +1180,22 @@ body {
   flex-shrink: 0;
 }
 
+.sidebar-edge-action {
+  font-size: 11px;
+  color: var(--btn-primary-bg);
+  flex-shrink: 0;
+  display: none;
+  margin-left: 8px;
+}
+
+.sidebar-edge-item:hover .sidebar-edge-action {
+  display: inline;
+}
+
+.sidebar-edge-item:hover .sidebar-edge-latency {
+  display: none;
+}
+
 .sidebar-button {
   width: 100%;
   padding: 10px 16px;

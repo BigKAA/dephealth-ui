@@ -125,6 +125,7 @@ export default {
   'sidebar.edge.criticalNo': 'No',
   'sidebar.edge.connectedNodes': 'Connected Nodes',
   'sidebar.edge.goToNode': 'Go to node',
+  'sidebar.edge.goToEdge': 'Go to edge',
 
   // Alert drawer
   'alerts.title': 'Active Alerts',

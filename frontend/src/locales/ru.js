@@ -125,6 +125,7 @@ export default {
   'sidebar.edge.criticalNo': 'Нет',
   'sidebar.edge.connectedNodes': 'Связанные узлы',
   'sidebar.edge.goToNode': 'Перейти к узлу',
+  'sidebar.edge.goToEdge': 'Перейти к связи',
 
   // Alert drawer
   'alerts.title': 'Активные алерты',
