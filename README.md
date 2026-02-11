@@ -19,6 +19,8 @@
 
 The application consumes metrics collected by the [dephealth SDK](https://github.com/BigKAA/topologymetrics) from Prometheus/VictoriaMetrics and correlates them with AlertManager alerts to provide a unified health view.
 
+![Tree view](./docs/images/tree-view-eng.png)
+
 ![Topology graph with collapsed namespaces, alert badges, and namespace colors](./docs/images/dephealth-main-view.png)
 
 ![Node detail sidebar with alerts, instances, edges, and Grafana links](./docs/images/sidebar-grafana-section.png)
@@ -409,6 +411,8 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 **dephealth-ui** — веб-приложение для визуализации топологии микросервисов и мониторинга состояния зависимостей в реальном времени. Отображает интерактивный направленный граф с состояниями сервисов (OK, DEGRADED, DOWN), latency соединений и предоставляет прямые ссылки на дашборды Grafana.
 
 Приложение потребляет метрики, собранные [dephealth SDK](https://github.com/BigKAA/topologymetrics) из Prometheus/VictoriaMetrics, и коррелирует их с алертами AlertManager для предоставления единого представления о здоровье системы.
+
+![Дерево зависимостей](./docs/images/tree-view-ru.png)
 
 ![Граф топологии со свёрнутыми namespace, алерт-бейджами и цветами namespace](./docs/images/dephealth-russian-ui.png)
 

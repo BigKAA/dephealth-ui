@@ -10,7 +10,7 @@
 
 dephealth-ui exposes a REST API for topology visualization and health monitoring. All endpoints return JSON and support CORS for browser-based clients.
 
-**Base URL:** `https://dephealth.example.com`  
+**Base URL:** `https://dephealth.example.com`
 **API Prefix:** `/api/v1`
 
 ---
@@ -39,6 +39,8 @@ Returns the complete service topology graph with pre-calculated node/edge states
 |-----------|------|:--------:|-------------|
 | `namespace` | string | No | Filter by Kubernetes namespace (empty = all) |
 
+**Caching:** Unfiltered requests (`namespace` empty) are cached server-side. Supports `ETag` / `If-None-Match` headers — returns `304 Not Modified` when data hasn't changed.
+
 **Response:** `200 OK`
 
 ```json
@@ -58,12 +60,13 @@ Returns the complete service topology graph with pre-calculated node/edge states
     {
       "id": "postgres-main",
       "label": "postgres-main",
-      "state": "ok",
+      "state": "unknown",
       "type": "postgres",
       "namespace": "production",
       "host": "pg-master.db.svc",
       "port": "5432",
-      "dependencyCount": 0
+      "dependencyCount": 0,
+      "stale": true
     }
   ],
   "edges": [
@@ -76,7 +79,9 @@ Returns the complete service topology graph with pre-calculated node/edge states
       "health": 1,
       "state": "ok",
       "critical": true,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-master.db.svc&var-port=5432"
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-master.db.svc&var-port=5432",
+      "alertCount": 1,
+      "alertSeverity": "warning"
     }
   ],
   "alerts": [
@@ -94,23 +99,69 @@ Returns the complete service topology graph with pre-calculated node/edge states
     "cachedAt": "2026-02-10T09:15:30Z",
     "ttl": 15,
     "nodeCount": 42,
-    "edgeCount": 187
+    "edgeCount": 187,
+    "partial": false,
+    "errors": []
   }
 }
 ```
+
+**Node fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique node identifier |
+| `label` | string | Display label |
+| `state` | string | `ok`, `degraded`, `down`, `unknown` |
+| `type` | string | `service` (instrumented app) or dependency type (`postgres`, `redis`, `http`, etc.) |
+| `namespace` | string | Kubernetes namespace |
+| `host` | string | Endpoint hostname (omitted for service nodes) |
+| `port` | string | Endpoint port (omitted for service nodes) |
+| `dependencyCount` | int | Number of outgoing edges |
+| `stale` | bool | `true` if the node's metrics have disappeared (lookback mode only) |
+| `grafanaUrl` | string | Direct link to Grafana Service Status dashboard (omitted if Grafana not configured) |
+| `alertCount` | int | Number of active alerts (omitted if 0) |
+| `alertSeverity` | string | Highest alert severity (omitted if no alerts) |
+
+**Edge fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source` | string | Source node ID |
+| `target` | string | Target node ID |
+| `type` | string | Connection type (`http`, `grpc`, `postgres`, `redis`, etc.) |
+| `latency` | string | Human-readable latency (`"5.2ms"`) |
+| `latencyRaw` | float64 | Raw latency in seconds |
+| `health` | float64 | `1` = healthy, `0` = unhealthy, `-1` = stale |
+| `state` | string | `ok`, `degraded`, `down`, `unknown` |
+| `critical` | bool | Whether this is a critical dependency |
+| `stale` | bool | `true` if edge metrics have disappeared (lookback mode only) |
+| `grafanaUrl` | string | Direct link to Grafana Link Status dashboard (omitted if Grafana not configured) |
+| `alertCount` | int | Number of active alerts for this edge (omitted if 0) |
+| `alertSeverity` | string | Highest alert severity for this edge (omitted if no alerts) |
+
+**Meta fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cachedAt` | string | RFC3339 timestamp of when the data was cached |
+| `ttl` | int | Cache TTL in seconds (clients should poll at this interval) |
+| `nodeCount` | int | Total number of nodes |
+| `edgeCount` | int | Total number of edges |
+| `partial` | bool | `true` if some queries failed and data may be incomplete |
+| `errors` | string[] | Error descriptions if `partial=true` (omitted if empty) |
 
 **Node States:**
 - `ok` — all critical dependencies healthy
 - `degraded` — some dependencies unhealthy or high latency
 - `down` — all critical dependencies down
-- `unknown` — no data available
+- `unknown` — no data available (stale)
 
 **Edge States:**
 - `ok` — health = 1, no alerts
 - `degraded` — mixed health or active alerts
 - `down` — health = 0
-
-**Caching:** Responses are cached server-side with TTL specified in `meta.ttl`. Clients should poll with interval = TTL.
+- `unknown` — stale (metrics disappeared)
 
 ---
 
@@ -134,23 +185,40 @@ Returns all active alerts from AlertManager aggregated by service/dependency.
     }
   ],
   "meta": {
-    "cachedAt": "2026-02-10T09:15:30Z",
-    "ttl": 30,
-    "totalAlerts": 5
+    "total": 5,
+    "critical": 1,
+    "warning": 4,
+    "fetchedAt": "2026-02-10T09:15:30Z"
   }
 }
 ```
 
-**Severity Levels:**
-- `critical` — service outage, immediate action required
-- `warning` — degraded state, monitoring required
-- `info` — informational, no action required
+**Alert fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `alertname` | string | Alert rule name (`DependencyDown`, `DependencyDegraded`, etc.) |
+| `service` | string | Source service name |
+| `dependency` | string | Target dependency name |
+| `severity` | string | `critical`, `warning`, `info` |
+| `state` | string | `firing` |
+| `since` | string | RFC3339 timestamp of alert start |
+| `summary` | string | Human-readable alert description (optional) |
+
+**Meta fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total` | int | Total number of active alerts |
+| `critical` | int | Number of critical alerts |
+| `warning` | int | Number of warning alerts |
+| `fetchedAt` | string | RFC3339 timestamp of when alerts were fetched |
 
 ---
 
 #### `GET /api/v1/config`
 
-Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, display settings).
+Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, display settings). This endpoint does not require authentication.
 
 **Response:** `200 OK`
 
@@ -210,29 +278,36 @@ Returns all running instances (pods/containers) for a specific service.
 
 **Response:** `200 OK`
 
+Returns a JSON array of instances (not wrapped in an object):
+
 ```json
-{
-  "instances": [
-    {
-      "instance": "10.244.1.5:9090",
-      "pod": "order-service-7d9f8b-xyz12",
-      "job": "order-service",
-      "service": "order-service"
-    },
-    {
-      "instance": "10.244.2.8:9090",
-      "pod": "order-service-7d9f8b-abc34",
-      "job": "order-service",
-      "service": "order-service"
-    }
-  ],
-  "meta": {
-    "cachedAt": "2026-02-10T09:15:30Z",
-    "ttl": 60,
-    "instanceCount": 2
+[
+  {
+    "instance": "10.244.1.5:9090",
+    "pod": "order-service-7d9f8b-xyz12",
+    "job": "order-service",
+    "service": "order-service"
+  },
+  {
+    "instance": "10.244.2.8:9090",
+    "pod": "order-service-7d9f8b-abc34",
+    "job": "order-service",
+    "service": "order-service"
   }
-}
+]
 ```
+
+**Error:** `400 Bad Request` if `service` parameter is missing.
+
+---
+
+#### `GET /healthz`
+
+Kubernetes liveness probe. Always returns `200 OK` with `{"status":"ok"}`.
+
+#### `GET /readyz`
+
+Kubernetes readiness probe. Always returns `200 OK` with `{"status":"ok"}`.
 
 ---
 
@@ -240,7 +315,7 @@ Returns all running instances (pods/containers) for a specific service.
 
 Initiates OIDC authentication flow (only when `auth.type=oidc`).
 
-**Response:** `302 Found`  
+**Response:** `302 Found`
 Redirects to OIDC provider's authorization endpoint.
 
 ---
@@ -249,23 +324,23 @@ Redirects to OIDC provider's authorization endpoint.
 
 OIDC callback endpoint (only when `auth.type=oidc`).
 
-**Response:** `302 Found`  
+**Response:** `302 Found`
 Sets session cookie and redirects to application root.
 
 ---
 
 #### `GET /auth/logout`
 
-Terminates user session (only when `auth.type=oidc` or `auth.type=basic`).
+Terminates user session (only when `auth.type=oidc`).
 
-**Response:** `302 Found`  
+**Response:** `302 Found`
 Clears session cookie and redirects to login page.
 
 ---
 
 #### `GET /auth/userinfo`
 
-Returns current authenticated user information.
+Returns current authenticated user information (only when `auth.type=oidc`).
 
 **Response:** `200 OK`
 
@@ -287,42 +362,43 @@ All error responses follow this format:
 
 ```json
 {
-  "error": "error message description",
-  "code": "ERROR_CODE"
+  "error": "error message description"
 }
 ```
 
-**Common Error Codes:**
+**Common HTTP Status Codes:**
 
-| HTTP Status | Code | Description |
-|-------------|------|-------------|
-| 400 | `BAD_REQUEST` | Invalid query parameters |
-| 401 | `UNAUTHORIZED` | Authentication required |
-| 403 | `FORBIDDEN` | Access denied |
-| 404 | `NOT_FOUND` | Resource not found |
-| 500 | `INTERNAL_ERROR` | Server error |
-| 502 | `DATASOURCE_ERROR` | Prometheus/AlertManager unreachable |
-| 503 | `SERVICE_UNAVAILABLE` | Service temporarily unavailable |
+| HTTP Status | Description |
+|-------------|-------------|
+| 400 | Invalid or missing query parameters |
+| 401 | Authentication required |
+| 502 | Prometheus/AlertManager unreachable |
 
 ---
 
 ### CORS
 
-CORS is enabled by default with these headers:
+CORS is enabled for all origins with these settings:
 
 ```
 Access-Control-Allow-Origin: *
-Access-Control-Allow-Methods: GET, POST, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization
+Access-Control-Allow-Methods: GET, OPTIONS
+Access-Control-Allow-Headers: Accept, Content-Type, If-None-Match
+Access-Control-Max-Age: 300
 ```
 
-To restrict origins, configure in `config.yaml`:
+---
 
-```yaml
-server:
-  cors:
-    allowedOrigins: ["https://dephealth.example.com"]
-```
+### Caching and ETag
+
+The `/api/v1/topology` endpoint (unfiltered) supports HTTP caching:
+
+- Server returns `ETag` header with each response
+- Clients can send `If-None-Match` with the previous ETag value
+- If data hasn't changed, server returns `304 Not Modified` (empty body)
+- Recommended polling interval: use `meta.ttl` value (default 15s)
+
+Other endpoints (`/api/v1/alerts`, `/api/v1/instances`) are not cached and always return fresh data.
 
 ---
 
@@ -337,13 +413,15 @@ Recommended client polling intervals:
 
 ---
 
+---
+
 ## Русский
 
 ### Обзор
 
 dephealth-ui предоставляет REST API для визуализации топологии и мониторинга здоровья. Все endpoint'ы возвращают JSON и поддерживают CORS для браузерных клиентов.
 
-**Базовый URL:** `https://dephealth.example.com`  
+**Базовый URL:** `https://dephealth.example.com`
 **Префикс API:** `/api/v1`
 
 ---
@@ -372,6 +450,8 @@ dephealth-ui предоставляет REST API для визуализации
 |----------|-----|:----------:|----------|
 | `namespace` | string | Нет | Фильтр по Kubernetes namespace (пусто = все) |
 
+**Кэширование:** Нефильтрованные запросы (`namespace` пуст) кэшируются на сервере. Поддерживаются заголовки `ETag` / `If-None-Match` — возвращает `304 Not Modified`, если данные не изменились.
+
 **Ответ:** `200 OK`
 
 ```json
@@ -387,6 +467,17 @@ dephealth-ui предоставляет REST API для визуализации
       "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
       "alertSeverity": ""
+    },
+    {
+      "id": "postgres-main",
+      "label": "postgres-main",
+      "state": "unknown",
+      "type": "postgres",
+      "namespace": "production",
+      "host": "pg-master.db.svc",
+      "port": "5432",
+      "dependencyCount": 0,
+      "stale": true
     }
   ],
   "edges": [
@@ -398,31 +489,90 @@ dephealth-ui предоставляет REST API для визуализации
       "latencyRaw": 0.0052,
       "health": 1,
       "state": "ok",
-      "critical": true
+      "critical": true,
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-master.db.svc&var-port=5432",
+      "alertCount": 1,
+      "alertSeverity": "warning"
     }
   ],
-  "alerts": [],
+  "alerts": [
+    {
+      "alertname": "DependencyHighLatency",
+      "service": "payment-api",
+      "dependency": "auth-service",
+      "severity": "warning",
+      "state": "firing",
+      "since": "2026-02-10T08:30:00Z",
+      "summary": "Высокая latency на payment-api → auth-service"
+    }
+  ],
   "meta": {
     "cachedAt": "2026-02-10T09:15:30Z",
     "ttl": 15,
     "nodeCount": 42,
-    "edgeCount": 187
+    "edgeCount": 187,
+    "partial": false,
+    "errors": []
   }
 }
 ```
+
+**Поля узла (Node):**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | string | Уникальный идентификатор узла |
+| `label` | string | Отображаемое имя |
+| `state` | string | `ok`, `degraded`, `down`, `unknown` |
+| `type` | string | `service` (инструментированное приложение) или тип зависимости (`postgres`, `redis`, `http` и т.д.) |
+| `namespace` | string | Kubernetes namespace |
+| `host` | string | Hostname endpoint (пропускается для service-узлов) |
+| `port` | string | Порт endpoint (пропускается для service-узлов) |
+| `dependencyCount` | int | Количество исходящих рёбер |
+| `stale` | bool | `true`, если метрики узла пропали (только в режиме lookback) |
+| `grafanaUrl` | string | Прямая ссылка на Grafana Service Status dashboard (пропускается, если Grafana не настроена) |
+| `alertCount` | int | Количество активных алертов (пропускается, если 0) |
+| `alertSeverity` | string | Наивысший severity алертов (пропускается, если нет алертов) |
+
+**Поля ребра (Edge):**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `source` | string | ID исходного узла |
+| `target` | string | ID целевого узла |
+| `type` | string | Тип подключения (`http`, `grpc`, `postgres`, `redis` и т.д.) |
+| `latency` | string | Человекочитаемая latency (`"5.2ms"`) |
+| `latencyRaw` | float64 | Latency в секундах |
+| `health` | float64 | `1` = здоров, `0` = недоступен, `-1` = stale |
+| `state` | string | `ok`, `degraded`, `down`, `unknown` |
+| `critical` | bool | Является ли зависимость критичной |
+| `stale` | bool | `true`, если метрики ребра пропали (только в режиме lookback) |
+| `grafanaUrl` | string | Прямая ссылка на Grafana Link Status dashboard (пропускается, если Grafana не настроена) |
+| `alertCount` | int | Количество активных алертов для этого ребра (пропускается, если 0) |
+| `alertSeverity` | string | Наивысший severity алертов для этого ребра (пропускается, если нет алертов) |
+
+**Поля meta:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `cachedAt` | string | RFC3339 метка времени кэширования |
+| `ttl` | int | TTL кэша в секундах (клиенты должны опрашивать с этим интервалом) |
+| `nodeCount` | int | Общее количество узлов |
+| `edgeCount` | int | Общее количество рёбер |
+| `partial` | bool | `true`, если часть запросов не удалась и данные могут быть неполными |
+| `errors` | string[] | Описания ошибок при `partial=true` (пропускается, если пусто) |
 
 **Состояния узлов:**
 - `ok` — все критичные зависимости здоровы
 - `degraded` — часть зависимостей недоступна или высокий latency
 - `down` — все критичные зависимости недоступны
-- `unknown` — нет данных
+- `unknown` — нет данных (stale)
 
 **Состояния рёбер:**
 - `ok` — health = 1, нет алертов
 - `degraded` — смешанное health или активные алерты
 - `down` — health = 0
-
-**Кэширование:** Ответы кэшируются на сервере с TTL, указанным в `meta.ttl`. Клиенты должны опрашивать с интервалом = TTL.
+- `unknown` — stale (метрики пропали)
 
 ---
 
@@ -446,23 +596,40 @@ dephealth-ui предоставляет REST API для визуализации
     }
   ],
   "meta": {
-    "cachedAt": "2026-02-10T09:15:30Z",
-    "ttl": 30,
-    "totalAlerts": 5
+    "total": 5,
+    "critical": 1,
+    "warning": 4,
+    "fetchedAt": "2026-02-10T09:15:30Z"
   }
 }
 ```
 
-**Уровни severity:**
-- `critical` — сбой сервиса, требуется немедленное действие
-- `warning` — деградированное состояние, требуется мониторинг
-- `info` — информационный, действий не требуется
+**Поля алертов:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `alertname` | string | Имя правила алерта (`DependencyDown`, `DependencyDegraded` и т.д.) |
+| `service` | string | Имя исходного сервиса |
+| `dependency` | string | Имя целевой зависимости |
+| `severity` | string | `critical`, `warning`, `info` |
+| `state` | string | `firing` |
+| `since` | string | RFC3339 метка начала алерта |
+| `summary` | string | Человекочитаемое описание алерта (опционально) |
+
+**Поля meta:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `total` | int | Общее количество активных алертов |
+| `critical` | int | Количество critical-алертов |
+| `warning` | int | Количество warning-алертов |
+| `fetchedAt` | string | RFC3339 метка времени получения алертов |
 
 ---
 
 #### `GET /api/v1/config`
 
-Возвращает конфигурацию для фронтенда (Grafana URL, UID дашбордов, цвета severity, настройки отображения).
+Возвращает конфигурацию для фронтенда (Grafana URL, UID дашбордов, цвета severity, настройки отображения). Этот endpoint не требует аутентификации.
 
 **Ответ:** `200 OK`
 
@@ -522,68 +689,121 @@ dephealth-ui предоставляет REST API для визуализации
 
 **Ответ:** `200 OK`
 
+Возвращает JSON-массив инстансов (не обёрнут в объект):
+
+```json
+[
+  {
+    "instance": "10.244.1.5:9090",
+    "pod": "order-service-7d9f8b-xyz12",
+    "job": "order-service",
+    "service": "order-service"
+  }
+]
+```
+
+**Ошибка:** `400 Bad Request` если параметр `service` отсутствует.
+
+---
+
+#### `GET /healthz`
+
+Kubernetes liveness проба. Всегда возвращает `200 OK` с `{"status":"ok"}`.
+
+#### `GET /readyz`
+
+Kubernetes readiness проба. Всегда возвращает `200 OK` с `{"status":"ok"}`.
+
+---
+
+#### `GET /auth/login`
+
+Инициирует OIDC-аутентификацию (только при `auth.type=oidc`).
+
+**Ответ:** `302 Found`
+Перенаправляет на authorization endpoint OIDC-провайдера.
+
+---
+
+#### `GET /auth/callback`
+
+Callback endpoint для OIDC (только при `auth.type=oidc`).
+
+**Ответ:** `302 Found`
+Устанавливает session cookie и перенаправляет на корень приложения.
+
+---
+
+#### `GET /auth/logout`
+
+Завершает сессию пользователя (только при `auth.type=oidc`).
+
+**Ответ:** `302 Found`
+Удаляет session cookie и перенаправляет на страницу входа.
+
+---
+
+#### `GET /auth/userinfo`
+
+Возвращает информацию о текущем аутентифицированном пользователе (только при `auth.type=oidc`).
+
+**Ответ:** `200 OK`
+
 ```json
 {
-  "instances": [
-    {
-      "instance": "10.244.1.5:9090",
-      "pod": "order-service-7d9f8b-xyz12",
-      "job": "order-service",
-      "service": "order-service"
-    }
-  ],
-  "meta": {
-    "cachedAt": "2026-02-10T09:15:30Z",
-    "ttl": 60,
-    "instanceCount": 2
-  }
+  "username": "john.doe",
+  "email": "john.doe@example.com",
+  "authenticated": true
 }
 ```
+
+**Ответ (неаутентифицирован):** `401 Unauthorized`
 
 ---
 
 ### Ответы с ошибками
 
-Все ответы с ошибками следуют этому формату:
+Все ответы с ошибками используют формат:
 
 ```json
 {
-  "error": "описание сообщения об ошибке",
-  "code": "ERROR_CODE"
+  "error": "описание ошибки"
 }
 ```
 
-**Типичные коды ошибок:**
+**Типичные HTTP-статусы:**
 
-| HTTP Status | Code | Описание |
-|-------------|------|----------|
-| 400 | `BAD_REQUEST` | Неверные query-параметры |
-| 401 | `UNAUTHORIZED` | Требуется аутентификация |
-| 403 | `FORBIDDEN` | Доступ запрещён |
-| 404 | `NOT_FOUND` | Ресурс не найден |
-| 500 | `INTERNAL_ERROR` | Ошибка сервера |
-| 502 | `DATASOURCE_ERROR` | Prometheus/AlertManager недоступен |
-| 503 | `SERVICE_UNAVAILABLE` | Сервис временно недоступен |
+| HTTP Status | Описание |
+|-------------|----------|
+| 400 | Неверные или отсутствующие query-параметры |
+| 401 | Требуется аутентификация |
+| 502 | Prometheus/AlertManager недоступен |
 
 ---
 
 ### CORS
 
-CORS включён по умолчанию с этими заголовками:
+CORS включён для всех источников со следующими настройками:
 
 ```
 Access-Control-Allow-Origin: *
-Access-Control-Allow-Methods: GET, POST, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization
+Access-Control-Allow-Methods: GET, OPTIONS
+Access-Control-Allow-Headers: Accept, Content-Type, If-None-Match
+Access-Control-Max-Age: 300
 ```
 
-Для ограничения источников настройте в `config.yaml`:
+---
 
-```yaml
-server:
-  cors:
-    allowedOrigins: ["https://dephealth.example.com"]
-```
+### Кэширование и ETag
+
+Endpoint `/api/v1/topology` (без фильтров) поддерживает HTTP-кэширование:
+
+- Сервер возвращает заголовок `ETag` с каждым ответом
+- Клиенты могут отправить `If-None-Match` с предыдущим значением ETag
+- Если данные не изменились, сервер возвращает `304 Not Modified` (пустое тело)
+- Рекомендуемый интервал опроса: использовать значение `meta.ttl` (по умолчанию 15с)
+
+Остальные endpoint'ы (`/api/v1/alerts`, `/api/v1/instances`) не кэшируются и всегда возвращают свежие данные.
 
 ---
 
@@ -601,5 +821,5 @@ server:
 ## See Also | См. также
 
 - [Metrics Specification](./METRICS.md) — Required metrics format | Формат обязательных метрик
-- [Deployment Guide](./DEPLOYMENT.md) — Kubernetes & Helm | Kubernetes & Helm
 - [Application Design](./application-design.md) — Architecture overview | Обзор архитектуры
+- [Helm Chart](../deploy/helm/dephealth-ui/README.md) — Deployment guide | Руководство по развёртыванию
