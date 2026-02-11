@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-02-11
+
+### Added
+
+- **Edge sidebar** — clickable edges with dependency details, state, latency, alerts, connected nodes, and Grafana links
+- **Namespace grouping** — compound parent nodes grouping services by namespace with fcose layout engine
+- **Collapse/expand** — double-tap on namespace group to collapse into summary node showing worst-state and alert count
+- **Collapse/expand all** — toolbar buttons for batch collapse/expand operations
+- **Click-to-expand navigation** — clicking a service in collapsed namespace sidebar expands the group, centers the node, and opens its sidebar
+- **Aggregated edges** — collapsed namespace edges merged with `×N` count display
+- **Edge navigation labels** — edge labels showing dependency type on the graph
+
+### Fixed
+
+- Highlight cleanup on node/edge deselection not fully removing styles
+- Expand bug when `collapsedStore` data was lost during data-only graph updates (`reapplyCollapsedState` guard)
+
+### Changed
+
+- Dual layout engine: dagre (flat mode) ↔ fcose (grouped namespace mode), toggled via toolbar
+- Sidebar now supports 3 types: node detail, edge detail, collapsed namespace summary
+- Namespace-colored collapsed nodes with WCAG-compliant contrast text
+
+### Documentation
+
+- Complete rewrite of `docs/API.md` fixing 9 discrepancies with actual Go implementation
+- Restructured `docs/application-design.md` into full English + full Russian sections
+- Added complete Russian documentation to Helm chart README
+- Added tree-view topology screenshots (EN/RU)
+
 ## [0.12.0] - 2026-02-11
 
 ### Added
@@ -98,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.13.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.11.4...v0.12.0
 [0.11.4]: https://github.com/BigKAA/dephealth-ui/compare/v0.11.0...v0.11.4
 [0.11.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.10.0...v0.11.0
