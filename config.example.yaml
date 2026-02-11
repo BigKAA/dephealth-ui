@@ -24,6 +24,15 @@ cache:
   # Topology response cache TTL (default: 15s)
   ttl: 15s
 
+topology:
+  # Lookback window for retaining stale nodes on the graph.
+  # When a service stops sending metrics, it remains visible with state "unknown"
+  # for the duration of this window. Uses last_over_time() PromQL function.
+  # Set to "0" to disable (default: only show services with current metrics).
+  # Recommended: "1h" for most environments, "6h" for infrequent deployments.
+  # Minimum: 1m. Env: DEPHEALTH_TOPOLOGY_LOOKBACK
+  # lookback: 1h
+
 auth:
   # Authentication type: "none", "basic", or "oidc"
   type: "none"

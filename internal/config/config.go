@@ -17,6 +17,7 @@ type Config struct {
 	Server      ServerConfig      `yaml:"server"`
 	Datasources DatasourcesConfig `yaml:"datasources"`
 	Cache       CacheConfig       `yaml:"cache"`
+	Topology    TopologyConfig    `yaml:"topology"`
 	Auth        AuthConfig        `yaml:"auth"`
 	Grafana     GrafanaConfig     `yaml:"grafana"`
 	Alerts      AlertsConfig      `yaml:"alerts"`
@@ -62,6 +63,14 @@ type AlertmanagerConfig struct {
 // CacheConfig holds cache settings.
 type CacheConfig struct {
 	TTL time.Duration `yaml:"ttl"`
+}
+
+// TopologyConfig holds topology graph settings.
+type TopologyConfig struct {
+	// Lookback window for retaining stale nodes.
+	// Uses last_over_time() to keep nodes visible after metrics disappear.
+	// Set to 0 to disable (default: show only current metrics).
+	Lookback time.Duration `yaml:"lookback"`
 }
 
 // AuthConfig holds authentication settings.
@@ -134,6 +143,13 @@ func (c *Config) Validate() error {
 	if c.Server.Listen == "" {
 		return fmt.Errorf("server.listen is required")
 	}
+	if c.Topology.Lookback < 0 {
+		return fmt.Errorf("topology.lookback must not be negative")
+	}
+	if c.Topology.Lookback > 0 && c.Topology.Lookback < time.Minute {
+		return fmt.Errorf("topology.lookback must be at least 1m (got %s)", c.Topology.Lookback)
+	}
+
 	switch c.Auth.Type {
 	case "none", "":
 		// ok
@@ -217,6 +233,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("DEPHEALTH_CACHE_TTL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Cache.TTL = d
+		}
+	}
+	if v := os.Getenv("DEPHEALTH_TOPOLOGY_LOOKBACK"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.Topology.Lookback = d
 		}
 	}
 	if v := os.Getenv("DEPHEALTH_AUTH_TYPE"); v != "" {

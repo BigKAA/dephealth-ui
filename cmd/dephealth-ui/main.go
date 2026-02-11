@@ -63,7 +63,7 @@ func main() {
 		LinksStatusDashUID:    cfg.Grafana.Dashboards.LinksStatus,
 	}
 
-	builder := topology.NewGraphBuilder(promClient, amClient, grafanaCfg, cfg.Cache.TTL, logger, cfg.Alerts.SeverityLevels)
+	builder := topology.NewGraphBuilder(promClient, amClient, grafanaCfg, cfg.Cache.TTL, cfg.Topology.Lookback, logger, cfg.Alerts.SeverityLevels)
 
 	topologyCache := cache.New(cfg.Cache.TTL)
 

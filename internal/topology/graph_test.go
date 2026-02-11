@@ -21,19 +21,31 @@ func testSeverityLevels() []config.SeverityLevel {
 
 // mockPrometheusClient implements PrometheusClient for testing.
 type mockPrometheusClient struct {
-	edges     []TopologyEdge
-	health    map[EdgeKey]float64
-	avg       map[EdgeKey]float64
-	p99       map[EdgeKey]float64
-	err       error // default error for all methods
-	edgesErr  error // override for QueryTopologyEdges
-	healthErr error // override for QueryHealthState
-	avgErr    error // override for QueryAvgLatency
+	edges         []TopologyEdge
+	lookbackEdges []TopologyEdge // edges returned by lookback query (nil = same as edges)
+	health        map[EdgeKey]float64
+	avg           map[EdgeKey]float64
+	p99           map[EdgeKey]float64
+	err           error // default error for all methods
+	edgesErr      error // override for QueryTopologyEdges
+	lookbackErr   error // override for QueryTopologyEdgesLookback
+	healthErr     error // override for QueryHealthState
+	avgErr        error // override for QueryAvgLatency
 }
 
 func (m *mockPrometheusClient) QueryTopologyEdges(_ context.Context, _ QueryOptions) ([]TopologyEdge, error) {
 	if m.edgesErr != nil {
 		return nil, m.edgesErr
+	}
+	return m.edges, m.err
+}
+
+func (m *mockPrometheusClient) QueryTopologyEdgesLookback(_ context.Context, _ QueryOptions, _ time.Duration) ([]TopologyEdge, error) {
+	if m.lookbackErr != nil {
+		return nil, m.lookbackErr
+	}
+	if m.lookbackEdges != nil {
+		return m.lookbackEdges, m.err
 	}
 	return m.edges, m.err
 }
@@ -85,7 +97,7 @@ func TestGraphBuilder_Build(t *testing.T) {
 		LinkStatusDashUID:    "link-dash",
 	}
 
-	builder := NewGraphBuilder(mock, nil, grafana, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(mock, nil, grafana, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -211,7 +223,7 @@ func TestGraphBuilder_Dedup(t *testing.T) {
 		avg: map[EdgeKey]float64{},
 	}
 
-	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -315,7 +327,7 @@ func TestDependencyNodeColoring(t *testing.T) {
 				avg:    map[EdgeKey]float64{},
 			}
 
-			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 			resp, err := builder.Build(context.Background(), QueryOptions{})
 			if err != nil {
 				t.Fatalf("Build() error: %v", err)
@@ -388,7 +400,7 @@ func TestGrafanaURLGeneration(t *testing.T) {
 		BaseURL:              "https://grafana.example.com",
 		ServiceStatusDashUID: "svc-dash",
 		LinkStatusDashUID:    "link-dash",
-	}, 15*time.Second, nil, testSeverityLevels())
+	}, 15*time.Second, 0, nil, testSeverityLevels())
 
 	svcURL := builder.serviceGrafanaURL("order-service")
 	if svcURL != "https://grafana.example.com/d/svc-dash?var-service=order-service" {
@@ -402,7 +414,7 @@ func TestGrafanaURLGeneration(t *testing.T) {
 	}
 
 	// Empty base URL → empty URLs.
-	emptyBuilder := NewGraphBuilder(nil, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	emptyBuilder := NewGraphBuilder(nil, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	if emptyBuilder.serviceGrafanaURL("svc") != "" {
 		t.Error("expected empty URL when BaseURL is empty")
 	}
@@ -450,7 +462,7 @@ func TestBuildWithAlerts(t *testing.T) {
 		},
 	}
 
-	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -517,7 +529,7 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 		avg: map[EdgeKey]float64{},
 	}
 
-	builder := NewGraphBuilder(promMock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(promMock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -545,7 +557,7 @@ func TestGraphBuilder_ConnectedGraph(t *testing.T) {
 		avg: map[EdgeKey]float64{},
 	}
 
-	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -622,7 +634,7 @@ func TestGraphBuilder_ConnectedGraphWithAlerts(t *testing.T) {
 		},
 	}
 
-	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -715,7 +727,7 @@ func TestBuildPartialData(t *testing.T) {
 				edgesErr:  tt.edgesErr,
 			}
 
-			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 			resp, err := builder.Build(context.Background(), QueryOptions{})
 
 			if tt.wantErr {
@@ -763,7 +775,7 @@ func TestBuildPartialWithAlertFailure(t *testing.T) {
 		err: errors.New("alertmanager unreachable"),
 	}
 
-	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -812,7 +824,7 @@ func TestAlertSeverityPriority(t *testing.T) {
 		},
 	}
 
-	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, nil, testSeverityLevels())
+	builder := NewGraphBuilder(promMock, amMock, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
 	resp, err := builder.Build(context.Background(), QueryOptions{})
 	if err != nil {
 		t.Fatalf("Build() error: %v", err)
@@ -852,5 +864,293 @@ func TestAlertSeverityPriority(t *testing.T) {
 	}
 	if redisEdge.AlertCount != 1 {
 		t.Errorf("redis edge AlertCount = %d, want 1", redisEdge.AlertCount)
+	}
+}
+
+// --- Stale detection tests (lookback mode) ---
+
+func TestStaleDetection_AllCurrent(t *testing.T) {
+	// With lookback enabled but all edges present in health → no stale nodes.
+	mock := &mockPrometheusClient{
+		lookbackEdges: []TopologyEdge{
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	for _, n := range resp.Nodes {
+		if n.Stale {
+			t.Errorf("node %q is stale, want not stale", n.ID)
+		}
+		if n.State == "unknown" {
+			t.Errorf("node %q state = unknown, want ok", n.ID)
+		}
+	}
+	for _, e := range resp.Edges {
+		if e.Stale {
+			t.Errorf("edge %s→%s is stale, want not stale", e.Source, e.Target)
+		}
+	}
+}
+
+func TestStaleDetection_ServiceDisappears(t *testing.T) {
+	// svc-go is in lookback but NOT in current health → stale.
+	// svc-python is current.
+	mock := &mockPrometheusClient{
+		lookbackEdges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-python", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			// Only svc-python is current.
+			{Name: "svc-python", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// svc-go: all edges stale → node is stale + unknown.
+	svcGo := nodeByID["svc-go"]
+	if !svcGo.Stale {
+		t.Errorf("svc-go.Stale = false, want true")
+	}
+	if svcGo.State != "unknown" {
+		t.Errorf("svc-go.State = %q, want %q", svcGo.State, "unknown")
+	}
+
+	// svc-python: current → not stale.
+	svcPy := nodeByID["svc-python"]
+	if svcPy.Stale {
+		t.Errorf("svc-python.Stale = true, want false")
+	}
+	if svcPy.State != "ok" {
+		t.Errorf("svc-python.State = %q, want %q", svcPy.State, "ok")
+	}
+
+	// pg:5432 has one stale incoming + one current incoming → not fully stale.
+	pgNode := nodeByID["pg:5432"]
+	if pgNode.Stale {
+		t.Errorf("pg:5432.Stale = true, want false (has current incoming edge)")
+	}
+
+	// Check stale edge properties.
+	for _, e := range resp.Edges {
+		if e.Source == "svc-go" {
+			if !e.Stale {
+				t.Errorf("edge svc-go→%s Stale = false, want true", e.Target)
+			}
+			if e.State != "unknown" {
+				t.Errorf("edge svc-go→%s State = %q, want unknown", e.Target, e.State)
+			}
+			if e.Health != -1 {
+				t.Errorf("edge svc-go→%s Health = %v, want -1", e.Target, e.Health)
+			}
+			if e.Latency != "" {
+				t.Errorf("edge svc-go→%s Latency = %q, want empty", e.Target, e.Latency)
+			}
+		}
+	}
+}
+
+func TestStaleDetection_PartialStale(t *testing.T) {
+	// svc-go has 2 edges: postgres (current) and redis (stale).
+	// Node state should be computed from non-stale edges only.
+	mock := &mockPrometheusClient{
+		lookbackEdges: []TopologyEdge{
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			// Only postgres is current.
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// svc-go has 1 current + 1 stale → NOT fully stale.
+	svcGo := nodeByID["svc-go"]
+	if svcGo.Stale {
+		t.Errorf("svc-go.Stale = true, want false (has current edges)")
+	}
+	// State computed from non-stale edges only: 1 healthy → ok.
+	if svcGo.State != "ok" {
+		t.Errorf("svc-go.State = %q, want %q", svcGo.State, "ok")
+	}
+
+	// redis:6379 — only stale incoming → fully stale.
+	redis := nodeByID["redis:6379"]
+	if !redis.Stale {
+		t.Errorf("redis:6379.Stale = false, want true")
+	}
+	if redis.State != "unknown" {
+		t.Errorf("redis:6379.State = %q, want %q", redis.State, "unknown")
+	}
+}
+
+func TestStaleDetection_ConnectedGraph(t *testing.T) {
+	// Service-to-service edge: svc-a → svc-b → pg.
+	// svc-b disappears. svc-a is still alive.
+	mock := &mockPrometheusClient{
+		lookbackEdges: []TopologyEdge{
+			{Name: "svc-a", Namespace: "ns", Dependency: "svc-b", Type: "http", Host: "svc-b.ns.svc", Port: "8080"},
+			{Name: "svc-b", Namespace: "ns", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			// svc-a's edge is still live.
+			{Name: "svc-a", Host: "svc-b.ns.svc", Port: "8080"}: 1,
+			// svc-b's edge is gone (not in health).
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// svc-a: has 1 current edge → ok, not stale.
+	if nodeByID["svc-a"].Stale {
+		t.Errorf("svc-a.Stale = true, want false")
+	}
+	if nodeByID["svc-a"].State != "ok" {
+		t.Errorf("svc-a.State = %q, want ok", nodeByID["svc-a"].State)
+	}
+
+	// svc-b: service node, all outgoing edges stale → unknown + stale.
+	if !nodeByID["svc-b"].Stale {
+		t.Errorf("svc-b.Stale = false, want true")
+	}
+	if nodeByID["svc-b"].State != "unknown" {
+		t.Errorf("svc-b.State = %q, want unknown", nodeByID["svc-b"].State)
+	}
+
+	// pg:5432 — only stale incoming → stale.
+	if !nodeByID["pg:5432"].Stale {
+		t.Errorf("pg:5432.Stale = false, want true")
+	}
+
+	// Edge svc-a → svc-b should use connected graph (target = "svc-b", not host:port).
+	edgeByKey := make(map[string]Edge)
+	for _, e := range resp.Edges {
+		edgeByKey[e.Source+"→"+e.Target] = e
+	}
+	if e, ok := edgeByKey["svc-a→svc-b"]; !ok {
+		t.Error("missing edge svc-a→svc-b")
+	} else if e.Stale {
+		t.Error("edge svc-a→svc-b should NOT be stale (current health exists)")
+	}
+	if e, ok := edgeByKey["svc-b→pg:5432"]; !ok {
+		t.Error("missing edge svc-b→pg:5432")
+	} else if !e.Stale {
+		t.Error("edge svc-b→pg:5432 should be stale")
+	}
+}
+
+func TestStaleDetection_LookbackDisabled(t *testing.T) {
+	// lookback=0 → current behavior, no stale detection.
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	for _, n := range resp.Nodes {
+		if n.Stale {
+			t.Errorf("node %q is stale with lookback=0", n.ID)
+		}
+	}
+	for _, e := range resp.Edges {
+		if e.Stale {
+			t.Errorf("edge %s→%s is stale with lookback=0", e.Source, e.Target)
+		}
+	}
+}
+
+func TestStaleDetection_AllStale(t *testing.T) {
+	// All edges in lookback but none in current health → everything unknown.
+	mock := &mockPrometheusClient{
+		lookbackEdges: []TopologyEdge{
+			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+		},
+		health:     map[EdgeKey]float64{}, // empty — nothing is current
+		avg:        map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// All nodes should be stale + unknown.
+	for _, n := range resp.Nodes {
+		if !n.Stale {
+			t.Errorf("node %q.Stale = false, want true (all stale)", n.ID)
+		}
+		if n.State != "unknown" {
+			t.Errorf("node %q.State = %q, want unknown", n.ID, n.State)
+		}
+	}
+
+	// All edges should be stale + unknown.
+	for _, e := range resp.Edges {
+		if !e.Stale {
+			t.Errorf("edge %s→%s Stale = false, want true", e.Source, e.Target)
+		}
+		if e.State != "unknown" {
+			t.Errorf("edge %s→%s State = %q, want unknown", e.Source, e.Target, e.State)
+		}
+		if e.Health != -1 {
+			t.Errorf("edge %s→%s Health = %v, want -1", e.Source, e.Target, e.Health)
+		}
 	}
 }

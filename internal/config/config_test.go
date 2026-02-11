@@ -92,6 +92,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Auth.Type != "none" {
 		t.Errorf("default Auth.Type = %q, want %q", cfg.Auth.Type, "none")
 	}
+	if cfg.Topology.Lookback != 0 {
+		t.Errorf("default Topology.Lookback = %v, want 0", cfg.Topology.Lookback)
+	}
 }
 
 func TestLoadEnvOverrides(t *testing.T) {
@@ -99,6 +102,7 @@ func TestLoadEnvOverrides(t *testing.T) {
 	t.Setenv("DEPHEALTH_DATASOURCES_PROMETHEUS_URL", "http://env-vm:8428")
 	t.Setenv("DEPHEALTH_DATASOURCES_ALERTMANAGER_URL", "http://env-am:9093")
 	t.Setenv("DEPHEALTH_CACHE_TTL", "45s")
+	t.Setenv("DEPHEALTH_TOPOLOGY_LOOKBACK", "2h")
 	t.Setenv("DEPHEALTH_AUTH_TYPE", "oidc")
 	t.Setenv("DEPHEALTH_GRAFANA_BASEURL", "https://env-grafana.example.com")
 
@@ -119,11 +123,40 @@ func TestLoadEnvOverrides(t *testing.T) {
 	if cfg.Cache.TTL != 45*time.Second {
 		t.Errorf("Cache.TTL = %v, want %v", cfg.Cache.TTL, 45*time.Second)
 	}
+	if cfg.Topology.Lookback != 2*time.Hour {
+		t.Errorf("Topology.Lookback = %v, want %v", cfg.Topology.Lookback, 2*time.Hour)
+	}
 	if cfg.Auth.Type != "oidc" {
 		t.Errorf("Auth.Type = %q, want %q", cfg.Auth.Type, "oidc")
 	}
 	if cfg.Grafana.BaseURL != "https://env-grafana.example.com" {
 		t.Errorf("Grafana.BaseURL = %q, want %q", cfg.Grafana.BaseURL, "https://env-grafana.example.com")
+	}
+}
+
+func TestLoadTopologyFromYAML(t *testing.T) {
+	content := `
+server:
+  listen: ":8080"
+datasources:
+  prometheus:
+    url: "http://vm:8428"
+topology:
+  lookback: 1h
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Topology.Lookback != time.Hour {
+		t.Errorf("Topology.Lookback = %v, want %v", cfg.Topology.Lookback, time.Hour)
 	}
 }
 
@@ -282,6 +315,47 @@ func TestValidate(t *testing.T) {
 				Server:      ServerConfig{Listen: ":8080"},
 				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
 				Auth:        AuthConfig{Type: "ldap"},
+				Alerts:      validAlerts(),
+			},
+			wantErr: true,
+		},
+		// Topology validation test cases.
+		{
+			name: "topology lookback valid",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Topology:    TopologyConfig{Lookback: time.Hour},
+				Alerts:      validAlerts(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "topology lookback zero (disabled)",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Topology:    TopologyConfig{Lookback: 0},
+				Alerts:      validAlerts(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "topology lookback too small",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Topology:    TopologyConfig{Lookback: 30 * time.Second},
+				Alerts:      validAlerts(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "topology lookback negative",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Topology:    TopologyConfig{Lookback: -time.Minute},
 				Alerts:      validAlerts(),
 			},
 			wantErr: true,

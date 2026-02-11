@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 const topologyEdgesResponse = `{
@@ -204,6 +205,60 @@ func TestNsFilter(t *testing.T) {
 	}
 	if got := nsFilter("prod"); got != `{namespace="prod"}` {
 		t.Errorf("nsFilter(\"prod\") = %q, want {namespace=\"prod\"}", got)
+	}
+}
+
+func TestQueryTopologyEdgesLookback(t *testing.T) {
+	var capturedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.Query().Get("query")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(topologyEdgesResponse))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+
+	// Without namespace.
+	edges, err := client.QueryTopologyEdgesLookback(context.Background(), QueryOptions{}, time.Hour)
+	if err != nil {
+		t.Fatalf("QueryTopologyEdgesLookback() error: %v", err)
+	}
+	if len(edges) != 3 {
+		t.Fatalf("got %d edges, want 3", len(edges))
+	}
+	want := `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health[1h]))`
+	if capturedQuery != want {
+		t.Errorf("query = %q, want %q", capturedQuery, want)
+	}
+
+	// With namespace.
+	_, _ = client.QueryTopologyEdgesLookback(context.Background(), QueryOptions{Namespace: "prod"}, 30*time.Minute)
+	want = `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health{namespace="prod"}[30m]))`
+	if capturedQuery != want {
+		t.Errorf("filtered query = %q, want %q", capturedQuery, want)
+	}
+}
+
+func TestFormatPromDuration(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{time.Hour, "1h"},
+		{2 * time.Hour, "2h"},
+		{30 * time.Minute, "30m"},
+		{5 * time.Minute, "5m"},
+		{90 * time.Second, "90s"},
+		{time.Hour + 30*time.Minute, "90m"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := formatPromDuration(tt.d)
+			if got != tt.want {
+				t.Errorf("formatPromDuration(%v) = %q, want %q", tt.d, got, tt.want)
+			}
+		})
 	}
 }
 

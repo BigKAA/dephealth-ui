@@ -56,7 +56,7 @@ func newTestServer() *Server {
 		ServiceStatusDashUID: cfg.Grafana.Dashboards.ServiceStatus,
 		LinkStatusDashUID:    cfg.Grafana.Dashboards.LinkStatus,
 	}
-	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, logger, cfg.Alerts.SeverityLevels)
+	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, 0, logger, cfg.Alerts.SeverityLevels)
 	topologyCache := cache.New(cfg.Cache.TTL)
 	authenticator, _ := auth.NewFromConfig(config.AuthConfig{Type: "none"})
 	return New(cfg, logger, builder, nil, topologyCache, authenticator)

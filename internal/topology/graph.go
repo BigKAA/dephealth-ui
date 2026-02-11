@@ -34,12 +34,13 @@ type GraphBuilder struct {
 	am             alerts.AlertManagerClient
 	grafana        GrafanaConfig
 	ttl            time.Duration
+	lookback       time.Duration
 	logger         *slog.Logger
 	severityLevels []config.SeverityLevel
 }
 
 // NewGraphBuilder creates a new GraphBuilder.
-func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafana GrafanaConfig, ttl time.Duration, logger *slog.Logger, severityLevels []config.SeverityLevel) *GraphBuilder {
+func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafana GrafanaConfig, ttl time.Duration, lookback time.Duration, logger *slog.Logger, severityLevels []config.SeverityLevel) *GraphBuilder {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -48,6 +49,7 @@ func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafan
 		am:             am,
 		grafana:        grafana,
 		ttl:            ttl,
+		lookback:       lookback,
 		logger:         logger,
 		severityLevels: severityLevels,
 	}
@@ -56,7 +58,14 @@ func NewGraphBuilder(prom PrometheusClient, am alerts.AlertManagerClient, grafan
 // Build queries Prometheus and AlertManager, then constructs the full topology response.
 // Only QueryTopologyEdges is fatal. Health, latency, and alert failures result in partial data.
 func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyResponse, error) {
-	rawEdges, err := b.prom.QueryTopologyEdges(ctx, opts)
+	var rawEdges []TopologyEdge
+	var err error
+
+	if b.lookback > 0 {
+		rawEdges, err = b.prom.QueryTopologyEdgesLookback(ctx, opts, b.lookback)
+	} else {
+		rawEdges, err = b.prom.QueryTopologyEdges(ctx, opts)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("querying topology edges: %w", err)
 	}
@@ -87,7 +96,18 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 		}
 	}
 
-	nodes, edges, depLookup := b.buildGraph(rawEdges, health, avgLatency)
+	// When lookback is enabled, derive the set of currently live edge keys
+	// from the health query results. Edges present in lookback topology but
+	// absent from this set are stale (metrics disappeared).
+	var currentEdgeKeys map[EdgeKey]bool
+	if b.lookback > 0 {
+		currentEdgeKeys = make(map[EdgeKey]bool, len(health))
+		for k := range health {
+			currentEdgeKeys[k] = true
+		}
+	}
+
+	nodes, edges, depLookup := b.buildGraph(rawEdges, health, avgLatency, currentEdgeKeys)
 
 	alertInfos := b.enrichWithAlerts(nodes, edges, fetchedAlerts, depLookup)
 
@@ -106,10 +126,14 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 	}, nil
 }
 
+// buildGraph constructs nodes and edges from raw topology data.
+// When currentEdgeKeys is non-nil (lookback mode), edges whose key is absent
+// from the set are marked as stale with state "unknown".
 func (b *GraphBuilder) buildGraph(
 	rawEdges []TopologyEdge,
 	health map[EdgeKey]float64,
 	avgLatency map[EdgeKey]float64,
+	currentEdgeKeys map[EdgeKey]bool,
 ) ([]Node, []Edge, map[depAlertKey]EdgeKey) {
 	// First pass: collect all known service names (sources that report metrics).
 	serviceNames := make(map[string]bool)
@@ -179,9 +203,42 @@ func (b *GraphBuilder) buildGraph(
 		}
 	}
 
+	// Track stale edge counts per node for node-level stale determination.
+	nodeStaleOutgoing := make(map[string]int)
+	nodeTotalOutgoing := make(map[string]int)
+	nodeStaleIncoming := make(map[string]int)
+	nodeTotalIncoming := make(map[string]int)
+
 	// Build edges.
 	edges := make([]Edge, 0, len(edgeMap))
 	for key, raw := range edgeMap {
+		depNodeID := resolveTarget(raw)
+
+		// Check if this edge is stale (lookback mode only).
+		stale := currentEdgeKeys != nil && !currentEdgeKeys[key]
+
+		if stale {
+			edge := Edge{
+				Source:     raw.Name,
+				Target:     depNodeID,
+				Type:       raw.Type,
+				Latency:    "",
+				LatencyRaw: 0,
+				Health:     -1,
+				State:      "unknown",
+				Critical:   raw.Critical,
+				Stale:      true,
+				GrafanaURL: b.linkGrafanaURL(raw.Dependency, raw.Host, raw.Port),
+			}
+			edges = append(edges, edge)
+
+			nodeStaleOutgoing[raw.Name]++
+			nodeTotalOutgoing[raw.Name]++
+			nodeStaleIncoming[depNodeID]++
+			nodeTotalIncoming[depNodeID]++
+			continue
+		}
+
 		h := float64(1)
 		if v, ok := health[key]; ok {
 			h = v
@@ -196,8 +253,6 @@ func (b *GraphBuilder) buildGraph(
 		if h == 0 {
 			state = "down"
 		}
-
-		depNodeID := resolveTarget(raw)
 
 		edge := Edge{
 			Source:     raw.Name,
@@ -214,18 +269,34 @@ func (b *GraphBuilder) buildGraph(
 
 		nodeOutgoingHealth[raw.Name] = append(nodeOutgoingHealth[raw.Name], h)
 		nodeIncomingHealth[depNodeID] = append(nodeIncomingHealth[depNodeID], h)
+		nodeTotalOutgoing[raw.Name]++
+		nodeTotalIncoming[depNodeID]++
 	}
 
 	// Build nodes.
 	nodes := make([]Node, 0, len(nodeMap))
 	for id, info := range nodeMap {
 		var state string
+		var stale bool
+
 		if info.typ == "service" {
-			// Service nodes: state from outgoing edges.
-			state = calcNodeState(nodeOutgoingHealth[id])
+			// Service nodes: state from outgoing non-stale edges.
+			allStale := nodeTotalOutgoing[id] > 0 && nodeStaleOutgoing[id] == nodeTotalOutgoing[id]
+			if allStale {
+				state = "unknown"
+				stale = true
+			} else {
+				state = calcNodeState(nodeOutgoingHealth[id])
+			}
 		} else {
-			// Dependency nodes: state from incoming edges.
-			state = calcNodeState(nodeIncomingHealth[id])
+			// Dependency nodes: state from incoming non-stale edges.
+			allStale := nodeTotalIncoming[id] > 0 && nodeStaleIncoming[id] == nodeTotalIncoming[id]
+			if allStale {
+				state = "unknown"
+				stale = true
+			} else {
+				state = calcNodeState(nodeIncomingHealth[id])
+			}
 		}
 
 		node := Node{
@@ -237,6 +308,7 @@ func (b *GraphBuilder) buildGraph(
 			Host:            info.host,
 			Port:            info.port,
 			DependencyCount: len(info.deps),
+			Stale:           stale,
 		}
 
 		if info.typ == "service" {

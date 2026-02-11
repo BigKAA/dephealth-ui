@@ -12,6 +12,7 @@ type Node struct {
 	Host            string `json:"host,omitempty"`
 	Port            string `json:"port,omitempty"`
 	DependencyCount int    `json:"dependencyCount"`
+	Stale           bool   `json:"stale,omitempty"`
 	GrafanaURL      string `json:"grafanaUrl,omitempty"`
 	AlertCount      int    `json:"alertCount,omitempty"`
 	AlertSeverity   string `json:"alertSeverity,omitempty"`
@@ -24,9 +25,10 @@ type Edge struct {
 	Type          string  `json:"type,omitempty"`  // grpc, http, postgres, redis, etc.
 	Latency       string  `json:"latency"`         // human-readable "5.2ms"
 	LatencyRaw    float64 `json:"latencyRaw"`
-	Health        float64 `json:"health"`          // 0 or 1
-	State         string  `json:"state"`           // "ok", "degraded", "down"
+	Health        float64 `json:"health"`          // 0 or 1; -1 for stale
+	State         string  `json:"state"`           // "ok", "degraded", "down", "unknown"
 	Critical      bool    `json:"critical"`
+	Stale         bool    `json:"stale,omitempty"`
 	GrafanaURL    string  `json:"grafanaUrl,omitempty"`
 	AlertCount    int     `json:"alertCount,omitempty"`
 	AlertSeverity string  `json:"alertSeverity,omitempty"`

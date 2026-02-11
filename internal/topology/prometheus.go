@@ -25,6 +25,11 @@ type PrometheusClient interface {
 	// QueryP99Latency returns the P99 latency per edge.
 	QueryP99Latency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error)
 
+	// QueryTopologyEdgesLookback returns all unique topology edges seen within
+	// the given lookback window, including stale (disappeared) series.
+	// It uses last_over_time() to retrieve the last known value for each edge.
+	QueryTopologyEdgesLookback(ctx context.Context, opts QueryOptions, lookback time.Duration) ([]TopologyEdge, error)
+
 	// QueryInstances returns all instances (pods/containers) for a given service.
 	QueryInstances(ctx context.Context, serviceName string) ([]Instance, error)
 }
@@ -62,6 +67,8 @@ const (
 	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
 	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
 	queryInstances     = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
+	// queryTopologyEdgesLookback uses last_over_time to include stale series.
+	queryTopologyEdgesLookback = `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health%s[%s]))`
 )
 
 // nsFilter returns a PromQL label filter for the given namespace.
@@ -153,6 +160,40 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOpt
 		})
 	}
 	return edges, nil
+}
+
+func (c *prometheusClient) QueryTopologyEdgesLookback(ctx context.Context, opts QueryOptions, lookback time.Duration) ([]TopologyEdge, error) {
+	f := nsFilter(opts.Namespace)
+	lb := formatPromDuration(lookback)
+	results, err := c.query(ctx, fmt.Sprintf(queryTopologyEdgesLookback, f, lb))
+	if err != nil {
+		return nil, err
+	}
+
+	edges := make([]TopologyEdge, 0, len(results))
+	for _, r := range results {
+		edges = append(edges, TopologyEdge{
+			Name:       r.Metric["name"],
+			Namespace:  r.Metric["namespace"],
+			Dependency: r.Metric["dependency"],
+			Type:       r.Metric["type"],
+			Host:       r.Metric["host"],
+			Port:       r.Metric["port"],
+			Critical:   r.Metric["critical"] == "yes",
+		})
+	}
+	return edges, nil
+}
+
+// formatPromDuration converts a Go duration to a Prometheus duration string (e.g., "1h", "30m").
+func formatPromDuration(d time.Duration) string {
+	if h := int(d.Hours()); h > 0 && d == time.Duration(h)*time.Hour {
+		return fmt.Sprintf("%dh", h)
+	}
+	if m := int(d.Minutes()); m > 0 && d == time.Duration(m)*time.Minute {
+		return fmt.Sprintf("%dm", m)
+	}
+	return fmt.Sprintf("%ds", int(d.Seconds()))
 }
 
 func (c *prometheusClient) QueryHealthState(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
