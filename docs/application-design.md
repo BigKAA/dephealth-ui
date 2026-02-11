@@ -114,8 +114,8 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 |-----------|-------|-------------|
 | **Backend** | Go (`net/http` + `chi`) | Единый binary; официальная библиотека Prometheus client; минимальный Docker-образ (~15-20MB); соответствует K8s-экосистеме |
 | **Frontend** | Vanilla JS + Vite | Компактное SPA; Cytoscape.js работает нативно; минимальный bundle; при росте — миграция на React |
-| **Визуализация графа** | Cytoscape.js + cytoscape-dagre | Нативные постоянные подписи на рёбрах; CSS-подобные стили; `cy.batch()` для эффективного обновления; богатая экосистема layout |
-| **Layout** | dagre | Оптимален для DAG-подобной топологии; быстрый; чистый hierarchical рендеринг |
+| **Визуализация графа** | Cytoscape.js + dagre + fcose | Нативные постоянные подписи на рёбрах; CSS-подобные стили; `cy.batch()` для эффективного обновления; богатая экосистема layout |
+| **Layout** | dagre (flat) / fcose (grouped) | dagre — оптимален для DAG-подобной топологии в плоском режиме; fcose — force-directed layout для группировки по namespace с compound nodes |
 | **Сборка frontend** | Vite | Быстрый dev server, оптимальный build, HMR |
 | **Контейнеризация** | Docker (multi-stage) + Helm chart | Единый образ: Go binary со встроенными SPA static-файлами |
 
@@ -289,28 +289,68 @@ Frontend — тонкий слой визуализации. Вся трансф
 
 ### Визуализация
 
-- **Узлы:** цвет зависит от `state` — зелёный (OK), жёлтый (DEGRADED), красный (DOWN); динамический размер по длине текста; цветная полоска namespace
+- **Узлы:** цвет зависит от `state` — зелёный (OK), жёлтый (DEGRADED), красный (DOWN), серый (Unknown/stale); динамический размер по длине текста; цветная полоска namespace
 - **Рёбра:** направленные стрелки с постоянными подписями latency; цвет ребра по `state`; толщина ребра по `critical` (критичные — толще)
+- **Stale-ноды:** серый фон, пунктирная рамка, скрытая latency; tooltip "Metrics disappeared"
 - **Клик по узлу/ребру:** открывает боковую панель с деталями (состояние, namespace, инстансы, связи, алерты) и секцией ссылок на Grafana dashboards
 - **Контекстное меню (правый клик):** Open in Grafana, Copy Grafana URL, Show Details
-- **Layout:** dagre (hierarchical, направление `LR` или `TB`)
+- **Layout:** dagre (плоский режим, LR/TB) или fcose (режим группировки по namespace)
 
 ![Context menu on a service node](./images/context-menu-grafana.png)
 
+### Группировка по namespace
+
+Группировка позволяет визуально объединить сервисы по Kubernetes namespace в составные узлы (compound nodes) Cytoscape.js.
+
+**Режимы:**
+- **Flat mode (dagre):** все узлы отображаются на одном уровне, layout dagre
+- **Grouped mode (fcose):** узлы сгруппированы в namespace-контейнеры, layout fcose
+
+**Collapse/Expand:**
+- Двойной клик по группе или кнопка «Expand namespace» в sidebar → сворачивание/разворачивание
+- Свёрнутый namespace показывает: наихудшее состояние детей, количество сервисов, суммарные алерты
+- Рёбра между свёрнутыми namespace автоматически агрегируются (показывают count `×N`)
+- Состояние collapse/expand сохраняется в `localStorage`
+- При обновлении данных (auto-refresh) — свёрнутые namespace остаются свёрнутыми
+
+**Click-to-expand navigation:**
+- В sidebar свёрнутого namespace — кликабельный список сервисов с цветными индикаторами состояния
+- Клик по сервису → namespace разворачивается → камера центрируется на выбранном сервисе → sidebar показывает детали сервиса
+- В sidebar ребра — клик по узлу из свёрнутого namespace также разворачивает и навигирует к оригинальному сервису
+
+![Main view with collapsed namespaces](./images/dephealth-main-view.png)
+
+![Collapsed namespace sidebar with clickable services](./images/sidebar-collapsed-namespace.png)
+
 ### Боковая панель (Sidebar)
 
-При клике по узлу или ребру открывается боковая панель с:
+Три типа боковых панелей:
+
+**1. Node Sidebar** — при клике по узлу-сервису:
 - Основная информация (state, type, namespace)
 - Активные алерты (с severity)
 - Список инстансов (pod name, IP:port) — для service-узлов
-- Связанные рёбра (входящие/исходящие с latency)
-- Кнопка «Open in Grafana» (открывает serviceStatus/linkStatus dashboard)
-- Секция **Grafana Dashboards** — 5 ссылок на все dashboards с контекстно-зависимыми query-параметрами:
-  - Обзорные (serviceList, servicesStatus, linksStatus) — без параметров
-  - serviceStatus — с `?var-service=<name>` для выбранного сервиса
-  - linkStatus — с `?var-dependency=...&var-host=...&var-port=...` для выбранной зависимости
+- Связанные рёбра (входящие/исходящие с latency и навигацией)
+- Кнопка «Open in Grafana» (открывает serviceStatus dashboard)
+- Секция **Grafana Dashboards** — ссылки на все dashboards с контекстно-зависимыми query-параметрами
 
-![Sidebar with Grafana dashboard links (EN)](./images/sidebar-grafana-section.png)
+![Node sidebar with alerts and Grafana links](./images/sidebar-grafana-section.png)
+
+![Stale/unknown node sidebar](./images/sidebar-stale-node.png)
+
+**2. Edge Sidebar** — при клике по ребру:
+- Состояние, тип, latency, критичность
+- Активные алерты для данной связи
+- Связанные узлы (source/target) с кликабельной навигацией
+- Кнопка «Open in Grafana» (открывает linkStatus dashboard)
+- Секция Grafana Dashboards
+
+![Edge sidebar with alerts and connected nodes](./images/sidebar-edge-details.png)
+
+**3. Collapsed Namespace Sidebar** — при клике по свёрнутому namespace:
+- Наихудшее состояние, количество сервисов, суммарные алерты
+- Кликабельный список сервисов с цветными точками состояния и стрелкой «Go to node →»
+- Кнопка «Expand namespace»
 
 ### Интернационализация (i18n)
 
@@ -318,7 +358,7 @@ Frontend — тонкий слой визуализации. Вся трансф
 
 | EN | RU |
 |----|----|
-| ![UI in English](./images/sidebar-grafana-section.png) | ![UI на русском](./images/sidebar-grafana-russian-dashboards.png) |
+| ![UI in English](./images/dephealth-main-view.png) | ![UI на русском](./images/dephealth-russian-ui.png) |
 
 ---
 

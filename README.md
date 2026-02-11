@@ -1,8 +1,8 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.11.4-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
-[![Helm Chart](https://img.shields.io/badge/helm-0.5.1-0F1689.svg)](./deploy/helm/dephealth-ui)
+[![Helm Chart](https://img.shields.io/badge/helm-0.6.0-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
 
 **Real-time microservices topology and health visualization tool**
@@ -19,17 +19,29 @@
 
 The application consumes metrics collected by the [dephealth SDK](https://github.com/BigKAA/topologymetrics) from Prometheus/VictoriaMetrics and correlates them with AlertManager alerts to provide a unified health view.
 
-![Topology graph with namespace colors, filters, legend, and status bar](./docs/images/dephealth-main-view.png)
+![Topology graph with collapsed namespaces, alert badges, and namespace colors](./docs/images/dephealth-main-view.png)
 
-![Node detail sidebar with Grafana dashboard links](./docs/images/sidebar-grafana-section.png)
+![Node detail sidebar with alerts, instances, edges, and Grafana links](./docs/images/sidebar-grafana-section.png)
+
+![Collapsed namespace sidebar with clickable service list](./docs/images/sidebar-collapsed-namespace.png)
 
 ### Features
 
 ✅ **Real-time Topology Visualization**
 - Interactive node-graph diagram with Cytoscape.js
-- Automatic layout with dagre (hierarchical/top-to-bottom)
-- Color-coded node states (green=OK, yellow=DEGRADED, red=DOWN)
+- Dual layout: dagre (flat mode) and fcose (grouped mode)
+- Color-coded node states (green=OK, yellow=DEGRADED, red=DOWN, gray=Unknown/stale)
 - Dynamic node sizing based on label length
+- Stale node retention with configurable lookback window
+
+✅ **Namespace Grouping**
+- Group services by Kubernetes namespace into compound nodes
+- Collapse/expand namespace groups (double-click or sidebar button)
+- Collapsed nodes show worst state, service count, and alert badges
+- Aggregated edges between collapsed namespaces
+- Click-to-expand navigation from collapsed sidebar to individual services
+- Deterministic namespace color palette with WCAG-compliant contrast
+- Collapse/expand state persisted in localStorage
 
 ✅ **Comprehensive Monitoring**
 - Service health status with alert counts
@@ -41,12 +53,14 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Smart search with fuzzy matching
 - Multi-filter support (namespace, type, state, service)
 - Alert drawer with severity-based grouping
-- Node detail sidebar with instance information and Grafana dashboard links
+- Node detail sidebar with instance information, connected edges, and Grafana dashboard links
+- Edge detail sidebar with state, latency, alerts, connected nodes, and Grafana links
+- Collapsed namespace sidebar with clickable service list and expand button
 - Grafana integration: context menu, sidebar links to all 5 dashboards with context-aware parameters
 - Context menu (right-click) on nodes/edges: Open in Grafana, Copy URL, Show Details
 - Internationalization (i18n): English and Russian
 - Namespace color coding with deterministic palette
-- Legend, statistics, and export to PNG
+- Legend, namespace legend, statistics, and export to PNG
 - Keyboard shortcuts and fullscreen mode
 - Dark theme support
 
@@ -96,8 +110,8 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 | Component | Technology |
 |-----------|------------|
 | **Backend** | Go 1.25 (net/http + chi router) |
-| **Frontend** | Vanilla JS + Vite + Cytoscape.js |
-| **Visualization** | Cytoscape.js + cytoscape-dagre |
+| **Frontend** | Vanilla JS + Vite + Cytoscape.js + Tom Select |
+| **Visualization** | Cytoscape.js + dagre (flat) + fcose (grouped) |
 | **Container** | Docker (multi-stage, multi-arch) |
 | **Orchestration** | Kubernetes (Helm 3) |
 
@@ -288,12 +302,12 @@ go build -o dephealth-ui ./cmd/dephealth-ui
 
 ```bash
 # Build multi-arch image
-make docker-build TAG=v0.11.4
+make docker-build TAG=v0.13.0
 
 # Or manually
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t harbor.kryukov.lan/library/dephealth-ui:v0.11.4 \
+  -t harbor.kryukov.lan/library/dephealth-ui:v0.13.0 \
   --push .
 ```
 
@@ -334,7 +348,7 @@ dephealth-ui/
 │   ├── auth/                 # Authentication (none/basic/oidc)
 │   └── cache/                # In-memory cache with TTL
 ├── frontend/                  # Vite + Cytoscape.js SPA
-│   ├── src/                  # JavaScript modules
+│   ├── src/                  # JavaScript modules (graph, sidebar, grouping, i18n, etc.)
 │   ├── public/               # Static assets
 │   └── index.html            # SPA entry point
 ├── deploy/                    # Deployment manifests
@@ -396,17 +410,27 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 
 Приложение потребляет метрики, собранные [dephealth SDK](https://github.com/BigKAA/topologymetrics) из Prometheus/VictoriaMetrics, и коррелирует их с алертами AlertManager для предоставления единого представления о здоровье системы.
 
-![Граф топологии с namespace-цветами, фильтрами, легендой и статусбаром](./docs/images/sidebar-grafana-russian.png)
+![Граф топологии со свёрнутыми namespace, алерт-бейджами и цветами namespace](./docs/images/dephealth-russian-ui.png)
 
-![Боковая панель с дашбордами Grafana на русском](./docs/images/sidebar-grafana-russian-dashboards.png)
+![Боковая панель свёрнутого namespace с кликабельным списком сервисов](./docs/images/sidebar-russian-collapsed.png)
 
 ### Возможности
 
 ✅ **Визуализация топологии в реальном времени**
 - Интерактивная диаграмма узлов с Cytoscape.js
-- Автоматический layout через dagre (иерархический/сверху-вниз)
-- Цветовая индикация состояний (зелёный=OK, жёлтый=DEGRADED, красный=DOWN)
+- Двойной layout: dagre (плоский режим) и fcose (группировка)
+- Цветовая индикация состояний (зелёный=OK, жёлтый=DEGRADED, красный=DOWN, серый=Unknown/stale)
 - Динамический размер узлов в зависимости от длины текста
+- Удержание stale-нод с настраиваемым окном lookback
+
+✅ **Группировка по namespace**
+- Группировка сервисов по Kubernetes namespace в составные узлы
+- Сворачивание/разворачивание групп (двойной клик или кнопка в sidebar)
+- Свёрнутые ноды показывают наихудшее состояние, кол-во сервисов и бейджи алертов
+- Агрегированные рёбра между свёрнутыми namespace
+- Навигация click-to-expand из sidebar свёрнутого namespace к конкретному сервису
+- Детерминированная палитра цветов namespace с WCAG-контрастностью
+- Состояние collapse/expand сохраняется в localStorage
 
 ✅ **Полный мониторинг**
 - Статус здоровья сервисов с количеством алертов
@@ -418,12 +442,14 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 - Умный поиск с fuzzy matching
 - Множественные фильтры (namespace, тип, состояние, сервис)
 - Drawer алертов с группировкой по severity
-- Боковая панель с деталями узла, списком инстансов и ссылками на Grafana дашборды
+- Боковая панель узла с инстансами, связанными рёбрами и ссылками на Grafana дашборды
+- Боковая панель ребра с состоянием, latency, алертами, связанными узлами и Grafana ссылками
+- Боковая панель свёрнутого namespace с кликабельным списком сервисов и кнопкой разворачивания
 - Интеграция с Grafana: контекстное меню, ссылки на все 5 дашбордов с контекстно-зависимыми параметрами
 - Контекстное меню (правый клик) на узлах/рёбрах: Открыть в Grafana, Копировать URL, Детали
 - Интернационализация (i18n): английский и русский
 - Цветовая кодировка namespace с детерминированной палитрой
-- Легенда, статистика, экспорт в PNG
+- Легенда, легенда namespace, статистика, экспорт в PNG
 - Горячие клавиши и полноэкранный режим
 - Поддержка тёмной темы
 
