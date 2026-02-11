@@ -115,6 +115,17 @@ export default {
   'sidebar.noInstances': 'Экземпляры не найдены',
   'sidebar.failedInstances': 'Не удалось загрузить экземпляры',
 
+  // Edge sidebar
+  'sidebar.edge.source': 'Источник',
+  'sidebar.edge.target': 'Назначение',
+  'sidebar.edge.type': 'Тип',
+  'sidebar.edge.latency': 'Задержка',
+  'sidebar.edge.critical': 'Критичная',
+  'sidebar.edge.criticalYes': 'Да',
+  'sidebar.edge.criticalNo': 'Нет',
+  'sidebar.edge.connectedNodes': 'Связанные узлы',
+  'sidebar.edge.goToNode': 'Перейти к узлу',
+
   // Alert drawer
   'alerts.title': 'Активные алерты',
   'alerts.close': 'Закрыть',

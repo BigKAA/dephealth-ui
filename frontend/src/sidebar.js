@@ -1,6 +1,6 @@
 /**
- * Node detail sidebar functionality.
- * Shows node info, related alerts, instances, and connected edges on node click.
+ * Sidebar functionality for node and edge details.
+ * Shows info, related alerts, instances, and connected edges/nodes on click.
  */
 
 import { fetchInstances } from './api.js';
@@ -8,6 +8,7 @@ import { t } from './i18n.js';
 
 let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
+let currentEdgeId = null; // Track currently opened edge for toggle behavior
 let grafanaConfig = null; // Grafana config from /api/v1/config
 
 const $ = (sel) => document.querySelector(sel);
@@ -43,21 +44,31 @@ export function initSidebar(cy, topologyData) {
     if (url) window.open(url, '_blank');
   });
 
-  // Edge tap: open Grafana (if URL exists)
-  cy.on('tap', 'edge[grafanaUrl]', (evt) => {
-    const url = evt.target.data('grafanaUrl');
-    if (url) window.open(url, '_blank');
+  // Single tap on edge: toggle edge sidebar
+  cy.on('tap', 'edge', (evt) => {
+    const edge = evt.target;
+    const edgeId = edge.data('id');
+    const sidebar = $('#node-sidebar');
+
+    // If clicking the same edge while sidebar is open - close it
+    if (currentEdgeId === edgeId && !sidebar.classList.contains('hidden')) {
+      closeSidebar();
+    } else {
+      openEdgeSidebar(edge, cy);
+    }
   });
 
   // Close button
   closeBtn.addEventListener('click', closeSidebar);
 
-  // Click outside sidebar to close
+  // Click outside sidebar to close (exclude alert drawer and toolbar buttons)
   document.addEventListener('click', (e) => {
     if (
       !sidebar.classList.contains('hidden') &&
       !sidebar.contains(e.target) &&
-      !e.target.closest('#cy')
+      !e.target.closest('#cy') &&
+      !e.target.closest('#alert-drawer') &&
+      !e.target.closest('#btn-alerts')
     ) {
       closeSidebar();
     }
@@ -93,6 +104,7 @@ export function openSidebar(node, cy) {
 
   // Track current node for toggle behavior
   currentNodeId = data.id;
+  currentEdgeId = null;
 
   // Title
   $('#sidebar-title').textContent = data.label || data.id;
@@ -128,7 +140,8 @@ export function openSidebar(node, cy) {
  */
 function closeSidebar() {
   $('#node-sidebar').classList.add('hidden');
-  currentNodeId = null; // Reset tracked node
+  currentNodeId = null;
+  currentEdgeId = null;
 }
 
 /**
@@ -227,6 +240,7 @@ function renderEdges(node, cy) {
     const otherNode = isOutgoing ? target : source;
 
     const edgeInfo = {
+      edgeId: data.id,
       label: otherNode.data('label') || otherNode.id(),
       latency: data.stale ? '—' : (data.latency || '—'),
       stale: data.stale || false,
@@ -239,6 +253,13 @@ function renderEdges(node, cy) {
     }
   });
 
+  const renderItem = (info, arrow) => `
+    <div class="sidebar-edge-item${info.stale ? ' stale' : ''}" data-edge-id="${info.edgeId}">
+      <span class="sidebar-edge-label">${arrow} ${info.label}</span>
+      <span class="sidebar-edge-latency">${info.latency}</span>
+    </div>
+  `;
+
   // Build HTML with separated groups
   let html = `<div class="sidebar-section-title">${t('sidebar.connectedEdges', { count: connectedEdges.length })}</div>`;
 
@@ -246,16 +267,7 @@ function renderEdges(node, cy) {
     html += `
       <div class="sidebar-edge-group">
         <div class="sidebar-edge-group-title">${t('sidebar.outgoingEdges', { count: outgoing.length })}</div>
-        ${outgoing
-          .map(
-            (info) => `
-          <div class="sidebar-edge-item${info.stale ? ' stale' : ''}">
-            <span class="sidebar-edge-label">→ ${info.label}</span>
-            <span class="sidebar-edge-latency">${info.latency}</span>
-          </div>
-        `
-          )
-          .join('')}
+        ${outgoing.map((info) => renderItem(info, '→')).join('')}
       </div>
     `;
   }
@@ -264,21 +276,42 @@ function renderEdges(node, cy) {
     html += `
       <div class="sidebar-edge-group">
         <div class="sidebar-edge-group-title">${t('sidebar.incomingEdges', { count: incoming.length })}</div>
-        ${incoming
-          .map(
-            (info) => `
-          <div class="sidebar-edge-item${info.stale ? ' stale' : ''}">
-            <span class="sidebar-edge-label">← ${info.label}</span>
-            <span class="sidebar-edge-latency">${info.latency}</span>
-          </div>
-        `
-          )
-          .join('')}
+        ${incoming.map((info) => renderItem(info, '←')).join('')}
       </div>
     `;
   }
 
   section.innerHTML = html;
+
+  // Attach click handlers: navigate to edge + open edge sidebar
+  section.querySelectorAll('.sidebar-edge-item[data-edge-id]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent click-outside handler from closing sidebar
+      const edgeId = el.dataset.edgeId;
+      const edge = cy.getElementById(edgeId);
+      if (edge && edge.length) {
+        cy.animate({ center: { eles: edge }, duration: 300 });
+        highlightEdge(edge);
+        openEdgeSidebar(edge, cy);
+      }
+    });
+  });
+}
+
+/**
+ * Briefly highlight an edge on the graph for visual feedback.
+ * @param {cytoscape.EdgeSingular} edge
+ */
+function highlightEdge(edge) {
+  const origWidth = parseFloat(edge.style('width')) || 1.5;
+  const origColor = edge.style('line-color');
+  edge.animate({
+    style: { width: 6, 'line-color': '#2196f3' },
+    duration: 200,
+  }).animate({
+    style: { width: origWidth, 'line-color': origColor },
+    duration: 400,
+  });
 }
 
 /**
@@ -366,6 +399,240 @@ function renderGrafanaDashboards(data) {
     }
     dashboards.push({
       label: t('sidebar.grafana.linkStatus'),
+      url,
+    });
+  }
+
+  if (dashboards.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  section.innerHTML = `
+    <div class="sidebar-section-title">${t('sidebar.grafanaDashboards')}</div>
+    ${dashboards
+      .map(
+        (d) => `
+      <a href="${d.url}" target="_blank" rel="noopener" class="sidebar-grafana-link">
+        <i class="bi bi-graph-up"></i>
+        <span>${d.label}</span>
+        <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>
+      </a>
+    `
+      )
+      .join('')}
+  `;
+}
+
+/**
+ * Open sidebar with edge details.
+ * @param {cytoscape.EdgeSingular} edge - Cytoscape edge
+ * @param {cytoscape.Core} cy - Cytoscape instance
+ */
+export function openEdgeSidebar(edge, cy) {
+  const sidebar = $('#node-sidebar');
+  const data = edge.data();
+
+  // Track current edge for toggle behavior
+  currentEdgeId = data.id;
+  currentNodeId = null;
+
+  // Get source and target node labels
+  const sourceNode = cy.getElementById(data.source);
+  const targetNode = cy.getElementById(data.target);
+  const sourceLabel = sourceNode.data('label') || data.source;
+  const targetLabel = targetNode.data('label') || data.target;
+
+  // Title: source → target
+  $('#sidebar-title').textContent = `${sourceLabel} → ${targetLabel}`;
+
+  // Details section
+  renderEdgeDetails(data);
+
+  // Alerts section (match by source + target)
+  renderEdgeAlerts(data.source, data.target);
+
+  // Instances section: empty for edges
+  $('#sidebar-instances').innerHTML = '';
+
+  // Connected nodes section (replaces edges section for node sidebar)
+  renderConnectedNodes(sourceNode, targetNode, cy);
+
+  // Actions section
+  renderActions(data);
+
+  // Grafana dashboards section (context-aware for edges)
+  renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel);
+
+  // Show sidebar
+  sidebar.classList.remove('hidden');
+}
+
+/**
+ * Render edge details section.
+ * @param {object} data - Edge data
+ */
+function renderEdgeDetails(data) {
+  const section = $('#sidebar-details');
+  const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
+
+  const staleDetail = data.stale ? ` <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>` : '';
+  const details = [
+    { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>${staleDetail}` },
+    data.type && { label: t('sidebar.edge.type'), value: data.type },
+    { label: t('sidebar.edge.latency'), value: data.stale ? '—' : (data.latency || '—') },
+    { label: t('sidebar.edge.critical'), value: data.critical ? t('sidebar.edge.criticalYes') : t('sidebar.edge.criticalNo') },
+    data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
+  ].filter(Boolean);
+
+  section.innerHTML = details
+    .map(
+      (item) => `
+    <div class="sidebar-detail-row">
+      <span class="sidebar-detail-label">${item.label}:</span>
+      <span class="sidebar-detail-value">${item.value}</span>
+    </div>
+  `
+    )
+    .join('');
+}
+
+/**
+ * Render alerts related to a specific edge (matched by source + target).
+ * @param {string} source - Source node ID
+ * @param {string} target - Target node ID
+ */
+function renderEdgeAlerts(source, target) {
+  const section = $('#sidebar-alerts');
+  if (!topologyDataCache || !topologyDataCache.alerts) {
+    section.innerHTML = '';
+    return;
+  }
+
+  const edgeAlerts = topologyDataCache.alerts.filter(
+    (alert) => alert.service === source && alert.dependency === target
+  );
+
+  if (edgeAlerts.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  section.innerHTML = `
+    <div class="sidebar-section-title">${t('sidebar.activeAlertsCount', { count: edgeAlerts.length })}</div>
+    ${edgeAlerts
+      .map(
+        (alert) => `
+      <div class="sidebar-alert-item ${alert.severity || 'info'}">
+        <div class="sidebar-alert-name">${alert.alertname || t('alerts.unknownAlert')}</div>
+        <div class="sidebar-alert-meta">
+          ${alert.severity ? `<strong>${alert.severity.toUpperCase()}</strong>` : ''}
+        </div>
+      </div>
+    `
+      )
+      .join('')}
+  `;
+}
+
+/**
+ * Render connected nodes section for edge sidebar.
+ * Shows source and target nodes as clickable links.
+ * @param {cytoscape.NodeSingular} sourceNode
+ * @param {cytoscape.NodeSingular} targetNode
+ * @param {cytoscape.Core} cy
+ */
+function renderConnectedNodes(sourceNode, targetNode, cy) {
+  const section = $('#sidebar-edges');
+
+  const sourceLabel = sourceNode.data('label') || sourceNode.id();
+  const targetLabel = targetNode.data('label') || targetNode.id();
+  const sourceState = sourceNode.data('state') || 'unknown';
+  const targetState = targetNode.data('state') || 'unknown';
+
+  section.innerHTML = `
+    <div class="sidebar-section-title">${t('sidebar.edge.connectedNodes')}</div>
+    <div class="sidebar-node-link" data-node-id="${sourceNode.id()}">
+      <span class="sidebar-state-dot ${sourceState}"></span>
+      <span class="sidebar-node-link-label">
+        <span class="sidebar-node-link-role">${t('sidebar.edge.source')}:</span>
+        ${sourceLabel}
+      </span>
+      <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
+    </div>
+    <div class="sidebar-node-link" data-node-id="${targetNode.id()}">
+      <span class="sidebar-state-dot ${targetState}"></span>
+      <span class="sidebar-node-link-label">
+        <span class="sidebar-node-link-role">${t('sidebar.edge.target')}:</span>
+        ${targetLabel}
+      </span>
+      <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
+    </div>
+  `;
+
+  // Attach click handlers for node navigation
+  section.querySelectorAll('.sidebar-node-link[data-node-id]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent click-outside handler from closing sidebar
+      const nodeId = el.dataset.nodeId;
+      const node = cy.getElementById(nodeId);
+      if (node && node.length) {
+        // Center node on graph with animation
+        cy.animate({ center: { eles: node }, duration: 300 });
+        // Open node sidebar
+        openSidebar(node, cy);
+      }
+    });
+  });
+}
+
+/**
+ * Render Grafana dashboards section for edge sidebar.
+ * Context-aware: pre-fills link variables for the edge.
+ * @param {object} data - Edge data
+ * @param {string} sourceLabel - Source node label
+ * @param {string} targetLabel - Target node label
+ */
+function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel) {
+  const section = $('#sidebar-grafana');
+  if (!section) return;
+
+  if (!grafanaConfig || !grafanaConfig.baseUrl) {
+    section.innerHTML = '';
+    return;
+  }
+
+  const base = grafanaConfig.baseUrl;
+  const db = grafanaConfig.dashboards || {};
+
+  const dashboards = [];
+
+  if (db.linksStatus) {
+    dashboards.push({
+      label: t('sidebar.grafana.linksStatus'),
+      url: `${base}/d/${db.linksStatus}/`,
+    });
+  }
+  if (db.linkStatus) {
+    let url = `${base}/d/${db.linkStatus}/`;
+    // Pre-fill edge variables: source service + target dependency
+    const params = new URLSearchParams();
+    if (data.source) params.set('var-service', data.source);
+    if (targetLabel) params.set('var-dependency', targetLabel);
+    if (params.toString()) url += `?${params.toString()}`;
+    dashboards.push({
+      label: t('sidebar.grafana.linkStatus'),
+      url,
+    });
+  }
+  if (db.serviceStatus) {
+    // Link to source service status
+    let url = `${base}/d/${db.serviceStatus}/`;
+    if (data.source) {
+      url += `?var-service=${encodeURIComponent(data.source)}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.serviceStatus'),
       url,
     });
   }

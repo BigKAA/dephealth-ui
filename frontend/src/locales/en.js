@@ -115,6 +115,17 @@ export default {
   'sidebar.noInstances': 'No instances found',
   'sidebar.failedInstances': 'Failed to load instances',
 
+  // Edge sidebar
+  'sidebar.edge.source': 'Source',
+  'sidebar.edge.target': 'Target',
+  'sidebar.edge.type': 'Type',
+  'sidebar.edge.latency': 'Latency',
+  'sidebar.edge.critical': 'Critical',
+  'sidebar.edge.criticalYes': 'Yes',
+  'sidebar.edge.criticalNo': 'No',
+  'sidebar.edge.connectedNodes': 'Connected Nodes',
+  'sidebar.edge.goToNode': 'Go to node',
+
   // Alert drawer
   'alerts.title': 'Active Alerts',
   'alerts.close': 'Close',

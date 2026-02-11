@@ -140,12 +140,6 @@ const cytoscapeStyles = [
       'text-background-opacity': 0.8,
       'text-background-padding': '3px',
       'text-rotation': 'autorotate',
-    },
-  },
-  // Edges with grafanaUrl get pointer cursor
-  {
-    selector: 'edge[grafanaUrl]',
-    style: {
       cursor: 'pointer',
     },
   },
@@ -358,7 +352,10 @@ export function renderGraph(cy, data, config) {
         const id = `${edge.source}->${edge.target}`;
         const ele = cy.getElementById(id);
         if (ele.length) {
+          ele.data('type', edge.type || undefined);
           ele.data('latency', edge.latency);
+          ele.data('latencyRaw', edge.latencyRaw || 0);
+          ele.data('health', edge.health ?? -1);
           ele.data('state', edge.state);
           ele.data('stale', edge.stale || false);
           ele.data('critical', edge.critical);
@@ -401,7 +398,10 @@ export function renderGraph(cy, data, config) {
           id: `${edge.source}->${edge.target}`,
           source: edge.source,
           target: edge.target,
+          type: edge.type || undefined,
           latency: edge.latency,
+          latencyRaw: edge.latencyRaw || 0,
+          health: edge.health ?? -1,
           state: edge.state,
           stale: edge.stale || false,
           critical: edge.critical,
