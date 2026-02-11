@@ -351,14 +351,18 @@ Multi-stage build:
 - `DEPHEALTH_CACHE_TTL`
 - `DEPHEALTH_AUTH_TYPE`
 - `DEPHEALTH_GRAFANA_BASEURL`
+- `DEPHEALTH_TOPOLOGY_LOOKBACK`
 
 ---
 
 ## PromQL-запросы (выполняются на backend)
 
 ```promql
-# Все рёбра топологии
+# Все рёбра топологии (instant)
 group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
+
+# Все рёбра за lookback-окно (для stale node retention)
+group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health[LOOKBACK]))
 
 # Текущее состояние всех зависимостей
 app_dependency_health
@@ -374,6 +378,28 @@ histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 and
 (count by (name, namespace, dependency, type) (app_dependency_health == 1) > 0)
 ```
+
+### Stale node retention (lookback window)
+
+When a service stops sending metrics (crash, scale-down, network issues), its time series become "stale" in Prometheus after ~5 minutes and disappear from instant queries. By default, this causes the node to vanish from the topology graph.
+
+The **lookback window** feature (`topology.lookback`) retains disappeared nodes on the graph with `state="unknown"` for a configurable duration.
+
+**How it works:**
+
+1. **Topology query** uses `last_over_time(metric[LOOKBACK])` — returns ALL edges seen in the lookback window (current + stale)
+2. **Health query** uses an instant query — returns ONLY current edges (live time series)
+3. Edges present in topology but NOT in health → marked as **stale** (`state="unknown"`, `Stale=true`)
+4. Nodes where ALL edges are stale → `state="unknown"`; mixed nodes use non-stale edges for state calculation
+
+**Frontend visualization:**
+- Stale nodes: gray background (`#9e9e9e`), dashed border
+- Stale edges: gray dashed lines, latency hidden
+- Tooltip shows "Metrics disappeared" / "Метрики пропали"
+
+**Configuration:** `topology.lookback` (default: `0` = disabled). Recommended values: `1h`, `6h`, `24h`. Minimum: `1m`. Env: `DEPHEALTH_TOPOLOGY_LOOKBACK`.
+
+Compatible with both Prometheus and VictoriaMetrics (`last_over_time()` is supported by both).
 
 ---
 

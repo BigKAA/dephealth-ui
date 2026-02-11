@@ -115,6 +115,18 @@ customCA:
   key: ca.crt
 ```
 
+### Stale Node Retention
+
+When a service stops sending metrics, it normally vanishes from the graph. Enable the lookback window to retain disappeared services with `state="unknown"` for a configurable duration:
+
+```yaml
+config:
+  topology:
+    lookback: "1h"  # Keep stale nodes for 1 hour (default: "0" = disabled)
+```
+
+Recommended values: `1h` (most environments), `6h` (infrequent deployments), `0` (disabled).
+
 ### Datasources
 
 ```yaml
@@ -173,6 +185,7 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 | `config.datasources.prometheus.url` | Prometheus/VictoriaMetrics URL | `http://victoriametrics:8428` |
 | `config.datasources.alertmanager.url` | AlertManager URL | `""` |
 | `config.cache.ttl` | Cache TTL duration | `15s` |
+| `config.topology.lookback` | Stale node retention window (`0` = disabled) | `"0"` |
 | `config.grafana.baseUrl` | Grafana base URL (empty = links hidden) | `""` |
 | `config.grafana.dashboards.serviceStatus` | Service Status dashboard UID | `dephealth-service-status` |
 | `config.grafana.dashboards.linkStatus` | Link Status dashboard UID | `dephealth-link-status` |

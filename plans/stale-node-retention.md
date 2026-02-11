@@ -17,10 +17,10 @@
 
 ## Current status
 
-- **Active phase**: Phase 4
-- **Active step**: 4.1
+- **Active phase**: Done
+- **Active step**: —
 - **Last updated**: 2026-02-11
-- **Note**: Phase 1+2+3 complete — config, PromQL, stale detection, frontend visualization
+- **Note**: All 5 phases complete — feature fully implemented, deployed, tested, documented
 
 ---
 
@@ -63,8 +63,8 @@ Edge in both → CURRENT → use health value (ok/degraded/down)
 - [x] [Phase 1: Backend — config & PromQL](#phase-1-backend--config--promql)
 - [x] [Phase 2: Backend — graph builder stale detection](#phase-2-backend--graph-builder-stale-detection)
 - [x] [Phase 3: Frontend — unknown state visualization](#phase-3-frontend--unknown-state-visualization)
-- [ ] [Phase 4: Build, test & deploy](#phase-4-build-test--deploy)
-- [ ] [Phase 5: Documentation](#phase-5-documentation)
+- [x] [Phase 4: Build, test & deploy](#phase-4-build-test--deploy)
+- [x] [Phase 5: Documentation](#phase-5-documentation)
 
 ---
 
