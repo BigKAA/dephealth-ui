@@ -1,5 +1,6 @@
 import TomSelect from 'tom-select';
 import { t } from './i18n.js';
+import { isGroupingEnabled, getCollapsedChildren } from './grouping.js';
 
 const STORAGE_KEY = 'dephealth-filters';
 const STATES = ['ok', 'degraded', 'down', 'unknown'];
@@ -202,6 +203,8 @@ export function applyFilters(cy) {
     return;
   }
 
+  const groupingActive = isGroupingEnabled();
+
   cy.batch(() => {
     // If SERVICE filter is active, collect all downstream nodes
     let downstreamNodes = new Set();
@@ -221,8 +224,10 @@ export function applyFilters(cy) {
       });
     }
 
-    // First pass: determine node visibility.
+    // First pass: determine node visibility (skip group nodes).
     cy.nodes().forEach((node) => {
+      if (groupingActive && node.data('isGroup')) return;
+
       const type = node.data('type');
       const state = node.data('state');
       const id = node.data('id');
@@ -268,14 +273,66 @@ export function applyFilters(cy) {
       }
     });
 
-    // Third pass: hide orphan nodes (visible nodes with all edges hidden).
+    // Third pass: hide orphan nodes (skip group nodes).
     cy.nodes().forEach((node) => {
       if (!node.visible()) return;
+      if (groupingActive && node.data('isGroup')) return;
       const connectedEdges = node.connectedEdges();
       if (connectedEdges.length > 0 && connectedEdges.every((e) => !e.visible())) {
         node.hide();
       }
     });
+
+    // Fourth pass: namespace group visibility.
+    // Expanded groups: hide if all children are hidden.
+    // Collapsed groups: hide if no stored child would pass filters.
+    if (groupingActive) {
+      cy.nodes('[?isGroup]').forEach((groupNode) => {
+        if (groupNode.data('isCollapsed')) {
+          const nsName = groupNode.data('nsName');
+          const children = getCollapsedChildren(nsName);
+          if (!children) { groupNode.show(); return; }
+
+          const anyMatch = children.some((child) => {
+            const type = child.data.type;
+            const state = child.data.state;
+            const id = child.data.id;
+
+            if (type === 'service') {
+              if (hasJobFilter && !activeFilters.job.has(id)) return false;
+              if (hasStateFilter && !activeFilters.state.has(state)) return false;
+            } else {
+              if (hasTypeFilter && !activeFilters.type.has(type)) return false;
+              if (hasStateFilter && !activeFilters.state.has(state)) return false;
+            }
+            return true;
+          });
+
+          if (anyMatch) {
+            groupNode.show();
+          } else {
+            groupNode.hide();
+            groupNode.connectedEdges().hide();
+          }
+        } else {
+          // Expanded group: hide if all children are hidden
+          const children = groupNode.children();
+          if (children.length > 0 && children.every((c) => !c.visible())) {
+            groupNode.hide();
+          } else {
+            groupNode.show();
+          }
+        }
+      });
+
+      // Re-check edges after group visibility changes
+      cy.edges().forEach((edge) => {
+        if (!edge.visible()) return;
+        if (!edge.source().visible() || !edge.target().visible()) {
+          edge.hide();
+        }
+      });
+    }
   });
 }
 

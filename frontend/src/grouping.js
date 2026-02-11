@@ -96,6 +96,17 @@ export function getNamespacePrefix() {
   return NS_PREFIX;
 }
 
+/**
+ * Get stored children data for a collapsed namespace.
+ * Used by filters to determine collapsed node visibility.
+ * @param {string} nsName - Namespace name (without prefix)
+ * @returns {Array<{data: object}>|null}
+ */
+export function getCollapsedChildren(nsName) {
+  const stored = collapsedStore.get(nsName);
+  return stored ? stored.children : null;
+}
+
 // ─── Collapse / Expand ───────────────────────────────────────────────
 
 /**

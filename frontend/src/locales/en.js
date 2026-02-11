@@ -166,11 +166,20 @@ export default {
   'namespaceLegend.close': 'Close',
   'namespaceLegend.toggle': 'Toggle namespace legend',
 
+  // Sidebar (collapsed namespace)
+  'sidebar.collapsed.services': 'Services ({count})',
+  'sidebar.collapsed.worstState': 'Worst State',
+  'sidebar.collapsed.totalAlerts': 'Total Alerts',
+  'sidebar.collapsed.expand': 'Expand namespace',
+
   // Context menu
   'contextMenu.openInGrafana': 'Open in Grafana',
   'contextMenu.showDetails': 'Show Details',
   'contextMenu.copyGrafanaUrl': 'Copy Grafana URL',
   'contextMenu.urlCopied': 'Grafana URL copied',
+  'contextMenu.expandNamespace': 'Expand Namespace',
+  'contextMenu.copyNamespaceName': 'Copy Namespace Name',
+  'contextMenu.namespaceCopied': 'Namespace name copied',
 
   // Time ago
   'time.secondsAgo': '{value}s ago',

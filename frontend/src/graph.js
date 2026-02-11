@@ -437,7 +437,7 @@ export function renderGraph(cy, data, config) {
       }
     });
     cy.style().update();
-    return;
+    return false; // no structure change
   }
 
   // Structure changed — full rebuild
@@ -523,6 +523,8 @@ export function renderGraph(cy, data, config) {
     cy.fit(50);
     isFirstRender = false;
   }
+
+  return true; // structure changed
 }
 
 /**

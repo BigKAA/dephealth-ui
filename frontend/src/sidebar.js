@@ -5,6 +5,7 @@
 
 import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
+import { getCollapsedChildren, expandNamespace } from './grouping.js';
 
 let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
@@ -26,16 +27,19 @@ export function initSidebar(cy, topologyData) {
   const sidebar = $('#node-sidebar');
   const closeBtn = $('#btn-sidebar-close');
 
-  // Single tap on node: toggle sidebar (skip namespace group nodes)
+  // Single tap on node: toggle sidebar
   cy.on('tap', 'node', (evt) => {
     const node = evt.target;
-    if (node.data('isGroup')) return;
+    // Skip expanded (non-collapsed) group nodes — clicking the border does nothing
+    if (node.data('isGroup') && !node.data('isCollapsed')) return;
     const nodeId = node.data('id');
     const sidebar = $('#node-sidebar');
 
     // If clicking the same node while sidebar is open - close it
     if (currentNodeId === nodeId && !sidebar.classList.contains('hidden')) {
       closeSidebar();
+    } else if (node.data('isCollapsed')) {
+      openCollapsedSidebar(node, cy);
     } else {
       openSidebar(node, cy);
     }
@@ -136,6 +140,80 @@ export function openSidebar(node, cy) {
   renderGrafanaDashboards(data);
 
   // Show sidebar
+  sidebar.classList.remove('hidden');
+}
+
+/**
+ * Open sidebar with collapsed namespace summary.
+ * Shows service list, worst state, alert count, and Expand button.
+ * @param {cytoscape.NodeSingular} node - Collapsed namespace node
+ * @param {cytoscape.Core} cy - Cytoscape instance
+ */
+function openCollapsedSidebar(node, cy) {
+  const sidebar = $('#node-sidebar');
+  const data = node.data();
+  const nsName = data.nsName || data.label;
+
+  currentNodeId = data.id;
+  currentEdgeId = null;
+
+  // Title
+  $('#sidebar-title').textContent = nsName;
+
+  // Details: worst state, service count, total alerts
+  const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
+  const details = [
+    { label: t('sidebar.collapsed.worstState'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>` },
+    { label: t('sidebar.collapsed.services', { count: data.childCount || 0 }), value: data.childCount || 0 },
+    data.alertCount > 0 && { label: t('sidebar.collapsed.totalAlerts'), value: data.alertCount },
+  ].filter(Boolean);
+
+  $('#sidebar-details').innerHTML = details
+    .map((item) => `
+    <div class="sidebar-detail-row">
+      <span class="sidebar-detail-label">${item.label}:</span>
+      <span class="sidebar-detail-value">${item.value}</span>
+    </div>
+  `).join('');
+
+  // Alerts: empty
+  $('#sidebar-alerts').innerHTML = '';
+
+  // Instances: empty
+  $('#sidebar-instances').innerHTML = '';
+
+  // Services list (from collapsedStore)
+  const children = getCollapsedChildren(nsName);
+  if (children && children.length > 0) {
+    const sorted = [...children].sort((a, b) => (a.data.label || '').localeCompare(b.data.label || ''));
+    $('#sidebar-edges').innerHTML = `
+      <div class="sidebar-section-title">${t('sidebar.collapsed.services', { count: children.length })}</div>
+      ${sorted.map((child) => `
+        <div class="sidebar-node-link">
+          <span class="sidebar-state-dot ${child.data.state || 'unknown'}"></span>
+          <span class="sidebar-node-link-label">${child.data.label || child.data.id}</span>
+        </div>
+      `).join('')}
+    `;
+  } else {
+    $('#sidebar-edges').innerHTML = '';
+  }
+
+  // Actions: Expand button
+  $('#sidebar-actions').innerHTML = `
+    <button class="sidebar-button" id="sidebar-expand-btn">
+      <i class="bi bi-arrows-expand"></i>
+      ${t('sidebar.collapsed.expand')}
+    </button>
+  `;
+  $('#sidebar-expand-btn').addEventListener('click', () => {
+    closeSidebar();
+    expandNamespace(cy, nsName);
+  });
+
+  // Grafana: empty
+  $('#sidebar-grafana').innerHTML = '';
+
   sidebar.classList.remove('hidden');
 }
 
@@ -603,8 +681,12 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
         // Center node on graph with animation
         cy.animate({ center: { eles: node }, duration: 300 });
         highlightElement(node);
-        // Open node sidebar
-        openSidebar(node, cy);
+        // Open appropriate sidebar (collapsed vs regular)
+        if (node.data('isCollapsed')) {
+          openCollapsedSidebar(node, cy);
+        } else {
+          openSidebar(node, cy);
+        }
       }
     });
   });

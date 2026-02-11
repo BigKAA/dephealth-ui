@@ -3,6 +3,7 @@
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { openSidebar } from './sidebar.js';
+import { expandNamespace } from './grouping.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -54,9 +55,33 @@ export function initContextMenu(cy) {
     showMenu(pos.x + containerRect.left, pos.y + containerRect.top, items);
   });
 
-  // Right-click on dependency node
+  // Right-click on collapsed namespace node
+  cy.on('cxttap', 'node[?isCollapsed]', (evt) => {
+    const node = evt.target;
+    const nsName = node.data('nsName') || node.data('label');
+    const pos = evt.renderedPosition || evt.cyRenderedPosition;
+    const containerRect = cy.container().getBoundingClientRect();
+
+    const items = [
+      {
+        label: t('contextMenu.expandNamespace'),
+        icon: 'bi-arrows-expand',
+        action: () => expandNamespace(cy, nsName),
+      },
+      {
+        label: t('contextMenu.copyNamespaceName'),
+        icon: 'bi-clipboard',
+        action: () => copyToClipboard(nsName, t('contextMenu.namespaceCopied')),
+      },
+    ];
+
+    showMenu(pos.x + containerRect.left, pos.y + containerRect.top, items);
+  });
+
+  // Right-click on dependency node (skip group nodes)
   cy.on('cxttap', 'node[type!="service"]', (evt) => {
     const node = evt.target;
+    if (node.data('isGroup')) return;
     const pos = evt.renderedPosition || evt.cyRenderedPosition;
     const containerRect = cy.container().getBoundingClientRect();
 
@@ -168,10 +193,11 @@ function hideMenu() {
  * Copy text to clipboard and show toast.
  * @param {string} text
  */
-async function copyToClipboard(text) {
+async function copyToClipboard(text, toastMessage) {
+  const msg = toastMessage || t('contextMenu.urlCopied');
   try {
     await navigator.clipboard.writeText(text);
-    showToast(t('contextMenu.urlCopied'), 'success');
+    showToast(msg, 'success');
   } catch {
     // Fallback for older browsers
     const textarea = document.createElement('textarea');
@@ -182,6 +208,6 @@ async function copyToClipboard(text) {
     textarea.select();
     document.execCommand('copy');
     document.body.removeChild(textarea);
-    showToast(t('contextMenu.urlCopied'), 'success');
+    showToast(msg, 'success');
   }
 }

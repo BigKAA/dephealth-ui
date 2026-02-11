@@ -166,11 +166,20 @@ export default {
   'namespaceLegend.close': 'Закрыть',
   'namespaceLegend.toggle': 'Легенда namespace',
 
+  // Sidebar (collapsed namespace)
+  'sidebar.collapsed.services': 'Сервисы ({count})',
+  'sidebar.collapsed.worstState': 'Наихудшее состояние',
+  'sidebar.collapsed.totalAlerts': 'Всего алертов',
+  'sidebar.collapsed.expand': 'Развернуть namespace',
+
   // Context menu
   'contextMenu.openInGrafana': 'Открыть в Grafana',
   'contextMenu.showDetails': 'Подробности',
   'contextMenu.copyGrafanaUrl': 'Копировать URL Grafana',
   'contextMenu.urlCopied': 'URL Grafana скопирован',
+  'contextMenu.expandNamespace': 'Развернуть namespace',
+  'contextMenu.copyNamespaceName': 'Копировать имя namespace',
+  'contextMenu.namespaceCopied': 'Имя namespace скопировано',
 
   // Time ago
   'time.secondsAgo': '{value}с назад',

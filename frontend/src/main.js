@@ -194,8 +194,8 @@ function checkEmptyState(data) {
 async function refresh() {
   try {
     const data = await fetchTopology(selectedNamespace || undefined);
-    renderGraph(cy, data, appConfig);
-    if (isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
+    const structureChanged = renderGraph(cy, data, appConfig);
+    if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
     }
     updateStatus(data);
@@ -645,8 +645,8 @@ async function init() {
     selectedNamespace = params.get('namespace') || '';
 
     const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
-    renderGraph(cy, data, appConfig);
-    if (isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
+    const structureChanged = renderGraph(cy, data, appConfig);
+    if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
     }
     updateStatus(data);

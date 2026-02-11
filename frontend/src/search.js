@@ -3,6 +3,13 @@
  */
 
 import { t } from './i18n.js';
+import {
+  isGroupingEnabled,
+  getCollapsedNamespaces,
+  getCollapsedChildren,
+  expandNamespace,
+  collapseNamespace,
+} from './grouping.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -11,6 +18,7 @@ let searchActive = false;
 let matchedNodes = [];
 let currentMatchIndex = -1;
 let visibleElements = null; // Set of visible nodes and edges during search
+let autoExpandedNamespaces = new Set(); // Namespaces auto-expanded for search results
 
 /**
  * Initialize search panel and interactions.
@@ -66,21 +74,44 @@ function performSearch(query) {
   if (!cy) return;
 
   if (!query) {
-    // Empty query: restore all nodes
+    // Empty query: restore all nodes and re-collapse auto-expanded namespaces
     cy.nodes().style('opacity', 1);
     cy.edges().style('opacity', 1);
     matchedNodes = [];
     currentMatchIndex = -1;
     updateCount();
     searchActive = false;
+    recollapseAutoExpanded();
     return;
   }
 
   searchActive = true;
   const lowerQuery = query.toLowerCase();
 
-  // Find matching nodes (case-insensitive match on label or id)
+  // Auto-expand collapsed namespaces that contain matching nodes
+  if (isGroupingEnabled()) {
+    // First, re-collapse previously auto-expanded that no longer match
+    recollapseAutoExpanded();
+
+    const collapsed = getCollapsedNamespaces();
+    for (const nsName of collapsed) {
+      const children = getCollapsedChildren(nsName);
+      if (!children) continue;
+      const hasMatch = children.some((child) => {
+        const label = (child.data.label || '').toLowerCase();
+        const id = (child.data.id || '').toLowerCase();
+        return label.includes(lowerQuery) || id.includes(lowerQuery);
+      });
+      if (hasMatch) {
+        expandNamespace(cy, nsName);
+        autoExpandedNamespaces.add(nsName);
+      }
+    }
+  }
+
+  // Find matching nodes (case-insensitive match on label or id, skip group nodes)
   matchedNodes = cy.nodes().filter((node) => {
+    if (node.data('isGroup')) return false;
     const label = (node.data('label') || '').toLowerCase();
     const id = (node.data('id') || '').toLowerCase();
     return label.includes(lowerQuery) || id.includes(lowerQuery);
@@ -182,9 +213,25 @@ function closeSearch() {
   const input = $('#search-input');
   if (input) input.value = '';
   updateCount();
-  
+  recollapseAutoExpanded();
+
   // Trigger badge update to restore all badges
   cy.trigger('render');
+}
+
+/**
+ * Re-collapse namespaces that were auto-expanded for search.
+ */
+function recollapseAutoExpanded() {
+  if (autoExpandedNamespaces.size === 0) return;
+  for (const nsName of autoExpandedNamespaces) {
+    // Only re-collapse if it's still expanded in the graph
+    const parentNode = cy.getElementById('ns::' + nsName);
+    if (parentNode.length && !parentNode.data('isCollapsed')) {
+      collapseNamespace(cy, nsName);
+    }
+  }
+  autoExpandedNamespaces.clear();
 }
 
 /**
