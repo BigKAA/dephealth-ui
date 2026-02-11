@@ -80,7 +80,7 @@ export function initTooltip(cy) {
     // State
     html += `<div class="tooltip-row">
       <span class="tooltip-label">${t('tooltip.state')}</span>
-      <span class="tooltip-value">${formatState(data.state)}</span>
+      <span class="tooltip-value">${formatState(data.state)}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
     </div>`;
 
     // Type
@@ -121,8 +121,8 @@ export function initTooltip(cy) {
 
     let html = `<div class="tooltip-title">${sourceLabel} → ${targetLabel}</div>`;
 
-    // Latency
-    if (data.latency) {
+    // Latency (hide for stale edges)
+    if (data.latency && !data.stale) {
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.latency')}</span>
         <span class="tooltip-value">${data.latency}</span>
@@ -132,7 +132,7 @@ export function initTooltip(cy) {
     // State
     html += `<div class="tooltip-row">
       <span class="tooltip-label">${t('tooltip.state')}</span>
-      <span class="tooltip-value">${formatState(data.state)}</span>
+      <span class="tooltip-value">${formatState(data.state)}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
     </div>`;
 
     // Critical flag

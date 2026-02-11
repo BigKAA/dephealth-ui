@@ -79,6 +79,7 @@ export default {
   'state.degraded': 'Деградация',
   'state.down': 'Недоступен',
   'state.unknown': 'Неизвестно',
+  'state.unknown.detail': 'Метрики пропали',
 
   // Toast messages
   'toast.connectionRestored': 'Соединение восстановлено',

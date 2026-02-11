@@ -22,6 +22,7 @@ const EDGE_STYLES = {
   ok: { lineStyle: 'solid', color: '#4caf50' },
   degraded: { lineStyle: 'dashed', color: '#ff9800' },
   down: { lineStyle: 'dotted', color: '#f44336' },
+  unknown: { lineStyle: 'dashed', color: '#9e9e9e' },
 };
 
 const cytoscapeStyles = [
@@ -146,6 +147,13 @@ const cytoscapeStyles = [
     selector: 'edge[grafanaUrl]',
     style: {
       cursor: 'pointer',
+    },
+  },
+  // Stale nodes get dashed border
+  {
+    selector: 'node[?stale]',
+    style: {
+      'border-style': 'dashed',
     },
   },
   // Nodes with active alerts get a thicker border
@@ -341,6 +349,7 @@ export function renderGraph(cy, data, config) {
         const ele = cy.getElementById(node.id);
         if (ele.length) {
           ele.data('state', node.state);
+          ele.data('stale', node.stale || false);
           ele.data('alertCount', alertCounts[node.id] || 0);
           ele.data('alertSeverity', node.alertSeverity || undefined);
         }
@@ -351,6 +360,7 @@ export function renderGraph(cy, data, config) {
         if (ele.length) {
           ele.data('latency', edge.latency);
           ele.data('state', edge.state);
+          ele.data('stale', edge.stale || false);
           ele.data('critical', edge.critical);
           ele.data('alertCount', edge.alertCount || 0);
           ele.data('alertSeverity', edge.alertSeverity || undefined);
@@ -374,6 +384,7 @@ export function renderGraph(cy, data, config) {
           id: node.id,
           label: node.label,
           state: node.state,
+          stale: node.stale || false,
           type: node.type,
           namespace: ns || undefined,
           alertCount: alertCounts[node.id] || 0,
@@ -392,6 +403,7 @@ export function renderGraph(cy, data, config) {
           target: edge.target,
           latency: edge.latency,
           state: edge.state,
+          stale: edge.stale || false,
           critical: edge.critical,
           alertCount: edge.alertCount || 0,
           alertSeverity: edge.alertSeverity || undefined,

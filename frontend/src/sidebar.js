@@ -139,8 +139,9 @@ function renderDetails(data) {
   const section = $('#sidebar-details');
   const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
 
+  const staleDetail = data.stale ? ` <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>` : '';
   const details = [
-    { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>` },
+    { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>${staleDetail}` },
     data.namespace && { label: t('sidebar.namespace'), value: data.namespace },
     data.type && { label: t('sidebar.type'), value: data.type },
     data.host && { label: t('sidebar.host'), value: data.host },
@@ -227,7 +228,8 @@ function renderEdges(node, cy) {
 
     const edgeInfo = {
       label: otherNode.data('label') || otherNode.id(),
-      latency: data.latency || '—',
+      latency: data.stale ? '—' : (data.latency || '—'),
+      stale: data.stale || false,
     };
 
     if (isOutgoing) {
@@ -247,7 +249,7 @@ function renderEdges(node, cy) {
         ${outgoing
           .map(
             (info) => `
-          <div class="sidebar-edge-item">
+          <div class="sidebar-edge-item${info.stale ? ' stale' : ''}">
             <span class="sidebar-edge-label">→ ${info.label}</span>
             <span class="sidebar-edge-latency">${info.latency}</span>
           </div>
@@ -265,7 +267,7 @@ function renderEdges(node, cy) {
         ${incoming
           .map(
             (info) => `
-          <div class="sidebar-edge-item">
+          <div class="sidebar-edge-item${info.stale ? ' stale' : ''}">
             <span class="sidebar-edge-label">← ${info.label}</span>
             <span class="sidebar-edge-latency">${info.latency}</span>
           </div>
