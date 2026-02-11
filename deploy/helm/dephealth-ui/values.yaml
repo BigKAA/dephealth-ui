@@ -76,6 +76,11 @@ config:
       url: "http://victoriametrics:8428"
     alertmanager:
       url: ""
+  topology:
+    # Lookback window for stale node retention.
+    # Services that disappear within this window are shown as "unknown" instead of vanishing.
+    # Set to "0" to disable (default). Recommended: "1h".
+    lookback: "0"
   cache:
     ttl: 15s
   auth:
