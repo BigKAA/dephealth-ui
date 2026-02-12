@@ -43,7 +43,7 @@ const cytoscapeStyles = [
         const padding = 48; // extra for left stripe
         return Math.max(110, maxLen * charWidth + padding);
       },
-      height: (ele) => (ele.data('namespace') ? 50 : 40),
+      height: (ele) => (ele.data('namespace') ? 58 : 40),
       label: (ele) => {
         const label = ele.data('label') || '';
         const ns = ele.data('namespace');
@@ -88,7 +88,7 @@ const cytoscapeStyles = [
         const padding = 50;
         return Math.max(100, maxLen * charWidth + padding);
       },
-      height: (ele) => (ele.data('namespace') ? 48 : 40),
+      height: (ele) => (ele.data('namespace') ? 56 : 40),
       label: (ele) => {
         const label = ele.data('label') || '';
         const ns = ele.data('namespace');
@@ -281,21 +281,12 @@ function updateAlertBadges(cy, container) {
       position: absolute;
       left: ${badgeX}px;
       top: ${badgeY}px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
       background-color: ${color};
-      color: white;
-      font-size: 10px;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 10;
     `;
-    badge.textContent = alertCount;
+    badge.textContent = `! ${alertCount}`;
     container.appendChild(badge);
   });
 
@@ -310,8 +301,8 @@ function updateAlertBadges(cy, container) {
     const width = node.renderedWidth();
     const height = node.renderedHeight();
 
-    // Badge position: top-left corner of node (alert badge is top-right)
-    const badgeX = pos.x - width / 2 + 10;
+    // Badge position: top-left corner of node, offset right to clear namespace stripe
+    const badgeX = pos.x - width / 2 + 22;
     const badgeY = pos.y - height / 2 + 10;
 
     const badge = document.createElement('div');
