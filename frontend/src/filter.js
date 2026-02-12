@@ -303,9 +303,12 @@ export function applyFilters(cy) {
     });
 
     // Third pass: hide orphan nodes (skip group nodes).
+    // Skip nodes that explicitly match the state filter — the user wants to see them
+    // even if their neighbors are filtered out.
     cy.nodes().forEach((node) => {
       if (!node.visible()) return;
       if (groupingActive && node.data('isGroup')) return;
+      if (hasStateFilter && matchesStateFilter(node)) return;
       const connectedEdges = node.connectedEdges();
       if (connectedEdges.length > 0 && connectedEdges.every((e) => !e.visible())) {
         node.hide();
