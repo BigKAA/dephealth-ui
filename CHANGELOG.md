@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-02-12
+
+### Added
+
+- **Cascade warnings** — failure propagation visualization through critical dependencies with BFS algorithm
+- **Root cause detection** — automatic tracing downstream through critical edges to find the actual unavailable dependency
+- **Cascade badge** — `⚠ N` pill-shaped badge on upstream nodes showing number of root cause sources
+- **Cascade tooltip** — hover tooltip displaying root cause services with their states
+- **Virtual "warning" filter state** — frontend-only filter for nodes receiving cascade warnings
+- **Degraded/down chain filter** — pass 1.5 reveals downstream non-ok dependencies when degraded or down state filter is active
+- **`inCascadeChain` flag** — marks down and root-cause nodes for filter system support
+
+### Changed
+
+- **State model refined** — `calcServiceNodeState` now returns only `ok`, `degraded`, or `unknown` (never `down`); down state set by stale detection only
+- **Filter system extended** — 5 state filter buttons (ok, degraded, down, unknown, warning) with cascade chain visibility
+- **Badge design improved** — alert badge `! N` pill-shape and cascade badge `⚠ N` with white border, cascade offset +22px from left
+- **Node height increased** — taller nodes to accommodate badges and namespace display
+
+### Documentation
+
+- Bilingual docs split into separate EN/RU files (`.ru.md` pattern) with language switch links
+- State model documented in application-design (EN + RU)
+- Cascade warnings algorithm and visual representation documented (EN + RU)
+- Critical label significance for cascade propagation documented in METRICS (EN + RU)
+- API docs updated with accurate state calculation rules and cascade note (EN + RU)
+- New screenshots: cascade warnings main view, tooltip, state filters
+- CHANGELOG updated with v0.14.0 section
+
 ## [0.13.0] - 2026-02-11
 
 ### Added
@@ -128,6 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.14.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.11.4...v0.12.0
 [0.11.4]: https://github.com/BigKAA/dephealth-ui/compare/v0.11.0...v0.11.4

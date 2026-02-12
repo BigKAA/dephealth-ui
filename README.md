@@ -7,13 +7,11 @@
 
 **Real-time microservices topology and health visualization tool**
 
-**Language:** [English](#english) | [Русский](#русский)
+**Language:** English | [Русский](./README.ru.md)
 
 ---
 
-## English
-
-### Overview
+## Overview
 
 **dephealth-ui** is a web application for visualizing microservice topologies and monitoring dependency health in real-time. It displays an interactive directed graph showing service states (OK, DEGRADED, DOWN), connection latency, and provides direct links to Grafana dashboards.
 
@@ -27,7 +25,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 
 ![Collapsed namespace sidebar with clickable service list](./docs/images/sidebar-collapsed-namespace.png)
 
-### Features
+## Features
 
 ✅ **Real-time Topology Visualization**
 - Interactive node-graph diagram with Cytoscape.js
@@ -44,6 +42,13 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Click-to-expand navigation from collapsed sidebar to individual services
 - Deterministic namespace color palette with WCAG-compliant contrast
 - Collapse/expand state persisted in localStorage
+
+✅ **Cascade Warnings & State Model**
+- 4-state model: OK, DEGRADED, DOWN, UNKNOWN with precise calculation rules
+- Cascade failure propagation visualization through critical dependencies
+- Automatic root cause detection via BFS algorithm
+- Cascade warning badges (`⚠ N`) on affected upstream nodes with tooltip showing root causes
+- Smart filtering with virtual "warning" state and degraded/down chain visibility
 
 ✅ **Comprehensive Monitoring**
 - Service health status with alert counts
@@ -74,7 +79,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Kubernetes-native with Helm chart
 - Gateway API and Ingress support
 
-### Architecture
+## Architecture
 
 ```
 ┌─────────────────────┐
@@ -107,7 +112,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 └──────────────────────────────────┘
 ```
 
-### Tech Stack
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
@@ -198,13 +203,13 @@ cache:
 
 auth:
   type: "none"  # Options: "none", "basic", "oidc"
-  
+
   # Basic authentication
   # basic:
   #   users:
   #     - username: admin
   #       passwordHash: "$2a$10$..."  # bcrypt hash
-  
+
   # OIDC authentication
   # oidc:
   #   issuer: "https://dex.example.com"
@@ -330,10 +335,11 @@ npm test
 
 | Document | Description |
 |----------|-------------|
-| **[METRICS.md](./docs/METRICS.md)** | ⭐ **START HERE** — Metrics format, required labels, PromQL queries |
+| **[METRICS.md](./docs/METRICS.md)** | Metrics format, required labels, PromQL queries |
 | **[API.md](./docs/API.md)** | REST API reference with all endpoints |
-| **[Helm Chart README](./deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide |
+| **[Helm Chart](./deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide |
 | **[Application Design](./docs/application-design.md)** | Architecture overview and design decisions |
+| **[Русская документация](./README.ru.md)** | Full Russian documentation |
 
 ---
 
@@ -401,134 +407,6 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 - [uniproxy](https://github.com/BigKAA/uniproxy) — Universal test proxy for dependency health monitoring
 - [VictoriaMetrics](https://victoriametrics.com/) — High-performance Prometheus-compatible TSDB
 - [Cytoscape.js](https://js.cytoscape.org/) — Graph visualization library
-
----
-
-## Русский
-
-### Обзор
-
-**dephealth-ui** — веб-приложение для визуализации топологии микросервисов и мониторинга состояния зависимостей в реальном времени. Отображает интерактивный направленный граф с состояниями сервисов (OK, DEGRADED, DOWN), latency соединений и предоставляет прямые ссылки на дашборды Grafana.
-
-Приложение потребляет метрики, собранные [dephealth SDK](https://github.com/BigKAA/topologymetrics) из Prometheus/VictoriaMetrics, и коррелирует их с алертами AlertManager для предоставления единого представления о здоровье системы.
-
-![Дерево зависимостей](./docs/images/tree-view-ru.png)
-
-![Граф топологии со свёрнутыми namespace, алерт-бейджами и цветами namespace](./docs/images/dephealth-russian-ui.png)
-
-![Боковая панель свёрнутого namespace с кликабельным списком сервисов](./docs/images/sidebar-russian-collapsed.png)
-
-### Возможности
-
-✅ **Визуализация топологии в реальном времени**
-- Интерактивная диаграмма узлов с Cytoscape.js
-- Двойной layout: dagre (плоский режим) и fcose (группировка)
-- Цветовая индикация состояний (зелёный=OK, жёлтый=DEGRADED, красный=DOWN, серый=Unknown/stale)
-- Динамический размер узлов в зависимости от длины текста
-- Удержание stale-нод с настраиваемым окном lookback
-
-✅ **Группировка по namespace**
-- Группировка сервисов по Kubernetes namespace в составные узлы
-- Сворачивание/разворачивание групп (двойной клик или кнопка в sidebar)
-- Свёрнутые ноды показывают наихудшее состояние, кол-во сервисов и бейджи алертов
-- Агрегированные рёбра между свёрнутыми namespace
-- Навигация click-to-expand из sidebar свёрнутого namespace к конкретному сервису
-- Детерминированная палитра цветов namespace с WCAG-контрастностью
-- Состояние collapse/expand сохраняется в localStorage
-
-✅ **Полный мониторинг**
-- Статус здоровья сервисов с количеством алертов
-- Отображение latency на рёбрах (средний и P99 перцентиль)
-- Выделение критичных зависимостей (толще рёбра)
-- Интеграция с активными алертами AlertManager
-
-✅ **Богатый UI**
-- Умный поиск с fuzzy matching
-- Множественные фильтры (namespace, тип, состояние, сервис)
-- Drawer алертов с группировкой по severity
-- Боковая панель узла с инстансами, связанными рёбрами и ссылками на Grafana дашборды
-- Боковая панель ребра с состоянием, latency, алертами, связанными узлами и Grafana ссылками
-- Боковая панель свёрнутого namespace с кликабельным списком сервисов и кнопкой разворачивания
-- Интеграция с Grafana: контекстное меню, ссылки на все 5 дашбордов с контекстно-зависимыми параметрами
-- Контекстное меню (правый клик) на узлах/рёбрах: Открыть в Grafana, Копировать URL, Детали
-- Интернационализация (i18n): английский и русский
-- Цветовая кодировка namespace с детерминированной палитрой
-- Легенда, легенда namespace, статистика, экспорт в PNG
-- Горячие клавиши и полноэкранный режим
-- Поддержка тёмной темы
-
-✅ **Enterprise-ready**
-- Несколько режимов аутентификации (none, Basic, OIDC/SSO)
-- CORS для браузерных клиентов
-- Серверное кэширование (настраиваемый TTL)
-- Multi-arch Docker образы (amd64, arm64)
-- Kubernetes-native с Helm chart
-- Поддержка Gateway API и Ingress
-
-### Быстрый старт
-
-#### Установка через Helm
-
-**С использованием Gateway API:**
-```bash
-helm install dephealth-ui ./deploy/helm/dephealth-ui \
-  --set route.enabled=true \
-  --set route.hostname=dephealth.example.com \
-  --set tls.enabled=true \
-  --set tls.issuerName=letsencrypt-prod \
-  --set config.datasources.prometheus.url=http://victoriametrics:8428 \
-  -n dephealth-ui --create-namespace
-```
-
-**С использованием Ingress:**
-```bash
-helm install dephealth-ui ./deploy/helm/dephealth-ui \
-  --set ingress.enabled=true \
-  --set ingress.className=nginx \
-  --set ingress.hostname=dephealth.example.com \
-  --set ingress.tls.enabled=true \
-  --set ingress.tls.certManager.enabled=true \
-  --set ingress.tls.certManager.issuerName=letsencrypt-prod \
-  -n dephealth-ui --create-namespace
-```
-
-### Необходимые метрики
-
-Приложение требует две Prometheus-метрики от сервисов, инструментированных [dephealth SDK](https://github.com/BigKAA/topologymetrics):
-
-**1. `app_dependency_health`** (Gauge) — состояние здоровья endpoint'ов зависимостей (1=UP, 0=DOWN)
-
-**2. `app_dependency_latency_seconds`** (Histogram) — latency health check'ов в секундах
-
-**Обязательные метки:** `name`, `namespace`, `dependency`, `type`, `host`, `port`, `critical`
-
-**Полная спецификация:** [docs/METRICS.md](./docs/METRICS.md)
-
-### Документация
-
-| Документ | Описание |
-|----------|----------|
-| **[METRICS.md](./docs/METRICS.md)** | ⭐ **НАЧНИТЕ ОТСЮДА** — Формат метрик, обязательные метки, PromQL-запросы |
-| **[API.md](./docs/API.md)** | Справочник REST API со всеми endpoint'ами |
-| **[Helm Chart README](./deploy/helm/dephealth-ui/README.md)** | Руководство по развёртыванию в Kubernetes |
-| **[Application Design](./docs/application-design.md)** | Обзор архитектуры и проектные решения |
-
-### Разработка
-
-```bash
-# Сборка фронтенда
-cd frontend && npm install && npm run build
-
-# Сборка backend
-go build -o dephealth-ui ./cmd/dephealth-ui
-
-# Запуск
-./dephealth-ui -config config.yaml
-```
-
-### Лицензия
-
-Apache License 2.0 — см. [LICENSE](./LICENSE) для деталей.
 
 ---
 
