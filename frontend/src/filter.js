@@ -293,6 +293,24 @@ export function applyFilters(cy) {
       }
     });
 
+    // Pass 1.5: if 'degraded' or 'down' is selected, also reveal the downstream
+    // chain of problematic dependencies so the user sees WHY the node is degraded/down.
+    if (hasStateFilter && (backendStateFilters.has('degraded') || backendStateFilters.has('down'))) {
+      cy.nodes(':visible').forEach((node) => {
+        if (node.data('isGroup')) return;
+        const st = node.data('state');
+        if (st !== 'degraded' && st !== 'down') return;
+        // Follow outgoing edges to non-ok targets
+        node.outgoers('edge').forEach((edge) => {
+          const target = edge.target();
+          const tState = target.data('state');
+          if (tState && tState !== 'ok') {
+            target.show();
+          }
+        });
+      });
+    }
+
     // Second pass: edges visible only if both endpoints are visible.
     cy.edges().forEach((edge) => {
       if (edge.source().visible() && edge.target().visible()) {
