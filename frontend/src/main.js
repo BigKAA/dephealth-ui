@@ -18,6 +18,7 @@ import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js'
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu } from './contextmenu.js';
 import { makeDraggable } from './draggable.js';
+import { computeCascadeWarnings } from './cascade.js';
 import {
   isGroupingEnabled, setGroupingEnabled,
   collapseNamespace, expandNamespace, collapseAll, expandAll,
@@ -198,6 +199,7 @@ async function refresh() {
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
     }
+    computeCascadeWarnings(cy);
     updateStatus(data);
     checkEmptyState(data);
     updateNamespaceOptions(data);
@@ -649,6 +651,7 @@ async function init() {
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
     }
+    computeCascadeWarnings(cy);
     updateStatus(data);
     checkEmptyState(data);
     initFilters(data);

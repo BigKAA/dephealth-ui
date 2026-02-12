@@ -3,7 +3,7 @@ import { t } from './i18n.js';
 import { isGroupingEnabled, getCollapsedChildren } from './grouping.js';
 
 const STORAGE_KEY = 'dephealth-filters';
-const STATES = ['ok', 'degraded', 'down', 'unknown'];
+const STATES = ['ok', 'degraded', 'down', 'unknown', 'warning'];
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -198,9 +198,38 @@ export function applyFilters(cy) {
   const hasJobFilter = activeFilters.job.size > 0;
   const hasAnyFilter = hasTypeFilter || hasStateFilter || hasJobFilter;
 
+  // 'warning' is a virtual state (frontend-computed cascade overlay, not a backend state).
+  // A node matches 'warning' if it has cascadeCount > 0 and is not itself 'down'.
+  const hasWarningFilter = hasStateFilter && activeFilters.state.has('warning');
+  // State filters without 'warning' for direct backend state matching.
+  const backendStateFilters = new Set(activeFilters.state);
+  backendStateFilters.delete('warning');
+
   if (!hasAnyFilter) {
     cy.elements().show();
     return;
+  }
+
+  // Check if a node matches the active state filter (OR logic).
+  // Matches if the backend state is in the filter set, OR if 'warning' is
+  // selected and the node has cascade warnings.
+  function matchesStateFilter(node) {
+    if (!hasStateFilter) return true;
+    const state = node.data ? node.data('state') : node.state;
+    const cascadeCount = node.data ? node.data('cascadeCount') : 0;
+    if (backendStateFilters.has(state)) return true;
+    if (hasWarningFilter && cascadeCount > 0 && state !== 'down') return true;
+    if (hasWarningFilter && (node.data ? node.data('inCascadeChain') : false)) return true;
+    return false;
+  }
+
+  // Same check for collapsed children stored data objects.
+  function matchesStateFilterData(dataObj) {
+    if (!hasStateFilter) return true;
+    if (backendStateFilters.has(dataObj.state)) return true;
+    if (hasWarningFilter && (dataObj.cascadeCount || 0) > 0 && dataObj.state !== 'down') return true;
+    if (hasWarningFilter && dataObj.inCascadeChain) return true;
+    return false;
   }
 
   const groupingActive = isGroupingEnabled();
@@ -236,7 +265,7 @@ export function applyFilters(cy) {
       // If SERVICE filter is active and node is in downstream set, always show it
       if (hasJobFilter && downstreamNodes.has(node)) {
         // Check state filter only
-        if (hasStateFilter && !activeFilters.state.has(state)) {
+        if (hasStateFilter && !matchesStateFilter(node)) {
           visible = false;
         }
       } else if (type === 'service') {
@@ -244,7 +273,7 @@ export function applyFilters(cy) {
         if (hasJobFilter) {
           visible = false;
         }
-        if (hasStateFilter && !activeFilters.state.has(state)) {
+        if (hasStateFilter && !matchesStateFilter(node)) {
           visible = false;
         }
       } else {
@@ -252,7 +281,7 @@ export function applyFilters(cy) {
         if (hasTypeFilter && !activeFilters.type.has(type)) {
           visible = false;
         }
-        if (hasStateFilter && !activeFilters.state.has(state)) {
+        if (hasStateFilter && !matchesStateFilter(node)) {
           visible = false;
         }
       }
@@ -295,15 +324,14 @@ export function applyFilters(cy) {
 
           const anyMatch = children.some((child) => {
             const type = child.data.type;
-            const state = child.data.state;
             const id = child.data.id;
 
             if (type === 'service') {
               if (hasJobFilter && !activeFilters.job.has(id)) return false;
-              if (hasStateFilter && !activeFilters.state.has(state)) return false;
+              if (hasStateFilter && !matchesStateFilterData(child.data)) return false;
             } else {
               if (hasTypeFilter && !activeFilters.type.has(type)) return false;
-              if (hasStateFilter && !activeFilters.state.has(state)) return false;
+              if (hasStateFilter && !matchesStateFilterData(child.data)) return false;
             }
             return true;
           });

@@ -833,6 +833,22 @@ body {
   flex-shrink: 0;
 }
 
+/* Cascade warning badge overlay on graph nodes */
+.cascade-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background-color: #ff9800;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .legend-badge.critical {
   background: #f44336;
 }

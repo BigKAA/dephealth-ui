@@ -58,6 +58,7 @@ export default {
   'legend.down': 'Недоступен',
   'legend.unknown': 'Неизвестно',
   'legend.criticalAlert': 'Критический алерт',
+  'legend.cascadeWarning': 'Каскадное предупреждение',
   'legend.thickerBorder': 'Утолщённая рамка',
 
   // Empty state
@@ -84,6 +85,7 @@ export default {
   'state.down': 'Недоступен',
   'state.unknown': 'Неизвестно',
   'state.unknown.detail': 'Метрики пропали',
+  'state.warning': 'Внимание',
 
   // Toast messages
   'toast.connectionRestored': 'Соединение восстановлено',
@@ -147,6 +149,8 @@ export default {
   'tooltip.latency': 'Задержка:',
   'tooltip.critical': 'Критический:',
   'tooltip.yes': 'Да',
+  'tooltip.cascadeWarning': 'Каскадное предупреждение:',
+  'tooltip.cascadeSource': '↳ {service}',
 
   // Shortcuts
   'shortcuts.title': 'Горячие клавиши',

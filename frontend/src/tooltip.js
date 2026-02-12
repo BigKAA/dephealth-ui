@@ -107,6 +107,23 @@ export function initTooltip(cy) {
       </div>`;
     }
 
+    // Cascade warning sources
+    const cascadeSources = data.cascadeSources;
+    if (cascadeSources && cascadeSources.length > 0 && data.state !== 'down') {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.cascadeWarning')}</span>
+      </div>`;
+      for (const src of cascadeSources) {
+        const srcNode = cy.getElementById(src);
+        const srcLabel = srcNode.length > 0 ? (srcNode.data('label') || srcNode.data('name') || src) : src;
+        const srcState = srcNode.length > 0 ? formatState(srcNode.data('state')) : '';
+        const display = srcState ? `${srcLabel} (${srcState})` : srcLabel;
+        html += `<div class="tooltip-row">
+          <span class="tooltip-value">${t('tooltip.cascadeSource', { service: display })}</span>
+        </div>`;
+      }
+    }
+
     showTooltip(html, renderedPos.x, renderedPos.y);
   });
 

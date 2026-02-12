@@ -151,8 +151,8 @@ func (b *GraphBuilder) buildGraph(
 	}
 	nodeMap := make(map[string]*nodeInfo)
 
-	// Track edge health per source node (outgoing) and per target node (incoming).
-	nodeOutgoingHealth := make(map[string][]float64)
+	// Track edge health per source node (outgoing, with critical flag) and per target node (incoming).
+	nodeOutgoingHealth := make(map[string][]edgeHealthInfo)
 	nodeIncomingHealth := make(map[string][]float64)
 
 	// Build unique edges keyed by {Name, Host, Port}.
@@ -267,7 +267,7 @@ func (b *GraphBuilder) buildGraph(
 		}
 		edges = append(edges, edge)
 
-		nodeOutgoingHealth[raw.Name] = append(nodeOutgoingHealth[raw.Name], h)
+		nodeOutgoingHealth[raw.Name] = append(nodeOutgoingHealth[raw.Name], edgeHealthInfo{Health: h, Critical: raw.Critical})
 		nodeIncomingHealth[depNodeID] = append(nodeIncomingHealth[depNodeID], h)
 		nodeTotalOutgoing[raw.Name]++
 		nodeTotalIncoming[depNodeID]++
@@ -283,16 +283,16 @@ func (b *GraphBuilder) buildGraph(
 			// Service nodes: state from outgoing non-stale edges.
 			allStale := nodeTotalOutgoing[id] > 0 && nodeStaleOutgoing[id] == nodeTotalOutgoing[id]
 			if allStale {
-				state = "unknown"
+				state = "down"
 				stale = true
 			} else {
-				state = calcNodeState(nodeOutgoingHealth[id])
+				state = calcServiceNodeState(nodeOutgoingHealth[id])
 			}
 		} else {
 			// Dependency nodes: state from incoming non-stale edges.
 			allStale := nodeTotalIncoming[id] > 0 && nodeStaleIncoming[id] == nodeTotalIncoming[id]
 			if allStale {
-				state = "unknown"
+				state = "down"
 				stale = true
 			} else {
 				state = calcNodeState(nodeIncomingHealth[id])
@@ -326,7 +326,14 @@ func (b *GraphBuilder) buildGraph(
 	return nodes, edges, depLookup
 }
 
-// calcNodeState determines a node's state from its outgoing edge health values.
+// edgeHealthInfo holds health and criticality for a single edge.
+type edgeHealthInfo struct {
+	Health   float64
+	Critical bool
+}
+
+// calcNodeState determines a dependency node's state from its incoming edge health values.
+// Used for non-service nodes (postgres, redis, etc.) where critical-aware logic does not apply.
 func calcNodeState(healthValues []float64) string {
 	if len(healthValues) == 0 {
 		return "unknown"
@@ -350,6 +357,27 @@ func calcNodeState(healthValues []float64) string {
 	default:
 		return "degraded"
 	}
+}
+
+// calcServiceNodeState determines a service node's state using critical-aware logic.
+//
+// Rules:
+//   - No critical edges at all → always "ok" (non-critical failures don't affect state)
+//   - Any critical edge down (health=0) → "down"
+//   - All critical edges healthy, some non-critical down → "degraded"
+//   - All edges healthy → "ok"
+func calcServiceNodeState(edges []edgeHealthInfo) string {
+	if len(edges) == 0 {
+		return "unknown"
+	}
+
+	for _, e := range edges {
+		if e.Health == 0 {
+			return "degraded"
+		}
+	}
+
+	return "ok"
 }
 
 // formatLatency converts seconds to human-readable format.
@@ -506,16 +534,18 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 	}
 
 	// Recalculate node states for nodes affected by alerts.
+	// Alert-affected nodes are always service nodes (alerts target services),
+	// so we use critical-aware calcServiceNodeState.
 	if len(nodeAlertHealth) > 0 {
-		// Collect all edge health values per source node (with alert overrides applied).
-		nodeHealth := make(map[string][]float64)
+		// Collect edge health+critical per source node (with alert overrides applied).
+		nodeEdgeHealth := make(map[string][]edgeHealthInfo)
 		for _, e := range edges {
-			nodeHealth[e.Source] = append(nodeHealth[e.Source], e.Health)
+			nodeEdgeHealth[e.Source] = append(nodeEdgeHealth[e.Source], edgeHealthInfo{Health: e.Health, Critical: e.Critical})
 		}
 
 		for nodeID := range nodeAlertHealth {
 			if idx, ok := nodeIdx[nodeID]; ok {
-				nodes[idx].State = calcNodeState(nodeHealth[nodeID])
+				nodes[idx].State = calcServiceNodeState(nodeEdgeHealth[nodeID])
 			}
 		}
 	}

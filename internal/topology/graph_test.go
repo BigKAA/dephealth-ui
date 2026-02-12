@@ -128,7 +128,8 @@ func TestGraphBuilder_Build(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	// svc-go has 1 healthy + 1 down → degraded.
+	// svc-go has 1 healthy critical + 1 down non-critical → degraded
+	// (all critical up, some non-critical down).
 	if n, ok := nodeByID["svc-go"]; !ok {
 		t.Error("missing svc-go node")
 	} else {
@@ -373,6 +374,70 @@ func TestCalcNodeState(t *testing.T) {
 	}
 }
 
+func TestCalcServiceNodeState(t *testing.T) {
+	// Service node state no longer returns "down" — that is reserved for stale
+	// (metrics disappeared). Any dep with health=0 → "degraded".
+	// Cascade warnings handle the critical-path impact separately.
+	tests := []struct {
+		name  string
+		edges []edgeHealthInfo
+		want  string
+	}{
+		{"no edges", nil, "unknown"},
+		{"all critical healthy", []edgeHealthInfo{
+			{Health: 1, Critical: true},
+			{Health: 1, Critical: true},
+		}, "ok"},
+		{"one critical down → degraded", []edgeHealthInfo{
+			{Health: 1, Critical: true},
+			{Health: 0, Critical: true},
+		}, "degraded"},
+		{"all critical up, non-critical down → degraded", []edgeHealthInfo{
+			{Health: 1, Critical: true},
+			{Health: 0, Critical: false},
+		}, "degraded"},
+		{"no critical edges, all down → degraded", []edgeHealthInfo{
+			{Health: 0, Critical: false},
+			{Health: 0, Critical: false},
+		}, "degraded"},
+		{"no critical edges, all healthy → ok", []edgeHealthInfo{
+			{Health: 1, Critical: false},
+			{Health: 1, Critical: false},
+		}, "ok"},
+		{"no critical edges, mixed → degraded", []edgeHealthInfo{
+			{Health: 1, Critical: false},
+			{Health: 0, Critical: false},
+		}, "degraded"},
+		{"single critical down → degraded", []edgeHealthInfo{
+			{Health: 0, Critical: true},
+		}, "degraded"},
+		{"single critical healthy → ok", []edgeHealthInfo{
+			{Health: 1, Critical: true},
+		}, "ok"},
+		{"mixed: critical down + non-critical healthy → degraded", []edgeHealthInfo{
+			{Health: 0, Critical: true},
+			{Health: 1, Critical: false},
+		}, "degraded"},
+		{"mixed: critical down + non-critical down → degraded", []edgeHealthInfo{
+			{Health: 0, Critical: true},
+			{Health: 0, Critical: false},
+		}, "degraded"},
+		{"all healthy mixed types → ok", []edgeHealthInfo{
+			{Health: 1, Critical: true},
+			{Health: 1, Critical: false},
+		}, "ok"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := calcServiceNodeState(tt.edges)
+			if got != tt.want {
+				t.Errorf("calcServiceNodeState() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatLatency(t *testing.T) {
 	tests := []struct {
 		seconds float64
@@ -502,7 +567,8 @@ func TestBuildWithAlerts(t *testing.T) {
 		t.Errorf("redis:6379 edge AlertCount = %d, want 0", redisEdge.AlertCount)
 	}
 
-	// svc-go node should be degraded (1 down + 1 ok).
+	// svc-go: alert forces critical pg edge down → service is "degraded"
+	// (service nodes never "down" from health calc; "down" is reserved for stale).
 	nodeByID := make(map[string]Node)
 	for _, n := range resp.Nodes {
 		nodeByID[n.ID] = n
@@ -654,13 +720,13 @@ func TestGraphBuilder_ConnectedGraphWithAlerts(t *testing.T) {
 		t.Errorf("svc-a→svc-b State = %q, want %q", edge.State, "down")
 	}
 
-	// svc-a should be degraded (1 edge down).
+	// svc-a: alert forced critical edge down → "degraded" (not "down"; down is stale-only).
 	nodeByID := make(map[string]Node)
 	for _, n := range resp.Nodes {
 		nodeByID[n.ID] = n
 	}
-	if nodeByID["svc-a"].State != "down" {
-		t.Errorf("svc-a State = %q, want %q", nodeByID["svc-a"].State, "down")
+	if nodeByID["svc-a"].State != "degraded" {
+		t.Errorf("svc-a State = %q, want %q", nodeByID["svc-a"].State, "degraded")
 	}
 }
 
@@ -930,13 +996,13 @@ func TestStaleDetection_ServiceDisappears(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	// svc-go: all edges stale → node is stale + unknown.
+	// svc-go: all edges stale → node is stale + down (truly unavailable).
 	svcGo := nodeByID["svc-go"]
 	if !svcGo.Stale {
 		t.Errorf("svc-go.Stale = false, want true")
 	}
-	if svcGo.State != "unknown" {
-		t.Errorf("svc-go.State = %q, want %q", svcGo.State, "unknown")
+	if svcGo.State != "down" {
+		t.Errorf("svc-go.State = %q, want %q", svcGo.State, "down")
 	}
 
 	// svc-python: current → not stale.
@@ -1014,8 +1080,8 @@ func TestStaleDetection_PartialStale(t *testing.T) {
 	if !redis.Stale {
 		t.Errorf("redis:6379.Stale = false, want true")
 	}
-	if redis.State != "unknown" {
-		t.Errorf("redis:6379.State = %q, want %q", redis.State, "unknown")
+	if redis.State != "down" {
+		t.Errorf("redis:6379.State = %q, want %q", redis.State, "down")
 	}
 }
 
@@ -1054,12 +1120,12 @@ func TestStaleDetection_ConnectedGraph(t *testing.T) {
 		t.Errorf("svc-a.State = %q, want ok", nodeByID["svc-a"].State)
 	}
 
-	// svc-b: service node, all outgoing edges stale → unknown + stale.
+	// svc-b: service node, all outgoing edges stale → down + stale.
 	if !nodeByID["svc-b"].Stale {
 		t.Errorf("svc-b.Stale = false, want true")
 	}
-	if nodeByID["svc-b"].State != "unknown" {
-		t.Errorf("svc-b.State = %q, want unknown", nodeByID["svc-b"].State)
+	if nodeByID["svc-b"].State != "down" {
+		t.Errorf("svc-b.State = %q, want down", nodeByID["svc-b"].State)
 	}
 
 	// pg:5432 — only stale incoming → stale.
@@ -1131,13 +1197,13 @@ func TestStaleDetection_AllStale(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// All nodes should be stale + unknown.
+	// All nodes should be stale + down (truly unavailable).
 	for _, n := range resp.Nodes {
 		if !n.Stale {
 			t.Errorf("node %q.Stale = false, want true (all stale)", n.ID)
 		}
-		if n.State != "unknown" {
-			t.Errorf("node %q.State = %q, want unknown", n.ID, n.State)
+		if n.State != "down" {
+			t.Errorf("node %q.State = %q, want down", n.ID, n.State)
 		}
 	}
 

@@ -299,6 +299,35 @@ function updateAlertBadges(cy, container) {
     container.appendChild(badge);
   });
 
+  // Render cascade warning badges (top-left corner, distinct from alert badges)
+  cy.nodes('[cascadeCount > 0]').forEach((node) => {
+    if (!isElementVisible(node)) return;
+    // Skip Down nodes — they are the root cause, no warning badge needed.
+    if (node.data('state') === 'down') return;
+
+    const cascadeCount = node.data('cascadeCount');
+    const pos = node.renderedPosition();
+    const width = node.renderedWidth();
+    const height = node.renderedHeight();
+
+    // Badge position: top-left corner of node (alert badge is top-right)
+    const badgeX = pos.x - width / 2 + 10;
+    const badgeY = pos.y - height / 2 + 10;
+
+    const badge = document.createElement('div');
+    badge.className = 'cascade-badge';
+    badge.style.cssText = `
+      position: absolute;
+      left: ${badgeX}px;
+      top: ${badgeY}px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    `;
+    badge.textContent = `⚠ ${cascadeCount}`;
+    container.appendChild(badge);
+  });
+
   // Render edge alert markers (only for visible edges)
   cy.edges('[alertCount > 0]').forEach((edge) => {
     // Skip if edge is hidden by search filter

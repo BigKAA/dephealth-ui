@@ -58,6 +58,7 @@ export default {
   'legend.down': 'Down',
   'legend.unknown': 'Unknown',
   'legend.criticalAlert': 'Critical alert',
+  'legend.cascadeWarning': 'Cascade warning',
   'legend.thickerBorder': 'Thicker border',
 
   // Empty state
@@ -84,6 +85,7 @@ export default {
   'state.down': 'Down',
   'state.unknown': 'Unknown',
   'state.unknown.detail': 'Metrics disappeared',
+  'state.warning': 'Warning',
 
   // Toast messages
   'toast.connectionRestored': 'Connection restored',
@@ -147,6 +149,8 @@ export default {
   'tooltip.latency': 'Latency:',
   'tooltip.critical': 'Critical:',
   'tooltip.yes': 'Yes',
+  'tooltip.cascadeWarning': 'Cascade warning:',
+  'tooltip.cascadeSource': '↳ {service}',
 
   // Shortcuts
   'shortcuts.title': 'Keyboard Shortcuts',
