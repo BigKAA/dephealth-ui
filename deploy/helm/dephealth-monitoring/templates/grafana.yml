@@ -109,6 +109,32 @@ data:
   link-status.json: |
     {{- .Files.Get "dashboards/link-status.json" | nindent 4 }}
 ---
+# --- ConfigMap: dashboard - root-cause-analyzer ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-root-cause-analyzer
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  root-cause-analyzer.json: |
+    {{- .Files.Get "dashboards/root-cause-analyzer.json" | nindent 4 }}
+---
+# --- ConfigMap: dashboard - cascade-overview ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-cascade-overview
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  cascade-overview.json: |
+    {{- .Files.Get "dashboards/cascade-overview.json" | nindent 4 }}
+---
 # --- Deployment ---
 apiVersion: apps/v1
 kind: Deployment
@@ -186,6 +212,14 @@ spec:
               mountPath: /var/lib/grafana/dashboards/dephealth/link-status.json
               subPath: link-status.json
               readOnly: true
+            - name: dashboards-root-cause-analyzer
+              mountPath: /var/lib/grafana/dashboards/dephealth/root-cause-analyzer.json
+              subPath: root-cause-analyzer.json
+              readOnly: true
+            - name: dashboards-cascade-overview
+              mountPath: /var/lib/grafana/dashboards/dephealth/cascade-overview.json
+              subPath: cascade-overview.json
+              readOnly: true
             - name: data
               mountPath: /var/lib/grafana
       volumes:
@@ -210,6 +244,12 @@ spec:
         - name: dashboards-link-status
           configMap:
             name: grafana-dashboard-link-status
+        - name: dashboards-root-cause-analyzer
+          configMap:
+            name: grafana-dashboard-root-cause-analyzer
+        - name: dashboards-cascade-overview
+          configMap:
+            name: grafana-dashboard-cascade-overview
         - name: data
           emptyDir: {}
 ---
