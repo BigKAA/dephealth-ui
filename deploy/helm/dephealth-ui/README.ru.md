@@ -160,6 +160,31 @@ config:
 
 Если `grafana.baseUrl` пустой, ссылки на Grafana скрыты в UI.
 
+### Grafana-дашборды
+
+Helm chart `dephealth-monitoring` включает 7 готовых Grafana-дашбордов, разворачиваемых через ConfigMaps:
+
+| Дашборд | UID | Описание | Источник данных |
+|---------|-----|----------|-----------------|
+| Cascade Overview | `dephealth-cascade-overview` | Обзор каскадных сбоев с затронутыми сервисами и первопричинами | Infinity (API) |
+| Root Cause Analyzer | `dephealth-root-cause` | Детальный анализ первопричин с графом зависимостей | Infinity (API) + Prometheus |
+| Service Status | `dephealth-service-status` | Состояние одного сервиса и timeline зависимостей | Prometheus |
+| Link Status | `dephealth-link-status` | Состояние одной зависимости, latency | Prometheus |
+| Service List | `dephealth-service-list` | Таблица всех сервисов с состоянием и кол-вом зависимостей | Prometheus |
+| Services Status | `dephealth-services-status` | Обзор всех сервисов с timeline состояний | Prometheus |
+| Links Status | `dephealth-links-status` | Обзор всех связей с timeline здоровья | Prometheus |
+
+> **Важно: требования к плагинам и API**
+>
+> Дашборды **Cascade Overview** и **Root Cause Analyzer** требуют:
+>
+> 1. **Плагин Grafana Infinity datasource** ([yesoreyeram-infinity-datasource](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)) — должен быть установлен в Grafana. Устанавливается через переменную окружения `GF_INSTALL_PLUGINS` или Grafana CLI.
+> 2. **API dephealth-ui** — должен быть доступен из Grafana по сети (например, `http://dephealth-ui.dephealth-ui.svc:8080`). Эти дашборды обращаются к endpoint'ам `/api/v1/cascade-analysis` и `/api/v1/cascade-graph` для получения данных о каскадных сбоях.
+>
+> Дашборд **Root Cause Analyzer** также включает панель **Node Graph**, визуализирующую цепочки каскадных зависимостей. Для работы этой панели Infinity datasource должен быть создан с UID `infinity` (или обновите переменную `${DS_INFINITY}` в JSON дашборда).
+>
+> Без плагина Infinity или сетевого доступа к API dephealth-ui эти два дашборда будут показывать пустые панели. Остальные 5 дашбордов используют только Prometheus и работают независимо.
+
 ## Примеры
 
 См. `values-homelab.yaml` — полный пример для домашней лаборатории с Gateway API.

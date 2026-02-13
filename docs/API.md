@@ -167,6 +167,161 @@ Cascade failure propagation is computed entirely on the frontend. The API respon
 
 ---
 
+### `GET /api/v1/cascade-analysis`
+
+Performs BFS cascade failure analysis across the dependency graph. Returns root causes, affected services, and full cascade chains with unlimited depth.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `service` | string | No | Analyze cascade for a specific service (empty = analyze all) |
+| `namespace` | string | No | Filter by Kubernetes namespace |
+| `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "rootCauses": [
+    {
+      "id": "postgres-main.db.svc:5432",
+      "label": "postgres-main",
+      "state": "down",
+      "namespace": "production"
+    }
+  ],
+  "affectedServices": [
+    {
+      "service": "order-service",
+      "namespace": "production",
+      "dependsOn": "payment-api",
+      "rootCauses": ["postgres-main.db.svc:5432"]
+    }
+  ],
+  "allFailures": [
+    {
+      "service": "payment-api",
+      "dependency": "postgres-main.db.svc:5432",
+      "health": 0,
+      "critical": true
+    }
+  ],
+  "cascadeChains": [
+    {
+      "affectedService": "order-service",
+      "namespace": "production",
+      "dependsOn": "postgres-main",
+      "path": ["order-service", "payment-api", "postgres-main"],
+      "depth": 2
+    }
+  ],
+  "summary": {
+    "totalServices": 10,
+    "rootCauseCount": 1,
+    "affectedServiceCount": 3,
+    "totalFailureCount": 2,
+    "maxDepth": 2
+  }
+}
+```
+
+**Root Cause fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Dependency identifier (may include host:port) |
+| `label` | string | Human-readable label |
+| `state` | string | Current state (`down`, `degraded`, etc.) |
+| `namespace` | string | Kubernetes namespace |
+
+**Cascade Chain fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `affectedService` | string | Service affected by the cascade |
+| `namespace` | string | Namespace of the affected service |
+| `dependsOn` | string | Terminal dependency (root cause) |
+| `path` | string[] | Full path from affected service to root cause |
+| `depth` | int | Number of hops in the chain |
+
+---
+
+### `GET /api/v1/cascade-graph`
+
+Returns cascade failure topology in [Grafana Node Graph panel](https://grafana.com/docs/grafana/latest/panels-visualizations/visualizations/node-graph/) format. Designed to be consumed directly by the Grafana Infinity datasource.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `service` | string | No | Filter cascade graph for a specific service (empty = all) |
+| `namespace` | string | No | Filter by Kubernetes namespace |
+| `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "nodes": [
+    {
+      "id": "order-service",
+      "title": "order-service",
+      "subTitle": "production",
+      "mainStat": "ok",
+      "arc__failed": 0,
+      "arc__degraded": 0,
+      "arc__ok": 1,
+      "arc__unknown": 0
+    },
+    {
+      "id": "postgres-main",
+      "title": "postgres-main",
+      "subTitle": "production",
+      "mainStat": "down",
+      "arc__failed": 1,
+      "arc__degraded": 0,
+      "arc__ok": 0,
+      "arc__unknown": 0
+    }
+  ],
+  "edges": [
+    {
+      "id": "order-service--postgres-main",
+      "source": "order-service",
+      "target": "postgres-main",
+      "mainStat": ""
+    }
+  ]
+}
+```
+
+**Node fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique node identifier |
+| `title` | string | Display label |
+| `subTitle` | string | Kubernetes namespace |
+| `mainStat` | string | Node state: `ok`, `degraded`, `down`, `unknown` |
+| `arc__failed` | float | Arc segment for failed state (0.0–1.0) |
+| `arc__degraded` | float | Arc segment for degraded state (0.0–1.0) |
+| `arc__ok` | float | Arc segment for healthy state (0.0–1.0) |
+| `arc__unknown` | float | Arc segment for unknown state (0.0–1.0) |
+
+The `arc__*` fields control the colored ring around each node in the Grafana Node Graph panel. Exactly one field is set to `1` per node, based on the node's state.
+
+**Edge fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Edge identifier (`source--target`) |
+| `source` | string | Source node ID |
+| `target` | string | Target node ID |
+| `mainStat` | string | Reserved for future use |
+
+---
+
 ### `GET /api/v1/alerts`
 
 Returns all active alerts from AlertManager aggregated by service/dependency.
@@ -229,6 +384,8 @@ Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, d
   "grafana": {
     "baseUrl": "https://grafana.example.com",
     "dashboards": {
+      "cascadeOverview": "dephealth-cascade-overview",
+      "rootCause": "dephealth-root-cause",
       "serviceStatus": "dephealth-service-status",
       "linkStatus": "dephealth-link-status",
       "serviceList": "dephealth-service-list",
@@ -256,6 +413,8 @@ Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, d
 
 | Key | Purpose | URL Parameters |
 |-----|---------|----------------|
+| `cascadeOverview` | Cascade failure overview | `?var-namespace=<ns>` |
+| `rootCause` | Root cause analyzer | `?var-service=<name>&var-namespace=<ns>` |
 | `serviceStatus` | Single service health | `?var-service=<name>` |
 | `linkStatus` | Single dependency health | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
 | `serviceList` | All services table | — |

@@ -160,6 +160,31 @@ config:
 
 If `grafana.baseUrl` is empty, Grafana links are hidden in the UI.
 
+### Grafana Dashboards
+
+The `dephealth-monitoring` Helm chart includes 7 pre-built Grafana dashboards provisioned via ConfigMaps:
+
+| Dashboard | UID | Description | Data Source |
+|-----------|-----|-------------|-------------|
+| Cascade Overview | `dephealth-cascade-overview` | Cascade failure overview with affected services and root causes | Infinity (API) |
+| Root Cause Analyzer | `dephealth-root-cause` | Deep-dive root cause analysis with dependency failure graph | Infinity (API) + Prometheus |
+| Service Status | `dephealth-service-status` | Single service health details and dependency timelines | Prometheus |
+| Link Status | `dephealth-link-status` | Single dependency connection health and latency | Prometheus |
+| Service List | `dephealth-service-list` | All services table with state and dependency count | Prometheus |
+| Services Status | `dephealth-services-status` | All services overview with state timelines | Prometheus |
+| Links Status | `dephealth-links-status` | All dependency links overview with health timelines | Prometheus |
+
+> **Important: Plugin and API requirements**
+>
+> The **Cascade Overview** and **Root Cause Analyzer** dashboards require:
+>
+> 1. **Grafana Infinity datasource plugin** ([yesoreyeram-infinity-datasource](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)) — must be installed in Grafana. Install via `GF_INSTALL_PLUGINS` environment variable or Grafana CLI.
+> 2. **dephealth-ui API** — must be accessible from Grafana over the network (e.g., `http://dephealth-ui.dephealth-ui.svc:8080`). These dashboards call `/api/v1/cascade-analysis` and `/api/v1/cascade-graph` endpoints to fetch cascade failure data.
+>
+> The **Root Cause Analyzer** dashboard also includes a **Node Graph panel** that visualizes cascade dependency chains. This panel requires the Infinity datasource to be provisioned with UID `infinity` (or update `${DS_INFINITY}` variable in the dashboard JSON).
+>
+> Without the Infinity plugin or network access to the dephealth-ui API, these two dashboards will show empty panels. The remaining 5 dashboards use only Prometheus and work independently.
+
 ## Examples
 
 See `values-homelab.yaml` for a complete homelab example with Gateway API.

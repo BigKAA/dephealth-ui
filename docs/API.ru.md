@@ -167,6 +167,161 @@ dephealth-ui предоставляет REST API для визуализации
 
 ---
 
+### `GET /api/v1/cascade-analysis`
+
+Выполняет BFS-анализ каскадных сбоев по графу зависимостей. Возвращает первопричины, затронутые сервисы и полные каскадные цепочки с неограниченной глубиной.
+
+**Query-параметры:**
+
+| Параметр | Тип | Обязателен | Описание |
+|----------|-----|:----------:|----------|
+| `service` | string | Нет | Анализ каскада для конкретного сервиса (пусто = все) |
+| `namespace` | string | Нет | Фильтр по Kubernetes namespace |
+| `depth` | int | Нет | Максимальная глубина BFS (`0` = без ограничений) |
+
+**Ответ:** `200 OK`
+
+```json
+{
+  "rootCauses": [
+    {
+      "id": "postgres-main.db.svc:5432",
+      "label": "postgres-main",
+      "state": "down",
+      "namespace": "production"
+    }
+  ],
+  "affectedServices": [
+    {
+      "service": "order-service",
+      "namespace": "production",
+      "dependsOn": "payment-api",
+      "rootCauses": ["postgres-main.db.svc:5432"]
+    }
+  ],
+  "allFailures": [
+    {
+      "service": "payment-api",
+      "dependency": "postgres-main.db.svc:5432",
+      "health": 0,
+      "critical": true
+    }
+  ],
+  "cascadeChains": [
+    {
+      "affectedService": "order-service",
+      "namespace": "production",
+      "dependsOn": "postgres-main",
+      "path": ["order-service", "payment-api", "postgres-main"],
+      "depth": 2
+    }
+  ],
+  "summary": {
+    "totalServices": 10,
+    "rootCauseCount": 1,
+    "affectedServiceCount": 3,
+    "totalFailureCount": 2,
+    "maxDepth": 2
+  }
+}
+```
+
+**Поля Root Cause:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | string | Идентификатор зависимости (может включать host:port) |
+| `label` | string | Человекочитаемое имя |
+| `state` | string | Текущее состояние (`down`, `degraded` и т.д.) |
+| `namespace` | string | Kubernetes namespace |
+
+**Поля Cascade Chain:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `affectedService` | string | Затронутый сервис |
+| `namespace` | string | Namespace затронутого сервиса |
+| `dependsOn` | string | Терминальная зависимость (первопричина) |
+| `path` | string[] | Полный путь от затронутого сервиса до первопричины |
+| `depth` | int | Количество хопов в цепочке |
+
+---
+
+### `GET /api/v1/cascade-graph`
+
+Возвращает топологию каскадных сбоев в формате [Grafana Node Graph panel](https://grafana.com/docs/grafana/latest/panels-visualizations/visualizations/node-graph/). Предназначен для прямого использования через Grafana Infinity datasource.
+
+**Query-параметры:**
+
+| Параметр | Тип | Обязателен | Описание |
+|----------|-----|:----------:|----------|
+| `service` | string | Нет | Фильтр графа каскада для конкретного сервиса (пусто = все) |
+| `namespace` | string | Нет | Фильтр по Kubernetes namespace |
+| `depth` | int | Нет | Максимальная глубина BFS (`0` = без ограничений) |
+
+**Ответ:** `200 OK`
+
+```json
+{
+  "nodes": [
+    {
+      "id": "order-service",
+      "title": "order-service",
+      "subTitle": "production",
+      "mainStat": "ok",
+      "arc__failed": 0,
+      "arc__degraded": 0,
+      "arc__ok": 1,
+      "arc__unknown": 0
+    },
+    {
+      "id": "postgres-main",
+      "title": "postgres-main",
+      "subTitle": "production",
+      "mainStat": "down",
+      "arc__failed": 1,
+      "arc__degraded": 0,
+      "arc__ok": 0,
+      "arc__unknown": 0
+    }
+  ],
+  "edges": [
+    {
+      "id": "order-service--postgres-main",
+      "source": "order-service",
+      "target": "postgres-main",
+      "mainStat": ""
+    }
+  ]
+}
+```
+
+**Поля узла (Node):**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | string | Уникальный идентификатор узла |
+| `title` | string | Отображаемое имя |
+| `subTitle` | string | Kubernetes namespace |
+| `mainStat` | string | Состояние узла: `ok`, `degraded`, `down`, `unknown` |
+| `arc__failed` | float | Сегмент дуги для состояния failed (0.0–1.0) |
+| `arc__degraded` | float | Сегмент дуги для состояния degraded (0.0–1.0) |
+| `arc__ok` | float | Сегмент дуги для здорового состояния (0.0–1.0) |
+| `arc__unknown` | float | Сегмент дуги для неизвестного состояния (0.0–1.0) |
+
+Поля `arc__*` управляют цветным кольцом вокруг каждого узла в панели Grafana Node Graph. Ровно одно поле установлено в `1` для каждого узла в зависимости от его состояния.
+
+**Поля ребра (Edge):**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | string | Идентификатор ребра (`source--target`) |
+| `source` | string | ID исходного узла |
+| `target` | string | ID целевого узла |
+| `mainStat` | string | Зарезервировано для будущего использования |
+
+---
+
 ### `GET /api/v1/alerts`
 
 Возвращает все активные алерты из AlertManager, агрегированные по сервису/зависимости.
@@ -229,6 +384,8 @@ dephealth-ui предоставляет REST API для визуализации
   "grafana": {
     "baseUrl": "https://grafana.example.com",
     "dashboards": {
+      "cascadeOverview": "dephealth-cascade-overview",
+      "rootCause": "dephealth-root-cause",
       "serviceStatus": "dephealth-service-status",
       "linkStatus": "dephealth-link-status",
       "serviceList": "dephealth-service-list",
@@ -256,6 +413,8 @@ dephealth-ui предоставляет REST API для визуализации
 
 | Ключ | Назначение | URL-параметры |
 |------|-----------|---------------|
+| `cascadeOverview` | Обзор каскадных сбоев | `?var-namespace=<ns>` |
+| `rootCause` | Анализ первопричин | `?var-service=<name>&var-namespace=<ns>` |
 | `serviceStatus` | Состояние одного сервиса | `?var-service=<name>` |
 | `linkStatus` | Состояние одной зависимости | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
 | `serviceList` | Таблица всех сервисов | — |
