@@ -16,6 +16,7 @@ import (
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
 	"github.com/BigKAA/dephealth-ui/internal/auth"
 	"github.com/BigKAA/dephealth-ui/internal/cache"
+	"github.com/BigKAA/dephealth-ui/internal/cascade"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
@@ -114,6 +115,7 @@ func (s *Server) setupRoutes() {
 		r.Get("/topology", s.handleTopology)
 		r.Get("/alerts", s.handleAlerts)
 		r.Get("/instances", s.handleInstances)
+		r.Get("/cascade-analysis", s.handleCascadeAnalysis)
 	})
 
 	// SPA static files (embedded via embed.FS)
@@ -322,6 +324,59 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("failed to encode config response", "error", err)
+	}
+}
+
+func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
+	service := r.URL.Query().Get("service")
+	namespace := r.URL.Query().Get("namespace")
+
+	maxDepth := 0
+	if d := r.URL.Query().Get("depth"); d != "" {
+		if _, err := fmt.Sscanf(d, "%d", &maxDepth); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
+			return
+		}
+	}
+
+	// Get topology data from cache or build fresh.
+	var nodes []topology.Node
+	var edges []topology.Edge
+
+	if cached, ok := s.cache.Get(); ok {
+		nodes = cached.Nodes
+		edges = cached.Edges
+	} else {
+		resp, err := s.builder.Build(r.Context(), topology.QueryOptions{})
+		if err != nil {
+			s.logger.Error("failed to build topology for cascade analysis", "error", err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			return
+		}
+		s.cache.Set(resp)
+		nodes = resp.Nodes
+		edges = resp.Edges
+	}
+
+	opts := cascade.Options{
+		MaxDepth:  maxDepth,
+		Namespace: namespace,
+	}
+
+	var result *cascade.AnalysisResult
+	if service != "" {
+		result = cascade.AnalyzeForService(nodes, edges, service, opts)
+	} else {
+		result = cascade.Analyze(nodes, edges, opts)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		s.logger.Error("failed to encode cascade analysis response", "error", err)
 	}
 }
 

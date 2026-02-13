@@ -2,14 +2,15 @@
   "__inputs": [],
   "__requires": [
     { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
-    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "datasource", "id": "yesoreyeram-infinity-datasource", "name": "Infinity", "version": "2.0.0" }
   ],
   "annotations": {
     "list": [
       {
         "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
         "enable": false,
-        "expr": "changes(app_dependency_health{namespace=~\"$namespace\"}[1m]) > 0",
+        "expr": "changes(app_dependency_health{namespace=~\"$namespace\", name=~\"$service\"}[1m]) > 0 or changes(app_dependency_health{namespace=~\"$namespace\", dependency=~\"$service\"}[1m]) > 0",
         "hide": false,
         "iconColor": "rgba(255, 96, 96, 1)",
         "name": "Health state changes",
@@ -18,7 +19,7 @@
       }
     ]
   },
-  "description": "Root cause analysis for dependency failures — identify leaf failures and cascade impact",
+  "description": "Root cause analysis for dependency failures — identify leaf failures and cascade impact (powered by BFS API, unlimited depth)",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -51,9 +52,9 @@
     {
       "id": 1,
       "title": "Root Causes",
-      "description": "Leaf failures — dependencies that are DOWN and have no own failing dependencies",
+      "description": "Leaf failures reachable from the selected service (unlimited depth via BFS)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -77,20 +78,26 @@
       },
       "targets": [
         {
-          "expr": "count(\n  (group by (dependency) (app_dependency_health{namespace=~\"$namespace\"} == 0))\n  unless on (dependency)\n  label_replace(\n    group by (name) (app_dependency_health{namespace=~\"$namespace\"} == 0),\n    \"dependency\", \"$1\", \"name\", \"(.*)\"\n  )\n) or vector(0)",
-          "legendFormat": "",
           "refId": "A",
-          "instant": true,
-          "range": false
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-analysis?service=${service}",
+          "url_options": { "method": "GET" },
+          "root_selector": "summary",
+          "columns": [
+            { "selector": "rootCauseCount", "text": "Count", "type": "number" }
+          ]
         }
       ]
     },
     {
       "id": 2,
       "title": "Cascade Affected",
-      "description": "Services depending on services that have their own failures (transitive impact)",
+      "description": "Services in dependency tree affected by cascading failures (unlimited depth via BFS)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
       "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -114,20 +121,26 @@
       },
       "targets": [
         {
-          "expr": "count(\n  group by (name, namespace, dependency) (\n    label_replace(\n      app_dependency_health{namespace=~\"$namespace\"},\n      \"dep_name\", \"$1\", \"dependency\", \"(.*)\"\n    )\n    and on (dep_name)\n    label_replace(\n      group by (name) (app_dependency_health{namespace=~\"$namespace\"} == 0),\n      \"dep_name\", \"$1\", \"name\", \"(.*)\"\n    )\n  )\n) or vector(0)",
-          "legendFormat": "",
           "refId": "A",
-          "instant": true,
-          "range": false
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-analysis?service=${service}",
+          "url_options": { "method": "GET" },
+          "root_selector": "summary",
+          "columns": [
+            { "selector": "affectedServiceCount", "text": "Count", "type": "number" }
+          ]
         }
       ]
     },
     {
       "id": 3,
       "title": "Total Failures",
-      "description": "Total number of dependency health check failures",
+      "description": "Total failures reachable from selected service (unlimited depth via BFS)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -151,11 +164,17 @@
       },
       "targets": [
         {
-          "expr": "count(app_dependency_health{namespace=~\"$namespace\"} == 0) or vector(0)",
-          "legendFormat": "",
           "refId": "A",
-          "instant": true,
-          "range": false
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-analysis?service=${service}",
+          "url_options": { "method": "GET" },
+          "root_selector": "summary",
+          "columns": [
+            { "selector": "totalFailureCount", "text": "Count", "type": "number" }
+          ]
         }
       ]
     },
@@ -169,30 +188,26 @@
     {
       "id": 5,
       "title": "Root Causes",
-      "description": "Dependencies that are DOWN and do not have their own failing dependencies — the actual root causes",
+      "description": "Dependencies that are the actual root causes — terminal failures with no further downstream issues",
       "type": "table",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 5 },
       "targets": [
         {
-          "expr": "(group by (dependency) (app_dependency_health{namespace=~\"$namespace\"} == 0))\nunless on (dependency)\nlabel_replace(\n  group by (name) (app_dependency_health{namespace=~\"$namespace\"} == 0),\n  \"dependency\", \"$1\", \"name\", \"(.*)\"\n)",
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
           "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Value": true
-            },
-            "renameByName": {
-              "dependency": "Root Cause"
-            }
-          }
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-analysis?service=${service}",
+          "url_options": { "method": "GET" },
+          "root_selector": "rootCauses",
+          "columns": [
+            { "selector": "label", "text": "Root Cause", "type": "string" },
+            { "selector": "type", "text": "Type", "type": "string" },
+            { "selector": "namespace", "text": "Namespace", "type": "string" },
+            { "selector": "state", "text": "State", "type": "string" }
+          ]
         }
       ],
       "fieldConfig": {
@@ -221,6 +236,14 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "State" },
+            "properties": [
+              { "id": "custom.width", "value": 100 },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
           }
         ]
       },
@@ -233,47 +256,28 @@
     {
       "id": 6,
       "title": "All Failures",
-      "description": "All dependency health check failures with service context",
+      "description": "All dependency health check failures reachable from selected service (unlimited depth)",
       "type": "table",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
       "targets": [
         {
-          "expr": "app_dependency_health{namespace=~\"$namespace\"} == 0",
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
           "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Value": true,
-              "__name__": true,
-              "instance": true,
-              "pod": true,
-              "critical": true
-            },
-            "indexByName": {
-              "job": 0,
-              "namespace": 1,
-              "dependency": 2,
-              "type": 3,
-              "host": 4,
-              "port": 5
-            },
-            "renameByName": {
-              "job": "Service",
-              "namespace": "Namespace",
-              "dependency": "Dependency",
-              "type": "Type",
-              "host": "Host",
-              "port": "Port"
-            }
-          }
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-analysis?service=${service}",
+          "url_options": { "method": "GET" },
+          "root_selector": "allFailures",
+          "columns": [
+            { "selector": "service", "text": "Service", "type": "string" },
+            { "selector": "namespace", "text": "Namespace", "type": "string" },
+            { "selector": "dependency", "text": "Dependency", "type": "string" },
+            { "selector": "type", "text": "Type", "type": "string" },
+            { "selector": "host", "text": "Host", "type": "string" },
+            { "selector": "port", "text": "Port", "type": "string" }
+          ]
         }
       ],
       "fieldConfig": {
@@ -354,37 +358,27 @@
     {
       "id": 8,
       "title": "Cascade Impact Chain",
-      "description": "Services that depend on other services with their own failures — cascade impact L1",
+      "description": "Full cascade paths from affected service to root causes (unlimited depth)",
       "type": "table",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
       "targets": [
         {
-          "expr": "group by (name, namespace, dependency) (\n  label_replace(\n    app_dependency_health{namespace=~\"$namespace\"},\n    \"dep_name\", \"$1\", \"dependency\", \"(.*)\"\n  )\n  and on (dep_name)\n  label_replace(\n    group by (name) (app_dependency_health{namespace=~\"$namespace\"} == 0),\n    \"dep_name\", \"$1\", \"name\", \"(.*)\"\n  )\n)",
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
           "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Value": true
-            },
-            "indexByName": {
-              "name": 0,
-              "namespace": 1,
-              "dependency": 2
-            },
-            "renameByName": {
-              "name": "Affected Service",
-              "namespace": "Namespace",
-              "dependency": "Depends On (has failures)"
-            }
-          }
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-analysis?service=${service}",
+          "url_options": { "method": "GET" },
+          "root_selector": "cascadeChains",
+          "columns": [
+            { "selector": "affectedService", "text": "Affected Service", "type": "string" },
+            { "selector": "namespace", "text": "Namespace", "type": "string" },
+            { "selector": "dependsOn", "text": "Depends On (has failures)", "type": "string" },
+            { "selector": "depth", "text": "Depth", "type": "number" },
+            { "selector": "path", "text": "Path", "type": "string" }
+          ]
         }
       ],
       "fieldConfig": {
@@ -426,6 +420,18 @@
                   }
                 ]
               }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Path" },
+            "properties": [
+              { "id": "custom.width", "value": 400 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Depth" },
+            "properties": [
+              { "id": "custom.width", "value": 80 }
             ]
           }
         ]
@@ -488,7 +494,7 @@
       },
       "targets": [
         {
-          "expr": "app_dependency_health{job=~\"$service\", namespace=~\"$namespace\"}",
+          "expr": "app_dependency_health{job=~\"$service\", namespace=~\"$namespace\"}\nor\napp_dependency_health{namespace=~\"$namespace\", dependency=~\"$service\"}",
           "legendFormat": "{{dependency}} ({{host}}:{{port}})",
           "refId": "A"
         }
@@ -507,6 +513,14 @@
         "current": {},
         "hide": 0,
         "label": "Datasource"
+      },
+      {
+        "name": "DS_INFINITY",
+        "type": "datasource",
+        "query": "yesoreyeram-infinity-datasource",
+        "current": {},
+        "hide": 0,
+        "label": "Infinity"
       },
       {
         "name": "namespace",

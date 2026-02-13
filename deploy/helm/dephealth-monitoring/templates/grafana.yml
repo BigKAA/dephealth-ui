@@ -20,6 +20,12 @@ data:
         editable: true
         jsonData:
           timeInterval: "15s"
+      - name: Infinity
+        type: yesoreyeram-infinity-datasource
+        access: proxy
+        isDefault: false
+        editable: true
+        uid: infinity
 ---
 # --- ConfigMap: dashboards provider ---
 apiVersion: v1
@@ -169,6 +175,8 @@ spec:
               value: {{ .Values.grafana.adminPassword | quote }}
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            - name: GF_INSTALL_PLUGINS
+              value: "yesoreyeram-infinity-datasource"
             - name: GF_SERVER_ROOT_URL
               value: {{ .Values.grafana.rootUrl | quote }}
           readinessProbe:

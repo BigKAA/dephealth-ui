@@ -75,6 +75,7 @@ func TestRoutes(t *testing.T) {
 		{"GET", "/api/v1/topology", http.StatusOK},
 		{"GET", "/api/v1/alerts", http.StatusOK},
 		{"GET", "/api/v1/config", http.StatusOK},
+		{"GET", "/api/v1/cascade-analysis", http.StatusOK},
 		{"GET", "/", http.StatusOK},
 	}
 
@@ -233,6 +234,42 @@ func TestTopologyNamespaceBypassesCache(t *testing.T) {
 	}
 	if len(resp.Nodes) == 0 {
 		t.Error("expected nodes in namespace-filtered response")
+	}
+}
+
+func TestCascadeAnalysisReturnsJSON(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/cascade-analysis", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want %q", ct, "application/json")
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	// Verify all expected top-level fields are present.
+	for _, field := range []string{"rootCauses", "affectedServices", "allFailures", "cascadeChains", "summary"} {
+		if _, ok := result[field]; !ok {
+			t.Errorf("missing field %q in response", field)
+		}
+	}
+}
+
+func TestCascadeAnalysisInvalidDepth(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/cascade-analysis?depth=abc", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }
 
