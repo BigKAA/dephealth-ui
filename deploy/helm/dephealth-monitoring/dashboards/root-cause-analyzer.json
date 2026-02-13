@@ -485,7 +485,7 @@
       "targets": [
         {
           "expr": "app_dependency_health{job=~\"$service\", namespace=~\"$namespace\"}\nor\napp_dependency_health{namespace=~\"$namespace\", dependency=~\"$service\"}",
-          "legendFormat": "{{dependency}} ({{host}}:{{port}})",
+          "legendFormat": "{{dependency}}",
           "refId": "A"
         }
       ]
