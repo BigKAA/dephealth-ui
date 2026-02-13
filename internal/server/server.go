@@ -458,28 +458,48 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 		result = cascade.Analyze(topoNodes, topoEdges, opts)
 	}
 
-	// Build node state lookup from topology.
-	stateByID := make(map[string]string, len(topoNodes))
+	// Build lookups from topology nodes.
+	topoByID := make(map[string]topology.Node, len(topoNodes))
 	for _, n := range topoNodes {
-		stateByID[n.ID] = n.State
+		topoByID[n.ID] = n
 	}
 
 	// Collect unique graph nodes.
 	seen := make(map[string]bool)
-	// labelToID maps RootCause.Label → RootCause.ID (Label may differ from ID,
-	// e.g. Label="svc:8080" vs ID="svc:8080" or Label="svc" vs ID="svc:8080").
-	labelToID := make(map[string]string)
 	var nodes []graphNode
 
-	addNode := func(id, title, namespace, state string) {
+	addNode := func(id string) {
 		if seen[id] {
 			return
 		}
 		seen[id] = true
+
+		title := id
+		ns := ""
+		state := "unknown"
+		if tn, ok := topoByID[id]; ok {
+			if tn.Label != "" {
+				title = tn.Label
+			}
+			ns = tn.Namespace
+			state = tn.State
+		}
+		// Override state from root causes (they have authoritative state).
+		for _, rc := range result.RootCauses {
+			if rc.ID == id {
+				state = rc.State
+				if rc.Label != "" {
+					title = rc.Label
+				}
+				ns = rc.Namespace
+				break
+			}
+		}
+
 		n := graphNode{
 			ID:       id,
 			Title:    title,
-			SubTitle: namespace,
+			SubTitle: ns,
 			MainStat: state,
 		}
 		switch state {
@@ -495,49 +515,37 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 		nodes = append(nodes, n)
 	}
 
-	for _, rc := range result.RootCauses {
-		addNode(rc.ID, rc.Label, rc.Namespace, rc.State)
-		if rc.Label != "" && rc.Label != rc.ID {
-			labelToID[rc.Label] = rc.ID
-		}
-	}
-	for _, as := range result.AffectedServices {
-		state := stateByID[as.Service]
-		if state == "" {
-			state = "unknown"
-		}
-		addNode(as.Service, as.Service, as.Namespace, state)
-	}
-
-	// resolveID maps a cascade chain reference to a graph node ID.
-	resolveID := func(ref string) string {
-		if seen[ref] {
-			return ref
-		}
-		if id, ok := labelToID[ref]; ok {
-			return id
-		}
-		return ref
-	}
-
-	// Build edges from cascade chains.
+	// Build nodes and edges from cascade chain paths.
 	edgeSeen := make(map[string]bool)
 	var edges []graphEdge
 
 	for _, ch := range result.CascadeChains {
-		source := resolveID(ch.AffectedService)
-		target := resolveID(ch.DependsOn)
-		edgeID := source + "--" + target
-		if edgeSeen[edgeID] {
-			continue
+		for i, step := range ch.Path {
+			addNode(step)
+			if i > 0 {
+				source := ch.Path[i-1]
+				target := step
+				edgeID := source + "--" + target
+				if edgeSeen[edgeID] {
+					continue
+				}
+				edgeSeen[edgeID] = true
+				edges = append(edges, graphEdge{
+					ID:       edgeID,
+					Source:   source,
+					Target:   target,
+					MainStat: "",
+				})
+			}
 		}
-		edgeSeen[edgeID] = true
-		edges = append(edges, graphEdge{
-			ID:       edgeID,
-			Source:   source,
-			Target:   target,
-			MainStat: "",
-		})
+	}
+
+	// Also add root causes and affected services not in any chain path.
+	for _, rc := range result.RootCauses {
+		addNode(rc.ID)
+	}
+	for _, as := range result.AffectedServices {
+		addNode(as.Service)
 	}
 
 	if nodes == nil {

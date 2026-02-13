@@ -9,7 +9,7 @@ global:
 
 image:
   name: dephealth-ui
-  tag: v0.11.4-1
+  tag: v0.14.2-5
   pullPolicy: Always
 
 route:
@@ -37,12 +37,7 @@ config:
   cache:
     ttl: 15s
   auth:
-    type: "oidc"
-    oidc:
-      issuer: "https://dex.kryukov.lan"
-      clientId: "dephealth-ui"
-      clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
-      redirectUrl: "https://dephealth.kryukov.lan/auth/callback"
+    type: "none"
   grafana:
     baseUrl: "http://grafana.kryukov.lan"
     dashboards:
