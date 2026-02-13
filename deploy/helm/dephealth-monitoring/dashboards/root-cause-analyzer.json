@@ -393,17 +393,7 @@
           {
             "matcher": { "id": "byName", "options": "Affected Service" },
             "properties": [
-              { "id": "custom.minWidth", "value": 200 },
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Service Status →",
-                    "url": "/d/dephealth-service-status/?var-service=${__value.text}&${__url_time_range}",
-                    "targetBlank": false
-                  }
-                ]
-              }
+              { "id": "custom.minWidth", "value": 200 }
             ]
           },
           {
