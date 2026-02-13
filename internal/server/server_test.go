@@ -76,6 +76,7 @@ func TestRoutes(t *testing.T) {
 		{"GET", "/api/v1/alerts", http.StatusOK},
 		{"GET", "/api/v1/config", http.StatusOK},
 		{"GET", "/api/v1/cascade-analysis", http.StatusOK},
+		{"GET", "/api/v1/cascade-graph", http.StatusOK},
 		{"GET", "/", http.StatusOK},
 	}
 
@@ -265,6 +266,68 @@ func TestCascadeAnalysisReturnsJSON(t *testing.T) {
 func TestCascadeAnalysisInvalidDepth(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest("GET", "/api/v1/cascade-analysis?depth=abc", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCascadeGraphReturnsJSON(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/cascade-graph", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want %q", ct, "application/json")
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	for _, field := range []string{"nodes", "edges"} {
+		v, ok := result[field]
+		if !ok {
+			t.Errorf("missing field %q in response", field)
+			continue
+		}
+		if _, isArr := v.([]any); !isArr {
+			t.Errorf("field %q should be an array", field)
+		}
+	}
+}
+
+func TestCascadeGraphWithServiceFilter(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/cascade-graph?service=svc-go", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if _, ok := result["nodes"]; !ok {
+		t.Error("missing nodes field")
+	}
+	if _, ok := result["edges"]; !ok {
+		t.Error("missing edges field")
+	}
+}
+
+func TestCascadeGraphInvalidDepth(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/cascade-graph?depth=xyz", nil)
 	w := httptest.NewRecorder()
 	srv.router.ServeHTTP(w, req)
 

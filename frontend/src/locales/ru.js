@@ -111,6 +111,8 @@ export default {
   'sidebar.grafana.serviceList': 'Список сервисов',
   'sidebar.grafana.servicesStatus': 'Состояние сервисов',
   'sidebar.grafana.linksStatus': 'Состояние связей',
+  'sidebar.grafana.cascadeOverview': 'Обзор каскадов',
+  'sidebar.grafana.rootCause': 'Анализ первопричин',
   'sidebar.grafana.serviceStatus': 'Статус сервиса',
   'sidebar.grafana.linkStatus': 'Статус связи',
   'sidebar.instances': 'Экземпляры',
@@ -177,6 +179,7 @@ export default {
   'sidebar.collapsed.expand': 'Развернуть namespace',
 
   // Context menu
+  'contextMenu.rootCauseAnalysis': 'Анализ первопричины',
   'contextMenu.openInGrafana': 'Открыть в Grafana',
   'contextMenu.showDetails': 'Подробности',
   'contextMenu.copyGrafanaUrl': 'Копировать URL Grafana',

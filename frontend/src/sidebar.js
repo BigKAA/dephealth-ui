@@ -475,9 +475,56 @@ function renderGrafanaDashboards(data) {
   const base = grafanaConfig.baseUrl;
   const db = grafanaConfig.dashboards || {};
 
-  // Build dashboard links with context-aware parameters
+  // Build dashboard links in priority order: cascade → root cause → service → link → lists
   const dashboards = [];
 
+  if (db.cascadeOverview) {
+    let url = `${base}/d/${db.cascadeOverview}/`;
+    if (data && data.namespace) {
+      url += `?var-namespace=${encodeURIComponent(data.namespace)}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.cascadeOverview'),
+      url,
+    });
+  }
+  if (db.rootCause) {
+    let url = `${base}/d/${db.rootCause}/`;
+    if (data && data.type === 'service' && data.id) {
+      const params = new URLSearchParams();
+      params.set('var-service', data.id);
+      if (data.namespace) params.set('var-namespace', data.namespace);
+      url += `?${params.toString()}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.rootCause'),
+      url,
+    });
+  }
+  if (db.serviceStatus) {
+    let url = `${base}/d/${db.serviceStatus}/`;
+    if (data && data.type === 'service' && data.id) {
+      url += `?var-service=${encodeURIComponent(data.id)}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.serviceStatus'),
+      url,
+    });
+  }
+  if (db.linkStatus) {
+    let url = `${base}/d/${db.linkStatus}/`;
+    if (data && data.host && data.port) {
+      const params = new URLSearchParams();
+      if (data.label) params.set('var-dependency', data.label);
+      if (data.host) params.set('var-host', data.host);
+      if (data.port) params.set('var-port', data.port);
+      url += `?${params.toString()}`;
+    }
+    dashboards.push({
+      label: t('sidebar.grafana.linkStatus'),
+      url,
+    });
+  }
   if (db.serviceList) {
     dashboards.push({
       label: t('sidebar.grafana.serviceList'),
@@ -494,32 +541,6 @@ function renderGrafanaDashboards(data) {
     dashboards.push({
       label: t('sidebar.grafana.linksStatus'),
       url: `${base}/d/${db.linksStatus}/`,
-    });
-  }
-  if (db.serviceStatus) {
-    let url = `${base}/d/${db.serviceStatus}/`;
-    // Context-aware: add service variable when a service node is selected
-    if (data && data.type === 'service' && data.id) {
-      url += `?var-service=${encodeURIComponent(data.id)}`;
-    }
-    dashboards.push({
-      label: t('sidebar.grafana.serviceStatus'),
-      url,
-    });
-  }
-  if (db.linkStatus) {
-    let url = `${base}/d/${db.linkStatus}/`;
-    // Context-aware: add link variables when node has connection details
-    if (data && data.host && data.port) {
-      const params = new URLSearchParams();
-      if (data.label) params.set('var-dependency', data.label);
-      if (data.host) params.set('var-host', data.host);
-      if (data.port) params.set('var-port', data.port);
-      url += `?${params.toString()}`;
-    }
-    dashboards.push({
-      label: t('sidebar.grafana.linkStatus'),
-      url,
     });
   }
 
@@ -582,7 +603,7 @@ export function openEdgeSidebar(edge, cy) {
   renderActions(data);
 
   // Grafana dashboards section (context-aware for edges)
-  renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel);
+  renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel, sourceNode.data('namespace'));
 
   // Show sidebar
   sidebar.classList.remove('hidden');
@@ -728,7 +749,7 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
  * @param {string} sourceLabel - Source node label
  * @param {string} targetLabel - Target node label
  */
-function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel) {
+function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel, sourceNamespace) {
   const section = $('#sidebar-grafana');
   if (!section) return;
 
@@ -742,10 +763,15 @@ function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel) {
 
   const dashboards = [];
 
-  if (db.linksStatus) {
+  if (db.cascadeOverview) {
+    let url = `${base}/d/${db.cascadeOverview}/`;
+    // Use source node namespace for context
+    if (sourceNamespace) {
+      url += `?var-namespace=${encodeURIComponent(sourceNamespace)}`;
+    }
     dashboards.push({
-      label: t('sidebar.grafana.linksStatus'),
-      url: `${base}/d/${db.linksStatus}/`,
+      label: t('sidebar.grafana.cascadeOverview'),
+      url,
     });
   }
   if (db.linkStatus) {
@@ -761,7 +787,6 @@ function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel) {
     });
   }
   if (db.serviceStatus) {
-    // Link to source service status
     let url = `${base}/d/${db.serviceStatus}/`;
     if (data.source) {
       url += `?var-service=${encodeURIComponent(data.source)}`;
@@ -769,6 +794,12 @@ function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel) {
     dashboards.push({
       label: t('sidebar.grafana.serviceStatus'),
       url,
+    });
+  }
+  if (db.linksStatus) {
+    dashboards.push({
+      label: t('sidebar.grafana.linksStatus'),
+      url: `${base}/d/${db.linksStatus}/`,
     });
   }
 

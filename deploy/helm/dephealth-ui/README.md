@@ -149,11 +149,13 @@ config:
   grafana:
     baseUrl: "https://grafana.example.com"
     dashboards:
-      serviceStatus: "dephealth-service-status"   # Single service status
-      linkStatus: "dephealth-link-status"          # Single dependency status
-      serviceList: "dephealth-service-list"        # All services list
-      servicesStatus: "dephealth-services-status"  # All services overview
-      linksStatus: "dephealth-links-status"        # All links overview
+      cascadeOverview: "dephealth-cascade-overview"  # Cascade failure overview
+      rootCause: "dephealth-root-cause"              # Root cause analyzer
+      serviceStatus: "dephealth-service-status"      # Single service status
+      linkStatus: "dephealth-link-status"            # Single dependency status
+      serviceList: "dephealth-service-list"          # All services list
+      servicesStatus: "dephealth-services-status"    # All services overview
+      linksStatus: "dephealth-links-status"          # All links overview
 ```
 
 If `grafana.baseUrl` is empty, Grafana links are hidden in the UI.
@@ -189,6 +191,8 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 | `config.cache.ttl` | Cache TTL duration | `15s` |
 | `config.topology.lookback` | Stale node retention window (`0` = disabled) | `"0"` |
 | `config.grafana.baseUrl` | Grafana base URL (empty = links hidden) | `""` |
+| `config.grafana.dashboards.cascadeOverview` | Cascade Overview dashboard UID | `dephealth-cascade-overview` |
+| `config.grafana.dashboards.rootCause` | Root Cause Analyzer dashboard UID | `dephealth-root-cause` |
 | `config.grafana.dashboards.serviceStatus` | Service Status dashboard UID | `dephealth-service-status` |
 | `config.grafana.dashboards.linkStatus` | Link Status dashboard UID | `dephealth-link-status` |
 | `config.grafana.dashboards.serviceList` | Service List dashboard UID | `dephealth-service-list` |

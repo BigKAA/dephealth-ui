@@ -27,6 +27,8 @@ customCA:
 config:
   server:
     listen: ":8080"
+  topology:
+    lookback: "1h"  
   datasources:
     prometheus:
       url: "http://victoriametrics.dephealth-monitoring.svc:8428"
@@ -44,6 +46,8 @@ config:
   grafana:
     baseUrl: "http://grafana.kryukov.lan"
     dashboards:
+      cascadeOverview: "dephealth-cascade-overview"
+      rootCause: "dephealth-root-cause"
       serviceStatus: "dephealth-service-status"
       linkStatus: "dephealth-link-status"
       serviceList: "dephealth-service-list"

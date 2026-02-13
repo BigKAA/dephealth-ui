@@ -16,7 +16,7 @@ import { initAlertDrawer, updateAlertDrawer } from './alerts.js';
 import { initShortcuts } from './shortcuts.js';
 import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js';
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
-import { initContextMenu } from './contextmenu.js';
+import { initContextMenu, setContextMenuGrafanaConfig } from './contextmenu.js';
 import { makeDraggable } from './draggable.js';
 import { computeCascadeWarnings } from './cascade.js';
 import {
@@ -586,6 +586,7 @@ async function init() {
     const config = await withRetry(fetchConfig);
     appConfig = config; // Store globally for graph rendering
     setGrafanaConfig(config);
+    setContextMenuGrafanaConfig(config);
 
     if (config.cache && config.cache.ttl > 0) {
       pollInterval = config.cache.ttl * 1000;

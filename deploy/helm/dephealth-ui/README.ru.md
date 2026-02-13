@@ -149,11 +149,13 @@ config:
   grafana:
     baseUrl: "https://grafana.example.com"
     dashboards:
-      serviceStatus: "dephealth-service-status"   # Статус одного сервиса
-      linkStatus: "dephealth-link-status"          # Статус одной зависимости
-      serviceList: "dephealth-service-list"        # Список всех сервисов
-      servicesStatus: "dephealth-services-status"  # Обзор всех сервисов
-      linksStatus: "dephealth-links-status"        # Обзор всех связей
+      cascadeOverview: "dephealth-cascade-overview"  # Обзор каскадных сбоев
+      rootCause: "dephealth-root-cause"              # Анализ первопричин
+      serviceStatus: "dephealth-service-status"      # Статус одного сервиса
+      linkStatus: "dephealth-link-status"            # Статус одной зависимости
+      serviceList: "dephealth-service-list"          # Список всех сервисов
+      servicesStatus: "dephealth-services-status"    # Обзор всех сервисов
+      linksStatus: "dephealth-links-status"          # Обзор всех связей
 ```
 
 Если `grafana.baseUrl` пустой, ссылки на Grafana скрыты в UI.

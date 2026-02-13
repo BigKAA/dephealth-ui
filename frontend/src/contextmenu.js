@@ -9,6 +9,17 @@ const $ = (sel) => document.querySelector(sel);
 
 let menuEl = null;
 let cyInstance = null;
+let grafanaConfig = null;
+
+/**
+ * Set Grafana config for context menu dashboard links.
+ * @param {object} config - Config object from /api/v1/config
+ */
+export function setContextMenuGrafanaConfig(config) {
+  if (config && config.grafana) {
+    grafanaConfig = config.grafana;
+  }
+}
 
 /**
  * Initialize context menu on Cytoscape instance.
@@ -43,6 +54,16 @@ export function initContextMenu(cy) {
         label: t('contextMenu.copyGrafanaUrl'),
         icon: 'bi-clipboard',
         action: () => copyToClipboard(data.grafanaUrl),
+      });
+    }
+
+    // Root Cause Analysis: only for nodes in cascade chain
+    if (data.inCascadeChain && grafanaConfig && grafanaConfig.baseUrl && grafanaConfig.dashboards && grafanaConfig.dashboards.rootCause) {
+      const rcUrl = `${grafanaConfig.baseUrl}/d/${grafanaConfig.dashboards.rootCause}/?var-service=${encodeURIComponent(data.id)}&var-namespace=${encodeURIComponent(data.namespace || '')}`;
+      items.push({
+        label: t('contextMenu.rootCauseAnalysis'),
+        icon: 'bi-search',
+        action: () => window.open(rcUrl, '_blank'),
       });
     }
 

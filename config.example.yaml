@@ -58,3 +58,5 @@ grafana:
     # Dashboard UIDs for link generation
     serviceStatus: "dephealth-service-status"
     linkStatus: "dephealth-link-status"
+    cascadeOverview: "dephealth-cascade-overview"
+    rootCause: "dephealth-root-cause"

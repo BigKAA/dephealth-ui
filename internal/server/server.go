@@ -116,6 +116,7 @@ func (s *Server) setupRoutes() {
 		r.Get("/alerts", s.handleAlerts)
 		r.Get("/instances", s.handleInstances)
 		r.Get("/cascade-analysis", s.handleCascadeAnalysis)
+		r.Get("/cascade-graph", s.handleCascadeGraph)
 	})
 
 	// SPA static files (embedded via embed.FS)
@@ -287,11 +288,13 @@ type configGrafana struct {
 }
 
 type configDashboards struct {
-	ServiceStatus  string `json:"serviceStatus"`
-	LinkStatus     string `json:"linkStatus"`
-	ServiceList    string `json:"serviceList"`
-	ServicesStatus string `json:"servicesStatus"`
-	LinksStatus    string `json:"linksStatus"`
+	ServiceStatus   string `json:"serviceStatus"`
+	LinkStatus      string `json:"linkStatus"`
+	ServiceList     string `json:"serviceList"`
+	ServicesStatus  string `json:"servicesStatus"`
+	LinksStatus     string `json:"linksStatus"`
+	CascadeOverview string `json:"cascadeOverview"`
+	RootCause       string `json:"rootCause"`
 }
 
 type configCache struct {
@@ -303,11 +306,13 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		Grafana: configGrafana{
 			BaseURL: s.cfg.Grafana.BaseURL,
 			Dashboards: configDashboards{
-				ServiceStatus:  s.cfg.Grafana.Dashboards.ServiceStatus,
-				LinkStatus:     s.cfg.Grafana.Dashboards.LinkStatus,
-				ServiceList:    s.cfg.Grafana.Dashboards.ServiceList,
-				ServicesStatus: s.cfg.Grafana.Dashboards.ServicesStatus,
-				LinksStatus:    s.cfg.Grafana.Dashboards.LinksStatus,
+				ServiceStatus:   s.cfg.Grafana.Dashboards.ServiceStatus,
+				LinkStatus:      s.cfg.Grafana.Dashboards.LinkStatus,
+				ServiceList:     s.cfg.Grafana.Dashboards.ServiceList,
+				ServicesStatus:  s.cfg.Grafana.Dashboards.ServicesStatus,
+				LinksStatus:     s.cfg.Grafana.Dashboards.LinksStatus,
+				CascadeOverview: s.cfg.Grafana.Dashboards.CascadeOverview,
+				RootCause:       s.cfg.Grafana.Dashboards.RootCause,
 			},
 		},
 		Cache: configCache{
@@ -377,6 +382,179 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		s.logger.Error("failed to encode cascade analysis response", "error", err)
+	}
+}
+
+// graphNode is a node in the Grafana Node Graph panel format.
+type graphNode struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	SubTitle    string  `json:"subTitle"`
+	MainStat    string  `json:"mainStat"`
+	ArcFailed   float64 `json:"arc__failed"`
+	ArcDegraded float64 `json:"arc__degraded"`
+	ArcOK       float64 `json:"arc__ok"`
+	ArcUnknown  float64 `json:"arc__unknown"`
+}
+
+// graphEdge is an edge in the Grafana Node Graph panel format.
+type graphEdge struct {
+	ID       string `json:"id"`
+	Source   string `json:"source"`
+	Target   string `json:"target"`
+	MainStat string `json:"mainStat"`
+}
+
+// cascadeGraphResponse is the response for the cascade-graph endpoint.
+type cascadeGraphResponse struct {
+	Nodes []graphNode `json:"nodes"`
+	Edges []graphEdge `json:"edges"`
+}
+
+func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
+	service := r.URL.Query().Get("service")
+	namespace := r.URL.Query().Get("namespace")
+
+	maxDepth := 0
+	if d := r.URL.Query().Get("depth"); d != "" {
+		if _, err := fmt.Sscanf(d, "%d", &maxDepth); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
+			return
+		}
+	}
+
+	// Get topology data from cache or build fresh.
+	var topoNodes []topology.Node
+	var topoEdges []topology.Edge
+
+	if cached, ok := s.cache.Get(); ok {
+		topoNodes = cached.Nodes
+		topoEdges = cached.Edges
+	} else {
+		resp, err := s.builder.Build(r.Context(), topology.QueryOptions{})
+		if err != nil {
+			s.logger.Error("failed to build topology for cascade graph", "error", err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			return
+		}
+		s.cache.Set(resp)
+		topoNodes = resp.Nodes
+		topoEdges = resp.Edges
+	}
+
+	opts := cascade.Options{
+		MaxDepth:  maxDepth,
+		Namespace: namespace,
+	}
+
+	var result *cascade.AnalysisResult
+	if service != "" {
+		result = cascade.AnalyzeForService(topoNodes, topoEdges, service, opts)
+	} else {
+		result = cascade.Analyze(topoNodes, topoEdges, opts)
+	}
+
+	// Build node state lookup from topology.
+	stateByID := make(map[string]string, len(topoNodes))
+	for _, n := range topoNodes {
+		stateByID[n.ID] = n.State
+	}
+
+	// Collect unique graph nodes.
+	seen := make(map[string]bool)
+	// labelToID maps RootCause.Label → RootCause.ID (Label may differ from ID,
+	// e.g. Label="svc:8080" vs ID="svc:8080" or Label="svc" vs ID="svc:8080").
+	labelToID := make(map[string]string)
+	var nodes []graphNode
+
+	addNode := func(id, title, namespace, state string) {
+		if seen[id] {
+			return
+		}
+		seen[id] = true
+		n := graphNode{
+			ID:       id,
+			Title:    title,
+			SubTitle: namespace,
+			MainStat: state,
+		}
+		switch state {
+		case "down":
+			n.ArcFailed = 1
+		case "degraded":
+			n.ArcDegraded = 1
+		case "ok":
+			n.ArcOK = 1
+		default:
+			n.ArcUnknown = 1
+		}
+		nodes = append(nodes, n)
+	}
+
+	for _, rc := range result.RootCauses {
+		addNode(rc.ID, rc.Label, rc.Namespace, rc.State)
+		if rc.Label != "" && rc.Label != rc.ID {
+			labelToID[rc.Label] = rc.ID
+		}
+	}
+	for _, as := range result.AffectedServices {
+		state := stateByID[as.Service]
+		if state == "" {
+			state = "unknown"
+		}
+		addNode(as.Service, as.Service, as.Namespace, state)
+	}
+
+	// resolveID maps a cascade chain reference to a graph node ID.
+	resolveID := func(ref string) string {
+		if seen[ref] {
+			return ref
+		}
+		if id, ok := labelToID[ref]; ok {
+			return id
+		}
+		return ref
+	}
+
+	// Build edges from cascade chains.
+	edgeSeen := make(map[string]bool)
+	var edges []graphEdge
+
+	for _, ch := range result.CascadeChains {
+		source := resolveID(ch.AffectedService)
+		target := resolveID(ch.DependsOn)
+		edgeID := source + "--" + target
+		if edgeSeen[edgeID] {
+			continue
+		}
+		edgeSeen[edgeID] = true
+		edges = append(edges, graphEdge{
+			ID:       edgeID,
+			Source:   source,
+			Target:   target,
+			MainStat: "",
+		})
+	}
+
+	if nodes == nil {
+		nodes = []graphNode{}
+	}
+	if edges == nil {
+		edges = []graphEdge{}
+	}
+
+	resp := cascadeGraphResponse{
+		Nodes: nodes,
+		Edges: edges,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.logger.Error("failed to encode cascade graph response", "error", err)
 	}
 }
 

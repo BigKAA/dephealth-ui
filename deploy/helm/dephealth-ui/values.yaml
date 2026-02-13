@@ -88,6 +88,8 @@ config:
   grafana:
     baseUrl: ""
     dashboards:
+      cascadeOverview: "dephealth-cascade-overview"
+      rootCause: "dephealth-root-cause"
       serviceStatus: "dephealth-service-status"
       linkStatus: "dephealth-link-status"
       serviceList: "dephealth-service-list"

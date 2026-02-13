@@ -111,6 +111,8 @@ export default {
   'sidebar.grafana.serviceList': 'Service List',
   'sidebar.grafana.servicesStatus': 'Services Status',
   'sidebar.grafana.linksStatus': 'Links Status',
+  'sidebar.grafana.cascadeOverview': 'Cascade Overview',
+  'sidebar.grafana.rootCause': 'Root Cause Analyzer',
   'sidebar.grafana.serviceStatus': 'Service Status',
   'sidebar.grafana.linkStatus': 'Link Status',
   'sidebar.instances': 'Instances',
@@ -177,6 +179,7 @@ export default {
   'sidebar.collapsed.expand': 'Expand namespace',
 
   // Context menu
+  'contextMenu.rootCauseAnalysis': 'Root Cause Analysis',
   'contextMenu.openInGrafana': 'Open in Grafana',
   'contextMenu.showDetails': 'Show Details',
   'contextMenu.copyGrafanaUrl': 'Copy Grafana URL',

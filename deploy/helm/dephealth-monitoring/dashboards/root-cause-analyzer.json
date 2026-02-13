@@ -179,10 +179,96 @@
       ]
     },
     {
+      "id": 11,
+      "title": "Dependency Graph",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "title": "Cascade Dependency Graph",
+      "description": "Visual dependency graph showing cascade failure propagation from root causes to affected services",
+      "type": "nodeGraph",
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "refId": "nodes",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-graph?service=${service}&namespace=${namespace}",
+          "url_options": { "method": "GET" },
+          "root_selector": "nodes",
+          "columns": [
+            { "selector": "id", "text": "id", "type": "string" },
+            { "selector": "title", "text": "title", "type": "string" },
+            { "selector": "subTitle", "text": "subtitle", "type": "string" },
+            { "selector": "mainStat", "text": "mainstat", "type": "string" },
+            { "selector": "arc__failed", "text": "arc__failed", "type": "number" },
+            { "selector": "arc__degraded", "text": "arc__degraded", "type": "number" },
+            { "selector": "arc__ok", "text": "arc__ok", "type": "number" },
+            { "selector": "arc__unknown", "text": "arc__unknown", "type": "number" }
+          ]
+        },
+        {
+          "refId": "edges",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://dephealth-ui.dephealth-ui.svc:8080/api/v1/cascade-graph?service=${service}&namespace=${namespace}",
+          "url_options": { "method": "GET" },
+          "root_selector": "edges",
+          "columns": [
+            { "selector": "id", "text": "id", "type": "string" },
+            { "selector": "source", "text": "source", "type": "string" },
+            { "selector": "target", "text": "target", "type": "string" },
+            { "selector": "mainStat", "text": "mainstat", "type": "string" }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "arc__failed" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "#F2495C", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "arc__degraded" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "arc__ok" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "arc__unknown" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "#8AB8FF", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "nodes": {},
+        "edges": {}
+      }
+    },
+    {
       "id": 4,
       "title": "Root Cause Analysis",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
       "collapsed": false
     },
     {
@@ -191,7 +277,7 @@
       "description": "Dependencies that are the actual root causes — terminal failures with no further downstream issues",
       "type": "table",
       "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 5 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 18 },
       "targets": [
         {
           "refId": "A",
@@ -259,7 +345,7 @@
       "description": "All dependency health check failures reachable from selected service (unlimited depth)",
       "type": "table",
       "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
       "targets": [
         {
           "refId": "A",
@@ -352,7 +438,7 @@
       "id": 7,
       "title": "Cascade Impact",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
       "collapsed": false
     },
     {
@@ -361,7 +447,7 @@
       "description": "Full cascade paths from affected service to root causes (unlimited depth)",
       "type": "table",
       "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 33 },
       "targets": [
         {
           "refId": "A",
@@ -437,7 +523,7 @@
       "id": 9,
       "title": "Service Health Timeline",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
       "collapsed": false
     },
     {
@@ -446,7 +532,7 @@
       "description": "Health state timeline for the selected service",
       "type": "state-timeline",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 29 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 42 },
       "fieldConfig": {
         "defaults": {
           "custom": {
