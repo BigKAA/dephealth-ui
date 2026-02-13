@@ -57,8 +57,8 @@ function findRealRootCauses(downNode, chainNodes) {
  * Compute cascade warnings for all nodes in the graph.
  *
  * Algorithm:
- * 1. For each Down service node, trace downstream through critical edges to
- *    find the real root cause (the actually unavailable dependency).
+ * 1. For each Down node (service or dependency), trace downstream through
+ *    critical edges to find the real root cause.
  * 2. BFS upstream from the Down node through critical edges to mark all
  *    upstream services with cascade warnings referencing the real root cause.
  * 3. Mark all nodes in the failure chain (down + root cause) with
@@ -79,9 +79,11 @@ export function computeCascadeWarnings(cy) {
     const cascadeMap = new Map();
     const allChainNodes = new Set();
 
-    // Find all Down service nodes as cascade starting points.
+    // Find all Down nodes as cascade starting points.
+    // Include all node types: when a service loses its own metrics it becomes
+    // a dependency-type node, but should still trigger cascade upstream.
     const downNodes = cy.nodes().filter(
-      (node) => node.data('state') === 'down' && node.data('type') === 'service'
+      (node) => node.data('state') === 'down' && !node.data('isGroup')
     );
 
     downNodes.forEach((downNode) => {
