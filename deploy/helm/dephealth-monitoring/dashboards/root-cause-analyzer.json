@@ -222,7 +222,7 @@
           {
             "matcher": { "id": "byName", "options": "Root Cause" },
             "properties": [
-              { "id": "custom.width", "value": 300 },
+              { "id": "custom.minWidth", "value": 300 },
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
               { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
               {
@@ -240,7 +240,7 @@
           {
             "matcher": { "id": "byName", "options": "State" },
             "properties": [
-              { "id": "custom.width", "value": 100 },
+              { "id": "custom.minWidth", "value": 100 },
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
               { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
             ]
@@ -292,7 +292,7 @@
           {
             "matcher": { "id": "byName", "options": "Service" },
             "properties": [
-              { "id": "custom.width", "value": 180 },
+              { "id": "custom.minWidth", "value": 180 },
               {
                 "id": "links",
                 "value": [
@@ -308,7 +308,7 @@
           {
             "matcher": { "id": "byName", "options": "Dependency" },
             "properties": [
-              { "id": "custom.width", "value": 180 },
+              { "id": "custom.minWidth", "value": 180 },
               {
                 "id": "links",
                 "value": [
@@ -324,19 +324,19 @@
           {
             "matcher": { "id": "byName", "options": "Type" },
             "properties": [
-              { "id": "custom.width", "value": 100 }
+              { "id": "custom.minWidth", "value": 100 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Host" },
             "properties": [
-              { "id": "custom.width", "value": 260 }
+              { "id": "custom.minWidth", "value": 260 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Port" },
             "properties": [
-              { "id": "custom.width", "value": 80 }
+              { "id": "custom.minWidth", "value": 80 }
             ]
           }
         ]
@@ -393,7 +393,7 @@
           {
             "matcher": { "id": "byName", "options": "Affected Service" },
             "properties": [
-              { "id": "custom.width", "value": 200 },
+              { "id": "custom.minWidth", "value": 200 },
               {
                 "id": "links",
                 "value": [
@@ -409,7 +409,7 @@
           {
             "matcher": { "id": "byName", "options": "Depends On (has failures)" },
             "properties": [
-              { "id": "custom.width", "value": 200 },
+              { "id": "custom.minWidth", "value": 200 },
               {
                 "id": "links",
                 "value": [
@@ -425,13 +425,13 @@
           {
             "matcher": { "id": "byName", "options": "Path" },
             "properties": [
-              { "id": "custom.width", "value": 400 }
+              { "id": "custom.minWidth", "value": 400 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Depth" },
             "properties": [
-              { "id": "custom.width", "value": 80 }
+              { "id": "custom.minWidth", "value": 80 }
             ]
           }
         ]

@@ -334,7 +334,7 @@
           {
             "matcher": { "id": "byName", "options": "Service" },
             "properties": [
-              { "id": "custom.width", "value": 160 },
+              { "id": "custom.minWidth", "value": 160 },
               {
                 "id": "links",
                 "value": [
@@ -350,7 +350,7 @@
           {
             "matcher": { "id": "byName", "options": "Dependency" },
             "properties": [
-              { "id": "custom.width", "value": 160 },
+              { "id": "custom.minWidth", "value": 160 },
               {
                 "id": "links",
                 "value": [
@@ -366,19 +366,19 @@
           {
             "matcher": { "id": "byName", "options": "Type" },
             "properties": [
-              { "id": "custom.width", "value": 100 }
+              { "id": "custom.minWidth", "value": 100 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Host" },
             "properties": [
-              { "id": "custom.width", "value": 260 }
+              { "id": "custom.minWidth", "value": 260 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Port" },
             "properties": [
-              { "id": "custom.width", "value": 80 }
+              { "id": "custom.minWidth", "value": 80 }
             ]
           },
           {
@@ -390,7 +390,7 @@
           {
             "matcher": { "id": "byName", "options": "Health" },
             "properties": [
-              { "id": "custom.width", "value": 100 },
+              { "id": "custom.minWidth", "value": 100 },
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
               { "id": "color", "value": { "mode": "thresholds" } },
               {

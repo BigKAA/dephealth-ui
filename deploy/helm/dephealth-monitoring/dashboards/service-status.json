@@ -219,7 +219,7 @@
           {
             "matcher": { "id": "byName", "options": "Зависимость" },
             "properties": [
-              { "id": "custom.width", "value": 180 },
+              { "id": "custom.minWidth", "value": 180 },
               {
                 "id": "links",
                 "value": [
@@ -235,25 +235,25 @@
           {
             "matcher": { "id": "byName", "options": "Тип" },
             "properties": [
-              { "id": "custom.width", "value": 100 }
+              { "id": "custom.minWidth", "value": 100 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Хост" },
             "properties": [
-              { "id": "custom.width", "value": 220 }
+              { "id": "custom.minWidth", "value": 220 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Порт" },
             "properties": [
-              { "id": "custom.width", "value": 80 }
+              { "id": "custom.minWidth", "value": 80 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Статус" },
             "properties": [
-              { "id": "custom.width", "value": 100 },
+              { "id": "custom.minWidth", "value": 100 },
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
               { "id": "color", "value": { "mode": "thresholds" } },
               {
@@ -279,7 +279,7 @@
             "properties": [
               { "id": "unit", "value": "s" },
               { "id": "decimals", "value": 3 },
-              { "id": "custom.width", "value": 120 },
+              { "id": "custom.minWidth", "value": 120 },
               { "id": "custom.cellOptions", "value": { "type": "color-text" } },
               { "id": "color", "value": { "mode": "thresholds" } },
               {
@@ -300,13 +300,13 @@
             "properties": [
               { "id": "unit", "value": "s" },
               { "id": "decimals", "value": 3 },
-              { "id": "custom.width", "value": 120 }
+              { "id": "custom.minWidth", "value": 120 }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Flapping" },
             "properties": [
-              { "id": "custom.width", "value": 100 },
+              { "id": "custom.minWidth", "value": 100 },
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
               { "id": "color", "value": { "mode": "thresholds" } },
               {
