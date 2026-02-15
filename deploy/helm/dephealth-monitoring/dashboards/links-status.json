@@ -57,7 +57,7 @@
           "refId": "B"
         },
         {
-          "expr": "rate(app_dependency_latency_seconds_sum{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"}[5m]) / rate(app_dependency_latency_seconds_count{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"}[5m])",
+          "expr": "sum by (dependency, type, host, port, job, namespace) (rate(app_dependency_latency_seconds_sum{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"}[5m])) / sum by (dependency, type, host, port, job, namespace) (rate(app_dependency_latency_seconds_count{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"}[5m]))",
           "format": "table",
           "instant": true,
           "range": false,
@@ -69,6 +69,20 @@
           "instant": true,
           "range": false,
           "refId": "D"
+        },
+        {
+          "expr": "max by (dependency, type, host, port, job, namespace, status) (app_dependency_status{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"} == 1)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "E"
+        },
+        {
+          "expr": "max by (dependency, type, host, port, job, namespace, detail) (app_dependency_status_detail{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"} == 1)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "F"
         }
       ],
       "transformations": [
@@ -79,7 +93,15 @@
             "excludeByName": {
               "Time": true,
               "__name__": true,
-              "namespace": true
+              "namespace": true,
+              "instance": true,
+              "critical": true,
+              "name": true,
+              "pod": true,
+              "service": true,
+              "le": true,
+              "Value #E": true,
+              "Value #F": true
             },
             "indexByName": {
               "dependency": 0,
@@ -88,9 +110,11 @@
               "port": 3,
               "job": 4,
               "Value #A": 5,
-              "Value #B": 6,
-              "Value #C": 7,
-              "Value #D": 8
+              "status": 6,
+              "detail": 7,
+              "Value #B": 8,
+              "Value #C": 9,
+              "Value #D": 10
             },
             "renameByName": {
               "dependency": "Зависимость",
@@ -99,6 +123,8 @@
               "port": "Порт",
               "job": "Сервис",
               "Value #A": "Статус",
+              "status": "Статус соед.",
+              "detail": "Детали",
               "Value #B": "P99 (сек)",
               "Value #C": "Avg (сек)",
               "Value #D": "Flapping"
@@ -255,6 +281,35 @@
                   ]
                 }
               }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Статус соед." },
+            "properties": [
+              { "id": "custom.minWidth", "value": 130 },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": {
+                    "ok": { "text": "ok", "color": "#4caf50" },
+                    "timeout": { "text": "timeout", "color": "#ff9800" },
+                    "connection_error": { "text": "conn_error", "color": "#f44336" },
+                    "dns_error": { "text": "dns_error", "color": "#9c27b0" },
+                    "auth_error": { "text": "auth_error", "color": "#ffeb3b" },
+                    "tls_error": { "text": "tls_error", "color": "#b71c1c" },
+                    "unhealthy": { "text": "unhealthy", "color": "#ff5722" },
+                    "error": { "text": "error", "color": "#f44336" }
+                  }}
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Детали" },
+            "properties": [
+              { "id": "custom.minWidth", "value": 150 }
             ]
           }
         ]

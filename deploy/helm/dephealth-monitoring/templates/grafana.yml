@@ -141,6 +141,19 @@ data:
   cascade-overview.json: |
     {{- .Files.Get "dashboards/cascade-overview.json" | nindent 4 }}
 ---
+# --- ConfigMap: dashboard - connection-diagnostics ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-connection-diagnostics
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "grafana") | nindent 4 }}
+data:
+  connection-diagnostics.json: |
+    {{- .Files.Get "dashboards/connection-diagnostics.json" | nindent 4 }}
+---
 # --- Deployment ---
 apiVersion: apps/v1
 kind: Deployment
@@ -228,6 +241,10 @@ spec:
               mountPath: /var/lib/grafana/dashboards/dephealth/cascade-overview.json
               subPath: cascade-overview.json
               readOnly: true
+            - name: dashboards-connection-diagnostics
+              mountPath: /var/lib/grafana/dashboards/dephealth/connection-diagnostics.json
+              subPath: connection-diagnostics.json
+              readOnly: true
             - name: data
               mountPath: /var/lib/grafana
       volumes:
@@ -258,6 +275,9 @@ spec:
         - name: dashboards-cascade-overview
           configMap:
             name: grafana-dashboard-cascade-overview
+        - name: dashboards-connection-diagnostics
+          configMap:
+            name: grafana-dashboard-connection-diagnostics
         - name: data
           emptyDir: {}
 ---

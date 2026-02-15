@@ -294,8 +294,9 @@ type configDashboards struct {
 	ServiceList     string `json:"serviceList"`
 	ServicesStatus  string `json:"servicesStatus"`
 	LinksStatus     string `json:"linksStatus"`
-	CascadeOverview string `json:"cascadeOverview"`
-	RootCause       string `json:"rootCause"`
+	CascadeOverview       string `json:"cascadeOverview"`
+	RootCause             string `json:"rootCause"`
+	ConnectionDiagnostics string `json:"connectionDiagnostics"`
 }
 
 type configCache struct {
@@ -312,8 +313,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 				ServiceList:     s.cfg.Grafana.Dashboards.ServiceList,
 				ServicesStatus:  s.cfg.Grafana.Dashboards.ServicesStatus,
 				LinksStatus:     s.cfg.Grafana.Dashboards.LinksStatus,
-				CascadeOverview: s.cfg.Grafana.Dashboards.CascadeOverview,
-				RootCause:       s.cfg.Grafana.Dashboards.RootCause,
+				CascadeOverview:       s.cfg.Grafana.Dashboards.CascadeOverview,
+				RootCause:             s.cfg.Grafana.Dashboards.RootCause,
+				ConnectionDiagnostics: s.cfg.Grafana.Dashboards.ConnectionDiagnostics,
 			},
 		},
 		Cache: configCache{

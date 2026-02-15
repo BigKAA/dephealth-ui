@@ -126,6 +126,7 @@ export default {
   'sidebar.grafana.rootCause': 'Root Cause Analyzer',
   'sidebar.grafana.serviceStatus': 'Service Status',
   'sidebar.grafana.linkStatus': 'Link Status',
+  'sidebar.grafana.connectionDiagnostics': 'Connection Diagnostics',
   'sidebar.instances': 'Instances',
   'sidebar.instancesCount': 'Instances ({count})',
   'sidebar.instanceCol': 'Instance',

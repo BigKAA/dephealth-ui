@@ -95,6 +95,7 @@ config:
       serviceList: "dephealth-service-list"
       servicesStatus: "dephealth-services-status"
       linksStatus: "dephealth-links-status"
+      connectionDiagnostics: "dephealth-connection-diagnostics"
   log:
     format: "json"        # "text" or "json"
     level: "info"         # "debug", "info", "warn", "error"

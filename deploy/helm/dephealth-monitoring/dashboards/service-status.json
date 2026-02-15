@@ -93,7 +93,7 @@
       },
       "targets": [
         {
-          "expr": "app_dependency_health{job=~\"$service\"}",
+          "expr": "min by (dependency, type, host, port) (app_dependency_health{job=~\"$service\"})",
           "legendFormat": "{{dependency}} ({{host}}:{{port}})",
           "refId": "A"
         }
@@ -132,8 +132,109 @@
       },
       "targets": [
         {
-          "expr": "avg_over_time(app_dependency_health{job=~\"$service\"}[$__range]) * 100",
+          "expr": "min by (dependency, type, host, port) (avg_over_time(app_dependency_health{job=~\"$service\"}[$__range])) * 100",
           "legendFormat": "{{dependency}} ({{host}}:{{port}})",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Статусы соединений",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "title": "Распределение статусов",
+      "type": "piechart",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed" },
+          "mappings": [
+            { "type": "value", "options": {
+              "ok": { "text": "ok", "color": "#4caf50" },
+              "timeout": { "text": "timeout", "color": "#ff9800" },
+              "connection_error": { "text": "conn_error", "color": "#f44336" },
+              "dns_error": { "text": "dns_error", "color": "#9c27b0" },
+              "auth_error": { "text": "auth_error", "color": "#ffeb3b" },
+              "tls_error": { "text": "tls_error", "color": "#b71c1c" },
+              "unhealthy": { "text": "unhealthy", "color": "#ff5722" },
+              "error": { "text": "error", "color": "#f44336" }
+            }}
+          ]
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ok" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4caf50" } }] },
+          { "matcher": { "id": "byName", "options": "timeout" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ff9800" } }] },
+          { "matcher": { "id": "byName", "options": "connection_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f44336" } }] },
+          { "matcher": { "id": "byName", "options": "dns_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9c27b0" } }] },
+          { "matcher": { "id": "byName", "options": "auth_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ffeb3b" } }] },
+          { "matcher": { "id": "byName", "options": "tls_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#b71c1c" } }] },
+          { "matcher": { "id": "byName", "options": "unhealthy" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ff5722" } }] },
+          { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f44336" } }] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "pieType": "pie",
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }
+      },
+      "targets": [
+        {
+          "expr": "count by (status) (max by (dependency, status) (app_dependency_status{job=~\"$service\"} == 1))",
+          "legendFormat": "{{status}}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Статусы по зависимостям",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed" },
+          "mappings": [
+            { "type": "special", "options": { "match": "null", "result": { "text": "N/A", "color": "gray" } } }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "gray", "value": null }]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/.*ok.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4caf50" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*timeout.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ff9800" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*connection_error.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f44336" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*dns_error.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9c27b0" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*auth_error.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ffeb3b" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*tls_error.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#b71c1c" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*unhealthy.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ff5722" } }] },
+          { "matcher": { "id": "byRegexp", "options": "/.*\\berror\\b.*/" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f44336" } }] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "textMode": "name",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "max by (dependency, status) (app_dependency_status{job=~\"$service\"} == 1)",
+          "legendFormat": "{{dependency}}: {{status}}",
           "refId": "A",
           "instant": true,
           "range": false
@@ -145,28 +246,28 @@
       "title": "Таблица endpoint-ов",
       "type": "table",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 9 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
       "targets": [
         {
-          "expr": "app_dependency_health{job=~\"$service\"}",
+          "expr": "min by (dependency, type, host, port) (app_dependency_health{job=~\"$service\"})",
           "format": "table",
           "instant": true,
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket{job=~\"$service\"}[5m]))",
+          "expr": "histogram_quantile(0.99, sum by (dependency, type, host, port, le) (rate(app_dependency_latency_seconds_bucket{job=~\"$service\"}[5m])))",
           "format": "table",
           "instant": true,
           "refId": "B"
         },
         {
-          "expr": "rate(app_dependency_latency_seconds_sum{job=~\"$service\"}[5m]) / rate(app_dependency_latency_seconds_count{job=~\"$service\"}[5m])",
+          "expr": "sum by (dependency, type, host, port) (rate(app_dependency_latency_seconds_sum{job=~\"$service\"}[5m])) / sum by (dependency, type, host, port) (rate(app_dependency_latency_seconds_count{job=~\"$service\"}[5m]))",
           "format": "table",
           "instant": true,
           "refId": "C"
         },
         {
-          "expr": "changes(app_dependency_health{job=~\"$service\"}[15m])",
+          "expr": "max by (dependency, type, host, port) (changes(app_dependency_health{job=~\"$service\"}[15m]))",
           "format": "table",
           "instant": true,
           "refId": "D"
@@ -182,7 +283,12 @@
               "__name__": true,
               "namespace": true,
               "job": true,
-              "instance": true
+              "instance": true,
+              "critical": true,
+              "name": true,
+              "pod": true,
+              "service": true,
+              "le": true
             },
             "indexByName": {
               "dependency": 0,
@@ -335,7 +441,7 @@
       "id": 5,
       "title": "Здоровье зависимостей (timeline)",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
       "collapsed": false
     },
     {
@@ -343,23 +449,21 @@
       "title": "app_dependency_health",
       "type": "state-timeline",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
       "fieldConfig": {
         "defaults": {
           "custom": {
             "lineWidth": 0,
             "fillOpacity": 80
           },
-          "color": { "mode": "thresholds" },
+          "color": { "mode": "fixed", "fixedColor": "gray" },
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 1 }
-            ]
+            "steps": [{ "color": "gray", "value": null }]
           },
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+            { "type": "range", "options": { "from": -0.5, "to": 0.5, "result": { "text": "DOWN", "color": "red", "index": 0 } } },
+            { "type": "range", "options": { "from": 0.5, "to": 1.5, "result": { "text": "UP", "color": "green", "index": 1 } } }
           ],
           "links": [
             {
@@ -381,7 +485,7 @@
       },
       "targets": [
         {
-          "expr": "app_dependency_health{job=~\"$service\"}",
+          "expr": "min by (dependency, type, host, port) (app_dependency_health{job=~\"$service\"})",
           "legendFormat": "{{dependency}} ({{host}}:{{port}})",
           "refId": "A"
         }
@@ -391,7 +495,7 @@
       "id": 7,
       "title": "Латентность",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
       "collapsed": false
     },
     {
@@ -399,7 +503,7 @@
       "title": "Латентность проверок (heatmap)",
       "type": "heatmap",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 27 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 33 },
       "fieldConfig": {
         "defaults": { "custom": {} },
         "overrides": []
@@ -425,7 +529,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (le) (rate(app_dependency_latency_seconds_bucket{job=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by (dependency, le) (rate(app_dependency_latency_seconds_bucket{job=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{le}}",
           "format": "heatmap",
           "refId": "A"
@@ -437,7 +541,7 @@
       "title": "P99 латентность по зависимости",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -467,7 +571,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket{job=~\"$service\"}[5m]))",
+          "expr": "histogram_quantile(0.99, sum by (dependency, type, host, port, le) (rate(app_dependency_latency_seconds_bucket{job=~\"$service\"}[5m])))",
           "legendFormat": "{{dependency}} ({{host}}:{{port}})",
           "refId": "A"
         }
@@ -478,7 +582,7 @@
       "title": "Средняя латентность по зависимости",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -500,7 +604,7 @@
       },
       "targets": [
         {
-          "expr": "rate(app_dependency_latency_seconds_sum{job=~\"$service\"}[5m]) / rate(app_dependency_latency_seconds_count{job=~\"$service\"}[5m])",
+          "expr": "sum by (dependency, type, host, port) (rate(app_dependency_latency_seconds_sum{job=~\"$service\"}[5m])) / sum by (dependency, type, host, port) (rate(app_dependency_latency_seconds_count{job=~\"$service\"}[5m]))",
           "legendFormat": "{{dependency}} ({{host}}:{{port}})",
           "refId": "A"
         }

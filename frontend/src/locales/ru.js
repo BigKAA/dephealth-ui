@@ -126,6 +126,7 @@ export default {
   'sidebar.grafana.rootCause': 'Анализ первопричин',
   'sidebar.grafana.serviceStatus': 'Статус сервиса',
   'sidebar.grafana.linkStatus': 'Статус связи',
+  'sidebar.grafana.connectionDiagnostics': 'Диагностика соединений',
   'sidebar.instances': 'Экземпляры',
   'sidebar.instancesCount': 'Экземпляры ({count})',
   'sidebar.instanceCol': 'Экземпляр',

@@ -513,6 +513,15 @@ function renderGrafanaDashboards(data) {
       url,
     });
   }
+  if (db.connectionDiagnostics) {
+    const params = new URLSearchParams();
+    if (data && data.namespace) params.set('var-namespace', data.namespace);
+    if (data && data.id) params.set('var-service', data.id);
+    dashboards.push({
+      label: t('sidebar.grafana.connectionDiagnostics'),
+      url: `${base}/d/${db.connectionDiagnostics}/?${params.toString()}`,
+    });
+  }
   if (db.serviceStatus) {
     let url = `${base}/d/${db.serviceStatus}/`;
     if (data && data.type === 'service' && data.id) {
@@ -835,6 +844,16 @@ function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel, sourceNames
     dashboards.push({
       label: t('sidebar.grafana.cascadeOverview'),
       url,
+    });
+  }
+  if (db.connectionDiagnostics) {
+    const params = new URLSearchParams();
+    if (data.source) params.set('var-service', data.source);
+    if (targetLabel) params.set('var-dependency', targetLabel);
+    if (sourceNamespace) params.set('var-namespace', sourceNamespace);
+    dashboards.push({
+      label: t('sidebar.grafana.connectionDiagnostics'),
+      url: `${base}/d/${db.connectionDiagnostics}/?${params.toString()}`,
     });
   }
   if (db.linkStatus) {

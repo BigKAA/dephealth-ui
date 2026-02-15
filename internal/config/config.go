@@ -116,8 +116,9 @@ type DashboardsConfig struct {
 	ServiceList     string `yaml:"serviceList"`
 	ServicesStatus  string `yaml:"servicesStatus"`
 	LinksStatus     string `yaml:"linksStatus"`
-	CascadeOverview string `yaml:"cascadeOverview"`
-	RootCause       string `yaml:"rootCause"`
+	CascadeOverview        string `yaml:"cascadeOverview"`
+	RootCause              string `yaml:"rootCause"`
+	ConnectionDiagnostics  string `yaml:"connectionDiagnostics"`
 }
 
 // Load reads a YAML config file and applies environment variable overrides.
