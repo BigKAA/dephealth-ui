@@ -1,0 +1,7 @@
+# Homelab overrides
+global:
+  pushRegistry: harbor.kryukov.lan/library
+
+image:
+  tag: v0.4.1
+  pullPolicy: Always

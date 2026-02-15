@@ -489,6 +489,29 @@ function setupNamespaceLegend() {
   makeDraggable(legend, 'dephealth-ns-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
 }
 
+function setupConnectionLegend() {
+  const legend = $('#connection-legend');
+  const btnToggle = $('#btn-conn-legend');
+  const btnClose = $('#btn-conn-legend-close');
+
+  const visible = localStorage.getItem('dephealth-conn-legend') === 'visible';
+  if (visible) {
+    legend.classList.remove('hidden');
+  }
+
+  btnToggle.addEventListener('click', () => {
+    const isHidden = legend.classList.toggle('hidden');
+    localStorage.setItem('dephealth-conn-legend', isHidden ? 'hidden' : 'visible');
+  });
+
+  btnClose.addEventListener('click', () => {
+    legend.classList.add('hidden');
+    localStorage.setItem('dephealth-conn-legend', 'hidden');
+  });
+
+  makeDraggable(legend, 'dephealth-conn-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
+}
+
 function updateNamespaceLegend(data) {
   const container = $('#ns-legend-items');
   if (!container) return;
@@ -602,6 +625,14 @@ async function init() {
     setupGraphToolbar();
     setupLegend();
     setupNamespaceLegend();
+    setupConnectionLegend();
+
+    // Prevent clicks on floating panels inside #cy from reaching the Cytoscape canvas
+    for (const sel of ['#graph-legend', '#namespace-legend', '#connection-legend', '#search-panel', '#context-menu', '#graph-toolbar']) {
+      const el = $(sel);
+      if (el) el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    }
+
     initToolbar();
     initTooltip(cy);
     initSearch(cy);

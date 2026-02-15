@@ -17,7 +17,7 @@ HELM_VALUES   ?= $(HELM_CHART)/values-homelab.yaml
 # Test environment charts
 INFRA_CHART      ?= deploy/helm/dephealth-infra
 MONITORING_CHART ?= deploy/helm/dephealth-monitoring
-UNIPROXY_CHART   ?= $(HOME)/Projects/personal/topologymetrics/uniproxy/deploy/helm/uniproxy
+UNIPROXY_CHART   ?= deploy/helm/dephealth-uniproxy
 
 # --- Local ---
 

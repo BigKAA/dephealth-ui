@@ -5,6 +5,7 @@
 
 import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
+import { STATUS_COLORS, STATUS_ABBREVIATIONS, STATUS_LABELS } from './graph.js';
 import { getCollapsedChildren, expandNamespace, findConnectedChild } from './grouping.js';
 
 let topologyDataCache = null;
@@ -130,6 +131,14 @@ export function openSidebar(node, cy) {
     $('#sidebar-instances').innerHTML = '';
   }
 
+  // Dependency status summary (service nodes with SDK v0.4.1 data)
+  const depStatusEl = $('#sidebar-dep-status');
+  if (data.type === 'service') {
+    depStatusEl.innerHTML = renderDependencyStatusSummary(node, cy);
+  } else {
+    depStatusEl.innerHTML = '';
+  }
+
   // Connected edges section
   renderEdges(node, cy);
 
@@ -175,6 +184,9 @@ function openCollapsedSidebar(node, cy) {
       <span class="sidebar-detail-value">${item.value}</span>
     </div>
   `).join('');
+
+  // Dependency status: empty for collapsed
+  $('#sidebar-dep-status').innerHTML = '';
 
   // Alerts: empty
   $('#sidebar-alerts').innerHTML = '';
@@ -593,6 +605,9 @@ export function openEdgeSidebar(edge, cy) {
   // Alerts section (match by source + target)
   renderEdgeAlerts(data.source, data.target);
 
+  // Dependency status: empty for edges
+  $('#sidebar-dep-status').innerHTML = '';
+
   // Instances section: empty for edges
   $('#sidebar-instances').innerHTML = '';
 
@@ -613,6 +628,52 @@ export function openEdgeSidebar(edge, cy) {
  * Render edge details section.
  * @param {object} data - Edge data
  */
+/**
+ * Render a colored status badge for dependency status.
+ * @param {string} status - Status value (timeout, dns_error, etc.)
+ * @returns {string} HTML badge
+ */
+function formatStatusBadge(status) {
+  const color = STATUS_COLORS[status] || '#999';
+  const label = STATUS_LABELS[status] || status;
+  return `<span class="sidebar-status-badge" style="background-color:${color}">${label}</span>`;
+}
+
+/**
+ * Render dependency status summary for a service node.
+ * Shows counts of each status category among outgoing edges.
+ * @param {cytoscape.NodeSingular} node
+ * @param {cytoscape.Core} cy
+ * @returns {string} HTML or empty string
+ */
+function renderDependencyStatusSummary(node, cy) {
+  const outEdges = node.outgoers('edge');
+  if (outEdges.length === 0) return '';
+
+  const counts = {};
+  outEdges.forEach((e) => {
+    const status = e.data('status') || 'ok';
+    counts[status] = (counts[status] || 0) + 1;
+  });
+
+  // Only show if there are non-ok statuses
+  const hasNonOk = Object.keys(counts).some((k) => k !== 'ok');
+  if (!hasNonOk) return '';
+
+  const pills = Object.entries(counts)
+    .map(([status, count]) => {
+      const color = STATUS_COLORS[status] || '#999';
+      const label = STATUS_LABELS[status] || status;
+      return `<span class="sidebar-status-pill" style="background-color:${color}">${count} ${label}</span>`;
+    })
+    .join(' ');
+
+  return `
+    <div class="sidebar-section-title">${t('sidebar.depStatusSummary')}</div>
+    <div class="sidebar-status-summary">${pills}</div>
+  `;
+}
+
 function renderEdgeDetails(data) {
   const section = $('#sidebar-details');
   const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
@@ -620,6 +681,8 @@ function renderEdgeDetails(data) {
   const staleDetail = data.stale ? ` <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>` : '';
   const details = [
     { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>${staleDetail}` },
+    data.status && data.status !== 'ok' && { label: t('sidebar.edge.status'), value: formatStatusBadge(data.status) },
+    data.status && data.status !== 'ok' && data.detail && { label: t('sidebar.edge.detail'), value: `<code>${data.detail}</code>` },
     data.type && { label: t('sidebar.edge.type'), value: data.type },
     { label: t('sidebar.edge.latency'), value: data.stale ? '—' : (data.latency || '—') },
     { label: t('sidebar.edge.critical'), value: data.critical ? t('sidebar.edge.criticalYes') : t('sidebar.edge.criticalNo') },

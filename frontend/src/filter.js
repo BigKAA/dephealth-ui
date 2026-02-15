@@ -3,7 +3,8 @@ import { t } from './i18n.js';
 import { isGroupingEnabled, getCollapsedChildren } from './grouping.js';
 
 const STORAGE_KEY = 'dephealth-filters';
-const STATES = ['ok', 'degraded', 'down', 'unknown', 'warning'];
+const STATES = ['ok', 'degraded', 'down', 'warning'];
+const STATUS_VALUES = ['ok', 'timeout', 'connection_error', 'dns_error', 'auth_error', 'tls_error', 'unhealthy', 'error'];
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -11,6 +12,7 @@ const $ = (sel) => document.querySelector(sel);
 let activeFilters = {
   type: new Set(),
   state: new Set(),
+  status: new Set(),
   job: new Set(),
 };
 
@@ -24,6 +26,7 @@ let knownValues = {
 // Tom Select instances.
 let tsType = null;
 let tsJob = null;
+let tsStatus = null;
 let tsNamespace = null;
 
 // --- Tom Select initialization ---
@@ -55,6 +58,24 @@ function initTypeSelect() {
   });
 }
 
+function initStatusSelect() {
+  const el = $('#status-select');
+  tsStatus = new TomSelect(el, {
+    create: false,
+    plugins: ['remove_button'],
+    placeholder: t('filter.allStatuses'),
+    onChange(values) {
+      activeFilters.status = new Set(values);
+      saveToStorage();
+      window.dispatchEvent(new CustomEvent('filters-changed'));
+    },
+  });
+  // Populate with all known status values
+  for (const val of STATUS_VALUES) {
+    tsStatus.addOption({ value: val, text: val });
+  }
+}
+
 function initJobSelect() {
   const el = $('#job-select');
   tsJob = new TomSelect(el, {
@@ -76,6 +97,7 @@ function updateTomSelectPlaceholders() {
   const updates = [
     { instance: tsNamespace, key: 'filter.allNamespaces' },
     { instance: tsType, key: 'filter.allTypes' },
+    { instance: tsStatus, key: 'filter.allStatuses' },
     { instance: tsJob, key: 'filter.allServices' },
   ];
   for (const { instance, key } of updates) {
@@ -119,10 +141,15 @@ export function initFilters(data) {
   restoreFromStorage();
   initNamespaceSelect();
   initTypeSelect();
+  initStatusSelect();
   initJobSelect();
   updateFilterValues(data);
   syncTomSelectOptions(tsType, knownValues.type, activeFilters.type);
   syncTomSelectOptions(tsJob, knownValues.job, activeFilters.job);
+  // Restore status filter selection
+  if (tsStatus && activeFilters.status.size > 0) {
+    tsStatus.setValue([...activeFilters.status], true);
+  }
   renderStateChips();
 
   // Update placeholders on language change
@@ -195,8 +222,9 @@ export function applyFilters(cy) {
 
   const hasTypeFilter = activeFilters.type.size > 0;
   const hasStateFilter = activeFilters.state.size > 0;
+  const hasStatusFilter = activeFilters.status.size > 0;
   const hasJobFilter = activeFilters.job.size > 0;
-  const hasAnyFilter = hasTypeFilter || hasStateFilter || hasJobFilter;
+  const hasAnyFilter = hasTypeFilter || hasStateFilter || hasStatusFilter || hasJobFilter;
 
   // 'warning' is a virtual state (frontend-computed cascade overlay, not a backend state).
   // A node matches 'warning' if it has cascadeCount > 0 and is not itself 'down'.
@@ -320,6 +348,29 @@ export function applyFilters(cy) {
       }
     });
 
+    // Pass 2.5: status filter — hide edges whose status doesn't match.
+    if (hasStatusFilter) {
+      cy.edges().forEach((edge) => {
+        if (!edge.visible()) return;
+        const edgeStatus = edge.data('status') || 'ok';
+        if (!activeFilters.status.has(edgeStatus)) {
+          edge.hide();
+        }
+      });
+
+      // Re-evaluate node visibility: hide nodes with no visible edges
+      // (unless they match state filter explicitly).
+      cy.nodes().forEach((node) => {
+        if (!node.visible()) return;
+        if (groupingActive && node.data('isGroup')) return;
+        if (hasStateFilter && matchesStateFilter(node)) return;
+        const connectedEdges = node.connectedEdges();
+        if (connectedEdges.length > 0 && connectedEdges.every((e) => !e.visible())) {
+          node.hide();
+        }
+      });
+    }
+
     // Third pass: hide orphan nodes (skip group nodes).
     // Skip nodes that explicitly match the state filter — the user wants to see them
     // even if their neighbors are filtered out.
@@ -393,6 +444,7 @@ export function getActiveFilters() {
   return {
     type: [...activeFilters.type],
     state: [...activeFilters.state],
+    status: [...activeFilters.status],
     job: [...activeFilters.job],
   };
 }
@@ -403,10 +455,12 @@ export function getActiveFilters() {
 export function resetFilters() {
   activeFilters.type.clear();
   activeFilters.state.clear();
+  activeFilters.status.clear();
   activeFilters.job.clear();
   localStorage.removeItem(STORAGE_KEY);
 
   if (tsType) tsType.clear(true);
+  if (tsStatus) tsStatus.clear(true);
   if (tsJob) tsJob.clear(true);
   if (tsNamespace) tsNamespace.setValue('', true);
 
@@ -418,7 +472,7 @@ export function resetFilters() {
  * @returns {boolean}
  */
 export function hasActiveFilters() {
-  return activeFilters.type.size > 0 || activeFilters.state.size > 0 || activeFilters.job.size > 0;
+  return activeFilters.type.size > 0 || activeFilters.state.size > 0 || activeFilters.status.size > 0 || activeFilters.job.size > 0;
 }
 
 // --- Internal helpers ---
@@ -495,6 +549,7 @@ function saveToStorage() {
   const data = {
     type: [...activeFilters.type],
     state: [...activeFilters.state],
+    status: [...activeFilters.status],
     job: [...activeFilters.job],
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -507,6 +562,7 @@ function restoreFromStorage() {
     const data = JSON.parse(raw);
     if (data.type) activeFilters.type = new Set(data.type);
     if (data.state) activeFilters.state = new Set(data.state);
+    if (data.status) activeFilters.status = new Set(data.status);
     if (data.job) activeFilters.job = new Set(data.job);
   } catch {
     // Corrupted data — ignore.

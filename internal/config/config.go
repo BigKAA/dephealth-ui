@@ -3,10 +3,13 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
+	"github.com/BigKAA/dephealth-ui/internal/logging"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,6 +24,7 @@ type Config struct {
 	Auth        AuthConfig        `yaml:"auth"`
 	Grafana     GrafanaConfig     `yaml:"grafana"`
 	Alerts      AlertsConfig      `yaml:"alerts"`
+	Log         logging.LogConfig `yaml:"log"`
 }
 
 // AlertsConfig holds alert severity display settings.
@@ -181,6 +185,24 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("unknown auth.type: %q (supported: none, basic, oidc)", c.Auth.Type)
 	}
 
+	// Validate log config.
+	switch c.Log.Format {
+	case "text", "json", "":
+	default:
+		return fmt.Errorf("log.format %q is invalid (expected text/json)", c.Log.Format)
+	}
+	if c.Log.Level != "" {
+		var level slog.Level
+		if err := level.UnmarshalText([]byte(strings.ToUpper(c.Log.Level))); err != nil {
+			return fmt.Errorf("log.level %q is invalid (expected debug/info/warn/error)", c.Log.Level)
+		}
+	}
+	switch c.Log.TimeFormat {
+	case "rfc3339", "rfc3339nano", "unix", "unixmilli", "":
+	default:
+		return fmt.Errorf("log.timeFormat %q is invalid (expected rfc3339/rfc3339nano/unix/unixmilli)", c.Log.TimeFormat)
+	}
+
 	// Validate alerts config.
 	if len(c.Alerts.SeverityLevels) == 0 {
 		return fmt.Errorf("alerts.severityLevels must not be empty")
@@ -218,6 +240,11 @@ func defaultConfig() *Config {
 				{Value: "warning", Color: "#ff9800"},
 				{Value: "info", Color: "#2196f3"},
 			},
+		},
+		Log: logging.LogConfig{
+			Format:     "json",
+			Level:      "info",
+			TimeFormat: "rfc3339nano",
 		},
 	}
 }
@@ -268,5 +295,31 @@ func applyEnvOverrides(cfg *Config) {
 		if err := json.Unmarshal([]byte(v), &levels); err == nil {
 			cfg.Alerts.SeverityLevels = levels
 		}
+	}
+
+	// Log overrides.
+	if v := os.Getenv("LOG_FORMAT"); v != "" {
+		cfg.Log.Format = strings.ToLower(v)
+	}
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		cfg.Log.Level = strings.ToLower(v)
+	}
+	if v := os.Getenv("LOG_TIME_FORMAT"); v != "" {
+		cfg.Log.TimeFormat = strings.ToLower(v)
+	}
+	if v := os.Getenv("LOG_ADD_SOURCE"); v != "" {
+		cfg.Log.AddSource = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("LOG_TIME_KEY"); v != "" {
+		cfg.Log.TimeKey = v
+	}
+	if v := os.Getenv("LOG_LEVEL_KEY"); v != "" {
+		cfg.Log.LevelKey = v
+	}
+	if v := os.Getenv("LOG_MESSAGE_KEY"); v != "" {
+		cfg.Log.MessageKey = v
+	}
+	if v := os.Getenv("LOG_SOURCE_KEY"); v != "" {
+		cfg.Log.SourceKey = v
 	}
 }

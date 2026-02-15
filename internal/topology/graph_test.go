@@ -26,11 +26,15 @@ type mockPrometheusClient struct {
 	health        map[EdgeKey]float64
 	avg           map[EdgeKey]float64
 	p99           map[EdgeKey]float64
-	err           error // default error for all methods
-	edgesErr      error // override for QueryTopologyEdges
-	lookbackErr   error // override for QueryTopologyEdgesLookback
-	healthErr     error // override for QueryHealthState
-	avgErr        error // override for QueryAvgLatency
+	depStatus     map[EdgeKey]string // SDK v0.4.1 dependency status
+	depDetail     map[EdgeKey]string // SDK v0.4.1 dependency status detail
+	err           error              // default error for all methods
+	edgesErr      error              // override for QueryTopologyEdges
+	lookbackErr   error              // override for QueryTopologyEdgesLookback
+	healthErr     error              // override for QueryHealthState
+	avgErr        error              // override for QueryAvgLatency
+	depStatusErr  error              // override for QueryDependencyStatus
+	depDetailErr  error              // override for QueryDependencyStatusDetail
 }
 
 func (m *mockPrometheusClient) QueryTopologyEdges(_ context.Context, _ QueryOptions) ([]TopologyEdge, error) {
@@ -70,6 +74,20 @@ func (m *mockPrometheusClient) QueryP99Latency(_ context.Context, _ QueryOptions
 
 func (m *mockPrometheusClient) QueryInstances(_ context.Context, _ string) ([]Instance, error) {
 	return nil, m.err
+}
+
+func (m *mockPrometheusClient) QueryDependencyStatus(_ context.Context, _ QueryOptions) (map[EdgeKey]string, error) {
+	if m.depStatusErr != nil {
+		return nil, m.depStatusErr
+	}
+	return m.depStatus, m.err
+}
+
+func (m *mockPrometheusClient) QueryDependencyStatusDetail(_ context.Context, _ QueryOptions) (map[EdgeKey]string, error) {
+	if m.depDetailErr != nil {
+		return nil, m.depDetailErr
+	}
+	return m.depDetail, m.err
 }
 
 func TestGraphBuilder_Build(t *testing.T) {
@@ -1177,6 +1195,100 @@ func TestStaleDetection_LookbackDisabled(t *testing.T) {
 		if e.Stale {
 			t.Errorf("edge %s→%s is stale with lookback=0", e.Source, e.Target)
 		}
+	}
+}
+
+func TestBuildWithDependencyStatus(t *testing.T) {
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+			{Name: "svc-go", Namespace: "default", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
+			{Name: "svc-old", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}:  0,
+			{Name: "svc-old", Host: "pg", Port: "5432"}:    1,
+		},
+		avg: map[EdgeKey]float64{},
+		depStatus: map[EdgeKey]string{
+			{Name: "svc-go", Host: "pg", Port: "5432"}:   "ok",
+			{Name: "svc-go", Host: "redis", Port: "6379"}: "timeout",
+		},
+		depDetail: map[EdgeKey]string{
+			{Name: "svc-go", Host: "redis", Port: "6379"}: "connection_refused",
+		},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	edgeByKey := make(map[string]Edge)
+	for _, e := range resp.Edges {
+		edgeByKey[e.Source+"→"+e.Target] = e
+	}
+
+	// svc-go → pg: has status=ok, no detail.
+	pgEdge := edgeByKey["svc-go→pg:5432"]
+	if pgEdge.Status != "ok" {
+		t.Errorf("pg edge Status = %q, want ok", pgEdge.Status)
+	}
+	if pgEdge.Detail != "" {
+		t.Errorf("pg edge Detail = %q, want empty", pgEdge.Detail)
+	}
+
+	// svc-go → redis: has status=timeout, detail=connection_refused.
+	redisEdge := edgeByKey["svc-go→redis:6379"]
+	if redisEdge.Status != "timeout" {
+		t.Errorf("redis edge Status = %q, want timeout", redisEdge.Status)
+	}
+	if redisEdge.Detail != "connection_refused" {
+		t.Errorf("redis edge Detail = %q, want connection_refused", redisEdge.Detail)
+	}
+
+	// svc-old → pg: old SDK, no status/detail (backward compat).
+	oldPgEdge := edgeByKey["svc-old→pg:5432"]
+	if oldPgEdge.Status != "" {
+		t.Errorf("old pg edge Status = %q, want empty", oldPgEdge.Status)
+	}
+	if oldPgEdge.Detail != "" {
+		t.Errorf("old pg edge Detail = %q, want empty", oldPgEdge.Detail)
+	}
+}
+
+func TestBuildWithDependencyStatusQueryFailure(t *testing.T) {
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+		},
+		avg:          map[EdgeKey]float64{},
+		depStatusErr: errors.New("metric not found"),
+		depDetailErr: errors.New("metric not found"),
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() should not fail on status query error: %v", err)
+	}
+
+	// Partial data: response should still have edges.
+	if len(resp.Edges) != 1 {
+		t.Errorf("expected 1 edge, got %d", len(resp.Edges))
+	}
+	// Status/detail should be empty (graceful degradation).
+	if resp.Edges[0].Status != "" {
+		t.Errorf("edge Status = %q, want empty on query failure", resp.Edges[0].Status)
+	}
+	// Meta should report partial.
+	if !resp.Meta.Partial {
+		t.Error("expected partial=true when status queries fail")
 	}
 }
 

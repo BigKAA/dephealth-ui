@@ -44,6 +44,10 @@
       <span class="filter-label" data-i18n="filter.state">State</span>
       <div class="filter-chips" id="state-chips"></div>
     </div>
+    <div class="filter-column" id="filter-status">
+      <span class="filter-label" data-i18n="filter.status">Status</span>
+      <select id="status-select" multiple placeholder="All statuses"></select>
+    </div>
     <div class="filter-column" id="filter-job">
       <span class="filter-label" data-i18n="filter.service">Service</span>
       <select id="job-select" multiple placeholder="All services"></select>
@@ -67,6 +71,7 @@
       <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
       <button id="btn-legend" data-i18n-title="graphToolbar.legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
       <button id="btn-ns-legend" data-i18n-title="graphToolbar.nsLegend" title="Toggle namespace legend"><i class="bi bi-palette"></i></button>
+      <button id="btn-conn-legend" data-i18n-title="graphToolbar.connLegend" title="Toggle connection legend"><i class="bi bi-ethernet"></i></button>
     </div>
     <div id="search-panel" class="search-panel hidden">
       <input id="search-input" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search nodes..." autocomplete="off" />
@@ -83,13 +88,13 @@
         <div class="legend-item"><span class="legend-dot" style="background: #4caf50;"></span> <span data-i18n="legend.ok">OK</span></div>
         <div class="legend-item"><span class="legend-dot" style="background: #ff9800;"></span> <span data-i18n="legend.degraded">Degraded</span></div>
         <div class="legend-item"><span class="legend-dot" style="background: #f44336;"></span> <span data-i18n="legend.down">Down</span></div>
-        <div class="legend-item"><span class="legend-dot" style="background: #9e9e9e;"></span> <span data-i18n="legend.unknown">Unknown</span></div>
       </div>
       <div class="legend-section">
         <div class="legend-section-title" data-i18n="legend.edgeStates">Edge States</div>
         <div class="legend-item"><span class="legend-line solid" style="border-color: #4caf50;"></span> <span data-i18n="legend.ok">OK</span></div>
         <div class="legend-item"><span class="legend-line dashed" style="border-color: #ff9800;"></span> <span data-i18n="legend.degraded">Degraded</span></div>
         <div class="legend-item"><span class="legend-line dotted" style="border-color: #f44336;"></span> <span data-i18n="legend.down">Down</span></div>
+        <div class="legend-item"><span class="legend-line solid" style="border-color: #9e9e9e;"></span> <span data-i18n="legend.unknown">Unknown</span></div>
       </div>
       <div class="legend-section">
         <div class="legend-section-title" data-i18n="legend.alerts">Alerts</div>
@@ -104,6 +109,30 @@
         <button id="btn-ns-legend-close" class="legend-close" data-i18n-title="namespaceLegend.close" title="Close">×</button>
       </div>
       <div id="ns-legend-items" class="ns-legend-items"></div>
+    </div>
+    <div id="connection-legend" class="connection-legend hidden">
+      <div class="legend-header">
+        <span class="legend-title" data-i18n="connLegend.title">Connection Statuses</span>
+        <button id="btn-conn-legend-close" class="legend-close" data-i18n-title="connLegend.close" title="Close">×</button>
+      </div>
+      <table class="conn-legend-table">
+        <thead>
+          <tr>
+            <th data-i18n="connLegend.color">Color</th>
+            <th data-i18n="connLegend.abbr">Abbr</th>
+            <th data-i18n="connLegend.meaning">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="legend-line solid" style="border-color: #ff9800;"></span></td><td class="conn-abbr">TMO</td><td data-i18n="legend.status.timeout">Timeout</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #f44336;"></span></td><td class="conn-abbr">CONN</td><td data-i18n="legend.status.connectionError">Connection Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #9c27b0;"></span></td><td class="conn-abbr">DNS</td><td data-i18n="legend.status.dnsError">DNS Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #ffeb3b;"></span></td><td class="conn-abbr">AUTH</td><td data-i18n="legend.status.authError">Auth Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #b71c1c;"></span></td><td class="conn-abbr">TLS</td><td data-i18n="legend.status.tlsError">TLS Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #ff5722;"></span></td><td class="conn-abbr">UNH</td><td data-i18n="legend.status.unhealthy">Unhealthy</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #f44336;"></span></td><td class="conn-abbr">ERR</td><td data-i18n="legend.status.error">Error</td></tr>
+        </tbody>
+      </table>
     </div>
     <div id="empty-state" class="hidden">
       <div class="empty-state-content">
@@ -125,6 +154,7 @@
     </div>
     <div class="sidebar-body">
       <div id="sidebar-details" class="sidebar-section"></div>
+      <div id="sidebar-dep-status" class="sidebar-section"></div>
       <div id="sidebar-alerts" class="sidebar-section"></div>
       <div id="sidebar-instances" class="sidebar-section"></div>
       <div id="sidebar-edges" class="sidebar-section"></div>

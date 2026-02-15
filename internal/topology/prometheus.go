@@ -32,6 +32,14 @@ type PrometheusClient interface {
 
 	// QueryInstances returns all instances (pods/containers) for a given service.
 	QueryInstances(ctx context.Context, serviceName string) ([]Instance, error)
+
+	// QueryDependencyStatus returns the active status per edge (SDK v0.4.1).
+	// Uses app_dependency_status == 1 to find the active enum value.
+	QueryDependencyStatus(ctx context.Context, opts QueryOptions) (map[EdgeKey]string, error)
+
+	// QueryDependencyStatusDetail returns the status detail per edge (SDK v0.4.1).
+	// Uses app_dependency_status_detail == 1 for the info-pattern metric.
+	QueryDependencyStatusDetail(ctx context.Context, opts QueryOptions) (map[EdgeKey]string, error)
 }
 
 // PrometheusConfig holds Prometheus connection settings.
@@ -69,6 +77,9 @@ const (
 	queryInstances     = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
 	// queryTopologyEdgesLookback uses last_over_time to include stale series.
 	queryTopologyEdgesLookback = `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health%s[%s]))`
+	// SDK v0.4.1: dependency status (enum pattern, exactly one series == 1 per endpoint).
+	queryDependencyStatus       = `app_dependency_status%s == 1`
+	queryDependencyStatusDetail = `app_dependency_status_detail%s == 1`
 )
 
 // nsFilter returns a PromQL label filter for the given namespace.
@@ -246,6 +257,40 @@ func (c *prometheusClient) QueryInstances(ctx context.Context, serviceName strin
 	}
 
 	return instances, nil
+}
+
+func (c *prometheusClient) QueryDependencyStatus(ctx context.Context, opts QueryOptions) (map[EdgeKey]string, error) {
+	f := nsFilter(opts.Namespace)
+	results, err := c.query(ctx, fmt.Sprintf(queryDependencyStatus, f))
+	if err != nil {
+		return nil, err
+	}
+	return parseEdgeStringValues(results, "status"), nil
+}
+
+func (c *prometheusClient) QueryDependencyStatusDetail(ctx context.Context, opts QueryOptions) (map[EdgeKey]string, error) {
+	f := nsFilter(opts.Namespace)
+	results, err := c.query(ctx, fmt.Sprintf(queryDependencyStatusDetail, f))
+	if err != nil {
+		return nil, err
+	}
+	return parseEdgeStringValues(results, "detail"), nil
+}
+
+// parseEdgeStringValues extracts a named label value per EdgeKey from promResults.
+func parseEdgeStringValues(results []promResult, label string) map[EdgeKey]string {
+	m := make(map[EdgeKey]string, len(results))
+	for _, r := range results {
+		key := EdgeKey{
+			Name: r.Metric["name"],
+			Host: r.Metric["host"],
+			Port: r.Metric["port"],
+		}
+		if v := r.Metric[label]; v != "" {
+			m[key] = v
+		}
+	}
+	return m
 }
 
 func parseEdgeValues(results []promResult) (map[EdgeKey]float64, error) {

@@ -262,6 +262,109 @@ func TestFormatPromDuration(t *testing.T) {
 	}
 }
 
+const dependencyStatusResponse = `{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {"name": "svc-go", "host": "pg-primary", "port": "5432", "status": "ok"},
+        "value": [1700000000, "1"]
+      },
+      {
+        "metric": {"name": "svc-go", "host": "redis", "port": "6379", "status": "timeout"},
+        "value": [1700000000, "1"]
+      }
+    ]
+  }
+}`
+
+const dependencyStatusDetailResponse = `{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {"name": "svc-go", "host": "redis", "port": "6379", "detail": "connection_refused"},
+        "value": [1700000000, "1"]
+      }
+    ]
+  }
+}`
+
+func TestQueryDependencyStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(dependencyStatusResponse))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	result, err := client.QueryDependencyStatus(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("QueryDependencyStatus() error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("got %d results, want 2", len(result))
+	}
+
+	pgKey := EdgeKey{Name: "svc-go", Host: "pg-primary", Port: "5432"}
+	if result[pgKey] != "ok" {
+		t.Errorf("pg status = %q, want ok", result[pgKey])
+	}
+
+	redisKey := EdgeKey{Name: "svc-go", Host: "redis", Port: "6379"}
+	if result[redisKey] != "timeout" {
+		t.Errorf("redis status = %q, want timeout", result[redisKey])
+	}
+}
+
+func TestQueryDependencyStatusDetail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(dependencyStatusDetailResponse))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	result, err := client.QueryDependencyStatusDetail(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("QueryDependencyStatusDetail() error: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("got %d results, want 1", len(result))
+	}
+
+	redisKey := EdgeKey{Name: "svc-go", Host: "redis", Port: "6379"}
+	if result[redisKey] != "connection_refused" {
+		t.Errorf("redis detail = %q, want connection_refused", result[redisKey])
+	}
+}
+
+func TestParseEdgeStringValues(t *testing.T) {
+	results := []promResult{
+		{Metric: map[string]string{"name": "svc-a", "host": "h1", "port": "80", "status": "ok"}},
+		{Metric: map[string]string{"name": "svc-b", "host": "h2", "port": "443", "status": "timeout"}},
+		{Metric: map[string]string{"name": "svc-c", "host": "h3", "port": "8080"}}, // no status label
+	}
+
+	m := parseEdgeStringValues(results, "status")
+	if len(m) != 2 {
+		t.Fatalf("got %d entries, want 2", len(m))
+	}
+	if m[EdgeKey{Name: "svc-a", Host: "h1", Port: "80"}] != "ok" {
+		t.Error("expected svc-a status=ok")
+	}
+	if m[EdgeKey{Name: "svc-b", Host: "h2", Port: "443"}] != "timeout" {
+		t.Error("expected svc-b status=timeout")
+	}
+	if _, ok := m[EdgeKey{Name: "svc-c", Host: "h3", Port: "8080"}]; ok {
+		t.Error("svc-c should not be in map (no status label)")
+	}
+}
+
 func TestQueryErrorStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)

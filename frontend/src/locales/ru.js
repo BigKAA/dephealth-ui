@@ -26,6 +26,8 @@ export default {
   'filter.allNamespaces': 'Все namespace',
   'filter.allTypes': 'Все типы',
   'filter.allServices': 'Все сервисы',
+  'filter.allStatuses': 'Все статусы',
+  'filter.status': 'Статус',
 
   // Graph toolbar
   'graphToolbar.zoomIn': 'Приблизить',
@@ -41,6 +43,7 @@ export default {
   'graphToolbar.collapseAll': 'Свернуть все namespace',
   'graphToolbar.expandAll': 'Развернуть все namespace',
   'graphToolbar.nsLegend': 'Легенда namespace',
+  'graphToolbar.connLegend': 'Легенда соединений',
 
   // Search panel
   'search.placeholder': 'Поиск...',
@@ -60,6 +63,14 @@ export default {
   'legend.criticalAlert': 'Критический алерт',
   'legend.cascadeWarning': 'Каскадное предупреждение',
   'legend.thickerBorder': 'Утолщённая рамка',
+  'legend.connectionStatuses': 'Статусы соединений',
+  'legend.status.timeout': 'Таймаут',
+  'legend.status.connectionError': 'Ошибка соединения',
+  'legend.status.dnsError': 'Ошибка DNS',
+  'legend.status.authError': 'Ошибка авторизации',
+  'legend.status.tlsError': 'Ошибка TLS',
+  'legend.status.unhealthy': 'Нездоров',
+  'legend.status.error': 'Ошибка',
 
   // Empty state
   'empty.title': 'Сервисы не найдены',
@@ -130,10 +141,13 @@ export default {
   'sidebar.edge.latency': 'Задержка',
   'sidebar.edge.critical': 'Критичная',
   'sidebar.edge.criticalYes': 'Да',
+  'sidebar.edge.status': 'Статус',
+  'sidebar.edge.detail': 'Детали',
   'sidebar.edge.criticalNo': 'Нет',
   'sidebar.edge.connectedNodes': 'Связанные узлы',
   'sidebar.edge.goToNode': 'Перейти к узлу',
   'sidebar.edge.goToEdge': 'Перейти к связи',
+  'sidebar.depStatusSummary': 'Статусы зависимостей',
 
   // Alert drawer
   'alerts.title': 'Активные алерты',
@@ -149,6 +163,8 @@ export default {
   'tooltip.namespace': 'Namespace:',
   'tooltip.alerts': 'Алерты:',
   'tooltip.latency': 'Задержка:',
+  'tooltip.status': 'Статус:',
+  'tooltip.detail': 'Детали:',
   'tooltip.critical': 'Критический:',
   'tooltip.yes': 'Да',
   'tooltip.cascadeWarning': 'Каскадное предупреждение:',
@@ -171,6 +187,13 @@ export default {
   'namespaceLegend.title': 'Namespace',
   'namespaceLegend.close': 'Закрыть',
   'namespaceLegend.toggle': 'Легенда namespace',
+
+  // Connection legend
+  'connLegend.title': 'Статусы соединений',
+  'connLegend.close': 'Закрыть',
+  'connLegend.color': 'Цвет',
+  'connLegend.abbr': 'Сокр.',
+  'connLegend.meaning': 'Значение',
 
   // Sidebar (collapsed namespace)
   'sidebar.collapsed.services': 'Сервисы ({count})',

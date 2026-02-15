@@ -28,6 +28,41 @@ const EDGE_STYLES = {
   unknown: { lineStyle: 'dashed', color: '#9e9e9e' },
 };
 
+// SDK v0.4.1: dependency status colors (used for edge coloring when status is available).
+export const STATUS_COLORS = {
+  ok: '#4caf50',
+  timeout: '#ff9800',
+  connection_error: '#f44336',
+  error: '#f44336',
+  dns_error: '#9c27b0',
+  auth_error: '#ffeb3b',
+  tls_error: '#b71c1c',
+  unhealthy: '#ff5722',
+};
+
+// SDK v0.4.1: status abbreviations for edge labels.
+export const STATUS_ABBREVIATIONS = {
+  timeout: 'TMO',
+  connection_error: 'CONN',
+  dns_error: 'DNS',
+  auth_error: 'AUTH',
+  tls_error: 'TLS',
+  unhealthy: 'UNH',
+  error: 'ERR',
+};
+
+// SDK v0.4.1: full status labels for sidebar and tooltip display.
+export const STATUS_LABELS = {
+  ok: 'OK',
+  timeout: 'Timeout',
+  connection_error: 'Connection Error',
+  dns_error: 'DNS Error',
+  auth_error: 'Auth Error',
+  tls_error: 'TLS Error',
+  unhealthy: 'Unhealthy',
+  error: 'Error',
+};
+
 const cytoscapeStyles = [
   // Service nodes
   {
@@ -198,13 +233,30 @@ const cytoscapeStyles = [
   {
     selector: 'edge',
     style: {
-      width: (ele) => (ele.data('critical') ? 3 : 1.5),
+      width: (ele) => (ele.data('critical') ? 4 : 1.5),
       'curve-style': 'bezier',
       'target-arrow-shape': 'triangle',
-      'target-arrow-color': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color,
-      'line-color': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color,
+      'target-arrow-color': (ele) => {
+        if (ele.data('stale')) return EDGE_STYLES.unknown.color;
+        const status = ele.data('status');
+        if (status && STATUS_COLORS[status]) return STATUS_COLORS[status];
+        return (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color;
+      },
+      'line-color': (ele) => {
+        if (ele.data('stale')) return EDGE_STYLES.unknown.color;
+        const status = ele.data('status');
+        if (status && STATUS_COLORS[status]) return STATUS_COLORS[status];
+        return (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color;
+      },
       'line-style': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).lineStyle,
-      label: 'data(latency)',
+      label: (ele) => {
+        const status = ele.data('status');
+        const latency = ele.data('latency') || '';
+        const abbr = status ? STATUS_ABBREVIATIONS[status] : null;
+        if (abbr && latency) return `${abbr} ${latency}`;
+        if (abbr) return abbr;
+        return latency;
+      },
       'font-size': 12,
       color: () => (isDarkTheme() ? '#aaa' : '#555'),
       'text-background-color': () => (isDarkTheme() ? '#2a2a2a' : '#f5f5f5'),
@@ -241,7 +293,7 @@ let severityLevels = []; // Ordered array of severity levels from config
  * Changes in state/latency don't affect the signature.
  */
 function computeSignature(data) {
-  const nodeIds = data.nodes.map((n) => n.id).sort();
+  const nodeIds = data.nodes.map((n) => `${n.id}:${n.type}`).sort();
   const edgeKeys = data.edges.map((e) => `${e.source}->${e.target}`).sort();
   const groupFlag = isGroupingEnabled() ? 'G' : 'F';
   return groupFlag + '|' + nodeIds.join(',') + '|' + edgeKeys.join(',');
@@ -256,6 +308,9 @@ function computeSignature(data) {
 function updateAlertBadges(cy, container) {
   // Clear existing badges
   container.innerHTML = '';
+
+  const zoom = cy.zoom();
+  const badgeScale = Math.max(0.5, Math.min(zoom, 1.5));
 
   // Render node badges (only for visible nodes)
   cy.nodes('[alertCount > 0]').forEach((node) => {
@@ -282,7 +337,7 @@ function updateAlertBadges(cy, container) {
       left: ${badgeX}px;
       top: ${badgeY}px;
       background-color: ${color};
-      transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%) scale(${badgeScale});
       pointer-events: none;
       z-index: 10;
     `;
@@ -311,7 +366,7 @@ function updateAlertBadges(cy, container) {
       position: absolute;
       left: ${badgeX}px;
       top: ${badgeY}px;
-      transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%) scale(${badgeScale});
       pointer-events: none;
       z-index: 10;
     `;
@@ -336,14 +391,15 @@ function updateAlertBadges(cy, container) {
     const markerY = sourcePos.y + (targetPos.y - sourcePos.y) * 0.2;
 
     // Create marker element
+    const markerSize = 12 * badgeScale;
     const marker = document.createElement('div');
     marker.className = 'alert-marker';
     marker.style.cssText = `
       position: absolute;
       left: ${markerX}px;
       top: ${markerY}px;
-      width: 12px;
-      height: 12px;
+      width: ${markerSize}px;
+      height: ${markerSize}px;
       border-radius: 50%;
       background-color: ${color};
       border: 2px solid white;
@@ -451,6 +507,8 @@ export function renderGraph(cy, data, config) {
           ele.data('state', edge.state);
           ele.data('stale', edge.stale || false);
           ele.data('critical', edge.critical);
+          ele.data('status', edge.status || undefined);
+          ele.data('detail', edge.detail || undefined);
           ele.data('alertCount', edge.alertCount || 0);
           ele.data('alertSeverity', edge.alertSeverity || undefined);
         }
@@ -511,6 +569,8 @@ export function renderGraph(cy, data, config) {
           state: edge.state,
           stale: edge.stale || false,
           critical: edge.critical,
+          status: edge.status || undefined,
+          detail: edge.detail || undefined,
           alertCount: edge.alertCount || 0,
           alertSeverity: edge.alertSeverity || undefined,
           grafanaUrl: edge.grafanaUrl || undefined,

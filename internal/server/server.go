@@ -18,6 +18,7 @@ import (
 	"github.com/BigKAA/dephealth-ui/internal/cache"
 	"github.com/BigKAA/dephealth-ui/internal/cascade"
 	"github.com/BigKAA/dephealth-ui/internal/config"
+	"github.com/BigKAA/dephealth-ui/internal/logging"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
 
@@ -84,7 +85,7 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) setupMiddleware() {
 	s.router.Use(middleware.RequestID)
 	s.router.Use(middleware.RealIP)
-	s.router.Use(middleware.Logger)
+	s.router.Use(logging.RequestLogger(s.logger))
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(gzipMiddleware)
 	s.router.Use(cors.Handler(cors.Options{

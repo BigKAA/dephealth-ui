@@ -26,6 +26,8 @@ export default {
   'filter.allNamespaces': 'All namespaces',
   'filter.allTypes': 'All types',
   'filter.allServices': 'All services',
+  'filter.allStatuses': 'All statuses',
+  'filter.status': 'Status',
 
   // Graph toolbar
   'graphToolbar.zoomIn': 'Zoom in',
@@ -41,6 +43,7 @@ export default {
   'graphToolbar.collapseAll': 'Collapse all namespaces',
   'graphToolbar.expandAll': 'Expand all namespaces',
   'graphToolbar.nsLegend': 'Toggle namespace legend',
+  'graphToolbar.connLegend': 'Toggle connection legend',
 
   // Search panel
   'search.placeholder': 'Search nodes...',
@@ -60,6 +63,14 @@ export default {
   'legend.criticalAlert': 'Critical alert',
   'legend.cascadeWarning': 'Cascade warning',
   'legend.thickerBorder': 'Thicker border',
+  'legend.connectionStatuses': 'Connection Statuses',
+  'legend.status.timeout': 'Timeout',
+  'legend.status.connectionError': 'Connection Error',
+  'legend.status.dnsError': 'DNS Error',
+  'legend.status.authError': 'Auth Error',
+  'legend.status.tlsError': 'TLS Error',
+  'legend.status.unhealthy': 'Unhealthy',
+  'legend.status.error': 'Error',
 
   // Empty state
   'empty.title': 'No services found',
@@ -128,12 +139,15 @@ export default {
   'sidebar.edge.target': 'Target',
   'sidebar.edge.type': 'Type',
   'sidebar.edge.latency': 'Latency',
+  'sidebar.edge.status': 'Status',
+  'sidebar.edge.detail': 'Detail',
   'sidebar.edge.critical': 'Critical',
   'sidebar.edge.criticalYes': 'Yes',
   'sidebar.edge.criticalNo': 'No',
   'sidebar.edge.connectedNodes': 'Connected Nodes',
   'sidebar.edge.goToNode': 'Go to node',
   'sidebar.edge.goToEdge': 'Go to edge',
+  'sidebar.depStatusSummary': 'Dependency Statuses',
 
   // Alert drawer
   'alerts.title': 'Active Alerts',
@@ -151,6 +165,8 @@ export default {
   'tooltip.latency': 'Latency:',
   'tooltip.critical': 'Critical:',
   'tooltip.yes': 'Yes',
+  'tooltip.status': 'Status:',
+  'tooltip.detail': 'Detail:',
   'tooltip.cascadeWarning': 'Cascade warning:',
   'tooltip.cascadeSource': '↳ {service}',
 
@@ -171,6 +187,13 @@ export default {
   'namespaceLegend.title': 'Namespaces',
   'namespaceLegend.close': 'Close',
   'namespaceLegend.toggle': 'Toggle namespace legend',
+
+  // Connection legend
+  'connLegend.title': 'Connection Statuses',
+  'connLegend.close': 'Close',
+  'connLegend.color': 'Color',
+  'connLegend.abbr': 'Abbr',
+  'connLegend.meaning': 'Meaning',
 
   // Sidebar (collapsed namespace)
   'sidebar.collapsed.services': 'Services ({count})',

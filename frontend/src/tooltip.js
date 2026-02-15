@@ -1,4 +1,5 @@
 import { t } from './i18n.js';
+import { STATUS_COLORS, STATUS_LABELS } from './graph.js';
 
 /**
  * Initialize tooltip functionality for the graph.
@@ -13,47 +14,62 @@ export function initTooltip(cy) {
   }
 
   let hideTimeout = null;
+  let showTimeout = null;
 
   /**
-   * Show tooltip with content at specified position.
+   * Schedule tooltip display after a delay.
    * @param {string} html - HTML content for tooltip
    * @param {number} x - X position
    * @param {number} y - Y position
    */
-  function showTooltip(html, x, y) {
+  function scheduleShowTooltip(html, x, y) {
+    cancelShow();
     if (hideTimeout) {
       clearTimeout(hideTimeout);
       hideTimeout = null;
     }
+    showTimeout = setTimeout(() => {
+      showTimeout = null;
+      tooltip.innerHTML = html;
+      tooltip.classList.remove('hidden');
 
-    tooltip.innerHTML = html;
-    tooltip.classList.remove('hidden');
+      // Position tooltip near cursor, adjust for viewport bounds
+      const rect = tooltip.getBoundingClientRect();
+      const containerRect = cy.container().getBoundingClientRect();
 
-    // Position tooltip near cursor, adjust for viewport bounds
-    const rect = tooltip.getBoundingClientRect();
-    const containerRect = cy.container().getBoundingClientRect();
+      let left = x + 12;
+      let top = y + 12;
 
-    let left = x + 12;
-    let top = y + 12;
+      // Adjust if tooltip would overflow right edge
+      if (left + rect.width > containerRect.right) {
+        left = x - rect.width - 12;
+      }
 
-    // Adjust if tooltip would overflow right edge
-    if (left + rect.width > containerRect.right) {
-      left = x - rect.width - 12;
+      // Adjust if tooltip would overflow bottom edge
+      if (top + rect.height > containerRect.bottom) {
+        top = y - rect.height - 12;
+      }
+
+      tooltip.style.left = `${left - containerRect.left}px`;
+      tooltip.style.top = `${top - containerRect.top}px`;
+    }, 2500);
+  }
+
+  /**
+   * Cancel pending show.
+   */
+  function cancelShow() {
+    if (showTimeout) {
+      clearTimeout(showTimeout);
+      showTimeout = null;
     }
-
-    // Adjust if tooltip would overflow bottom edge
-    if (top + rect.height > containerRect.bottom) {
-      top = y - rect.height - 12;
-    }
-
-    tooltip.style.left = `${left - containerRect.left}px`;
-    tooltip.style.top = `${top - containerRect.top}px`;
   }
 
   /**
    * Hide tooltip with a small delay.
    */
   function hideTooltip() {
+    cancelShow();
     hideTimeout = setTimeout(() => {
       tooltip.classList.add('hidden');
     }, 100);
@@ -124,7 +140,7 @@ export function initTooltip(cy) {
       }
     }
 
-    showTooltip(html, renderedPos.x, renderedPos.y);
+    scheduleShowTooltip(html, renderedPos.x, renderedPos.y);
   });
 
   // Edge hover
@@ -152,6 +168,24 @@ export function initTooltip(cy) {
       <span class="tooltip-value">${formatState(data.state)}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
     </div>`;
 
+    // Status (SDK v0.4.1, non-ok only)
+    if (data.status && data.status !== 'ok') {
+      const color = STATUS_COLORS[data.status] || '#999';
+      const label = STATUS_LABELS[data.status] || data.status;
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.status')}</span>
+        <span class="tooltip-value" style="color:${color};font-weight:bold">${label}</span>
+      </div>`;
+    }
+
+    // Detail (SDK v0.4.1, non-ok only)
+    if (data.detail && data.status && data.status !== 'ok') {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.detail')}</span>
+        <span class="tooltip-value"><code>${data.detail}</code></span>
+      </div>`;
+    }
+
     // Critical flag
     if (data.critical) {
       html += `<div class="tooltip-row">
@@ -168,7 +202,7 @@ export function initTooltip(cy) {
       </div>`;
     }
 
-    showTooltip(html, renderedPos.x, renderedPos.y);
+    scheduleShowTooltip(html, renderedPos.x, renderedPos.y);
   });
 
   // Hide tooltip on mouseout
@@ -178,6 +212,7 @@ export function initTooltip(cy) {
 
   // Also hide tooltip when panning/zooming
   cy.on('pan zoom', () => {
+    cancelShow();
     tooltip.classList.add('hidden');
   });
 }

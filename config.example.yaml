@@ -60,3 +60,24 @@ grafana:
     linkStatus: "dephealth-link-status"
     cascadeOverview: "dephealth-cascade-overview"
     rootCause: "dephealth-root-cause"
+
+log:
+  # Log output format: "text" or "json" (default: "json")
+  # Env: LOG_FORMAT
+  format: "json"
+  # Log level: "debug", "info", "warn", "error" (default: "info")
+  # Env: LOG_LEVEL
+  level: "info"
+  # Timestamp format: "rfc3339", "rfc3339nano", "unix", "unixmilli" (default: "rfc3339nano")
+  # Env: LOG_TIME_FORMAT
+  timeFormat: "rfc3339nano"
+  # Include source file:line in log output (default: false)
+  # Env: LOG_ADD_SOURCE
+  addSource: false
+  # Custom JSON key names for log aggregator compatibility (ECS, GCP, Splunk).
+  # Leave empty to use slog defaults: time, level, msg, source.
+  # Env: LOG_TIME_KEY, LOG_LEVEL_KEY, LOG_MESSAGE_KEY, LOG_SOURCE_KEY
+  # timeKey: "@timestamp"
+  # levelKey: "severity"
+  # messageKey: "message"
+  # sourceKey: "caller"

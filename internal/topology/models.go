@@ -28,6 +28,8 @@ type Edge struct {
 	Health        float64 `json:"health"`          // 0 or 1; -1 for stale
 	State         string  `json:"state"`           // "ok", "degraded", "down", "unknown"
 	Critical      bool    `json:"critical"`
+	Status        string  `json:"status,omitempty"`  // SDK v0.4.1: ok, timeout, connection_error, dns_error, auth_error, tls_error, unhealthy, error
+	Detail        string  `json:"detail,omitempty"`  // SDK v0.4.1: e.g. http_503, grpc_not_serving, connection_refused
 	Stale         bool    `json:"stale,omitempty"`
 	GrafanaURL    string  `json:"grafanaUrl,omitempty"`
 	AlertCount    int     `json:"alertCount,omitempty"`

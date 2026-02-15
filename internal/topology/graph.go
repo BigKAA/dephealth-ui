@@ -86,6 +86,20 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 		queryErrors = append(queryErrors, fmt.Sprintf("avg latency: %v", err))
 	}
 
+	depStatus, err := b.prom.QueryDependencyStatus(ctx, opts)
+	if err != nil {
+		b.logger.Warn("failed to query dependency status, using defaults", "error", err)
+		depStatus = make(map[EdgeKey]string)
+		queryErrors = append(queryErrors, fmt.Sprintf("dependency status: %v", err))
+	}
+
+	depStatusDetail, err := b.prom.QueryDependencyStatusDetail(ctx, opts)
+	if err != nil {
+		b.logger.Warn("failed to query dependency status detail, using defaults", "error", err)
+		depStatusDetail = make(map[EdgeKey]string)
+		queryErrors = append(queryErrors, fmt.Sprintf("dependency status detail: %v", err))
+	}
+
 	// Fetch alerts (non-fatal: log and continue with empty alerts).
 	var fetchedAlerts []alerts.Alert
 	if b.am != nil {
@@ -107,7 +121,7 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 		}
 	}
 
-	nodes, edges, depLookup := b.buildGraph(rawEdges, health, avgLatency, currentEdgeKeys)
+	nodes, edges, depLookup := b.buildGraph(rawEdges, health, avgLatency, currentEdgeKeys, depStatus, depStatusDetail)
 
 	alertInfos := b.enrichWithAlerts(nodes, edges, fetchedAlerts, depLookup)
 
@@ -134,6 +148,8 @@ func (b *GraphBuilder) buildGraph(
 	health map[EdgeKey]float64,
 	avgLatency map[EdgeKey]float64,
 	currentEdgeKeys map[EdgeKey]bool,
+	depStatus map[EdgeKey]string,
+	depStatusDetail map[EdgeKey]string,
 ) ([]Node, []Edge, map[depAlertKey]EdgeKey) {
 	// First pass: collect all known service names (sources that report metrics).
 	serviceNames := make(map[string]bool)
@@ -264,6 +280,12 @@ func (b *GraphBuilder) buildGraph(
 			State:      state,
 			Critical:   raw.Critical,
 			GrafanaURL: b.linkGrafanaURL(raw.Dependency, raw.Host, raw.Port),
+		}
+		if s, ok := depStatus[key]; ok {
+			edge.Status = s
+		}
+		if d, ok := depStatusDetail[key]; ok {
+			edge.Detail = d
 		}
 		edges = append(edges, edge)
 

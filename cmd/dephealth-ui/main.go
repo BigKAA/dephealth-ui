@@ -13,6 +13,7 @@ import (
 	"github.com/BigKAA/dephealth-ui/internal/auth"
 	"github.com/BigKAA/dephealth-ui/internal/cache"
 	"github.com/BigKAA/dephealth-ui/internal/config"
+	"github.com/BigKAA/dephealth-ui/internal/logging"
 	"github.com/BigKAA/dephealth-ui/internal/server"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
@@ -21,20 +22,22 @@ func main() {
 	configPath := flag.String("config", "config.yaml", "path to configuration file")
 	flag.Parse()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	// Bootstrap logger for pre-config errors (text, stderr).
+	bootLogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		logger.Error("failed to load configuration", "error", err)
+		bootLogger.Error("failed to load configuration", "error", err)
 		os.Exit(1)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		logger.Error("invalid configuration", "error", err)
+		bootLogger.Error("invalid configuration", "error", err)
 		os.Exit(1)
 	}
+
+	// Create configured logger after successful config load.
+	logger := logging.NewLogger(cfg.Log)
 
 	logger.Info("starting dephealth-ui",
 		"listen", cfg.Server.Listen,
