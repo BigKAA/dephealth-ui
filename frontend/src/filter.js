@@ -281,6 +281,28 @@ export function applyFilters(cy) {
       });
     }
 
+    // When TYPE filter is active, collect matching dependency nodes
+    // and matching edges (incl. service-to-service resolved edges)
+    // to restrict visibility to their direct neighborhood.
+    let typeMatchedNodes = null;
+    let typeMatchedEdges = null;
+    if (hasTypeFilter) {
+      typeMatchedNodes = new Set();
+      cy.nodes().forEach((node) => {
+        const type = node.data('type');
+        if (type !== 'service' && activeFilters.type.has(type)) {
+          typeMatchedNodes.add(node);
+        }
+      });
+      typeMatchedEdges = new Set();
+      cy.edges().forEach((edge) => {
+        const edgeType = edge.data('type');
+        if (edgeType && activeFilters.type.has(edgeType)) {
+          typeMatchedEdges.add(edge);
+        }
+      });
+    }
+
     // First pass: determine node visibility (skip group nodes).
     cy.nodes().forEach((node) => {
       if (groupingActive && node.data('isGroup')) return;
@@ -301,6 +323,9 @@ export function applyFilters(cy) {
         if (hasJobFilter) {
           visible = false;
         }
+        if (hasTypeFilter && !hasJobFilter) {
+          visible = false; // will be revealed in neighbor pass
+        }
         if (hasStateFilter && !matchesStateFilter(node)) {
           visible = false;
         }
@@ -320,6 +345,31 @@ export function applyFilters(cy) {
         node.hide();
       }
     });
+
+    // Pass 1.25: TYPE filter — reveal direct neighbors of type-matched deps
+    // and endpoints of type-matched edges (service-to-service resolved edges).
+    if (hasTypeFilter && !hasJobFilter) {
+      if (typeMatchedNodes) {
+        typeMatchedNodes.forEach((dep) => {
+          if (!dep.visible()) return;
+          dep.connectedEdges().forEach((edge) => {
+            const other = edge.source().id() === dep.id() ? edge.target() : edge.source();
+            if (other.data('isGroup')) return;
+            if (hasStateFilter && !matchesStateFilter(other)) return;
+            other.show();
+          });
+        });
+      }
+      if (typeMatchedEdges) {
+        typeMatchedEdges.forEach((edge) => {
+          [edge.source(), edge.target()].forEach((node) => {
+            if (node.data('isGroup')) return;
+            if (hasStateFilter && !matchesStateFilter(node)) return;
+            node.show();
+          });
+        });
+      }
+    }
 
     // Pass 1.5: if 'degraded' or 'down' is selected, also reveal the downstream
     // chain of problematic dependencies so the user sees WHY the node is degraded/down.
@@ -342,6 +392,16 @@ export function applyFilters(cy) {
     // Second pass: edges visible only if both endpoints are visible.
     cy.edges().forEach((edge) => {
       if (edge.source().visible() && edge.target().visible()) {
+        // TYPE filter: only show edges connected to type-matched deps
+        // or edges whose own type matches the filter.
+        if (hasTypeFilter && !hasJobFilter && typeMatchedNodes) {
+          const touchesMatchedNode = typeMatchedNodes.has(edge.source()) || typeMatchedNodes.has(edge.target());
+          const isMatchedEdge = typeMatchedEdges && typeMatchedEdges.has(edge);
+          if (!touchesMatchedNode && !isMatchedEdge) {
+            edge.hide();
+            return;
+          }
+        }
         edge.show();
       } else {
         edge.hide();
