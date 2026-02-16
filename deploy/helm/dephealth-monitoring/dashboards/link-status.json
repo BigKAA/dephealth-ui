@@ -66,7 +66,11 @@
           },
           "color": { "mode": "thresholds" },
           "mappings": [
-            { "type": "value", "options": { "-1": { "text": "STALE" }, "0": { "text": "DOWN" }, "1": { "text": "UP" } } },
+            { "type": "value", "options": {
+              "-1": { "text": "STALE", "color": "#9e9e9e" },
+              "0": { "text": "DOWN", "color": "red" },
+              "1": { "text": "UP", "color": "green" }
+            }},
             { "type": "special", "options": { "match": "null", "result": { "text": "STALE", "color": "#9e9e9e" } } }
           ]
         },
@@ -91,26 +95,31 @@
       ]
     },
     {
-      "id": 2,
-      "title": "SLA / Доступность",
+      "id": 21,
+      "title": "Категория статуса",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 2,
+          "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 95 },
-              { "color": "green", "value": 99 }
-            ]
+            "steps": [{ "color": "gray", "value": null }]
           },
-          "color": { "mode": "thresholds" },
-          "min": 0,
-          "max": 100
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "ok", "color": "#4caf50" },
+              "1": { "text": "timeout", "color": "#ff9800" },
+              "2": { "text": "conn_error", "color": "#f44336" },
+              "3": { "text": "dns_error", "color": "#9c27b0" },
+              "4": { "text": "auth_error", "color": "#ffeb3b" },
+              "5": { "text": "tls_error", "color": "#b71c1c" },
+              "6": { "text": "unhealthy", "color": "#ff5722" },
+              "7": { "text": "error", "color": "#f44336" }
+            }},
+            { "type": "special", "options": { "match": "null", "result": { "text": "N/A", "color": "#9e9e9e" } } }
+          ]
         },
         "overrides": []
       },
@@ -124,7 +133,7 @@
       },
       "targets": [
         {
-          "expr": "avg_over_time(min by (dependency, host, port, job) (app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"})[$__range]) * 100",
+          "expr": "max by (job, dependency, host, port) (\n  (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"ok\"} == 1) * 0\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"timeout\"} == 1) * 1\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"connection_error\"} == 1) * 2\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"dns_error\"} == 1) * 3\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"auth_error\"} == 1) * 4\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"tls_error\"} == 1) * 5\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"unhealthy\"} == 1) * 6\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"error\"} == 1) * 7\n)",
           "legendFormat": "{{job}}",
           "refId": "A",
           "instant": true,
@@ -133,23 +142,29 @@
       ]
     },
     {
-      "id": 3,
-      "title": "Flapping (15 мин)",
+      "id": 22,
+      "title": "Детали статуса",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
       "fieldConfig": {
         "defaults": {
+          "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 4 },
-              { "color": "red", "value": 8 }
+              { "color": "#9e9e9e", "value": null },
+              { "color": "red", "value": 0 },
+              { "color": "green", "value": 1 }
             ]
           },
-          "color": { "mode": "thresholds" },
-          "noValue": "0"
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "error", "color": "red" },
+              "1": { "text": "ok", "color": "green" }
+            }},
+            { "type": "special", "options": { "match": "null", "result": { "text": "STALE", "color": "#9e9e9e" } } }
+          ]
         },
         "overrides": []
       },
@@ -163,22 +178,24 @@
       },
       "targets": [
         {
-          "expr": "max by (dependency, host, port, job) (changes(app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"}[15m]))",
+          "expr": "(min by (job, dependency, host, port) (app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"})) * on(job, dependency, host, port) group_left(detail) (max by (job, dependency, host, port, detail) (app_dependency_status_detail{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"} == 1))",
           "legendFormat": "{{job}}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ]
     },
     {
       "id": 10,
-      "title": "Timeline",
+      "title": "Статус",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "collapsed": false
     },
     {
-      "id": 4,
-      "title": "Здоровье соединения (timeline)",
+      "id": 23,
+      "title": "Статус соединения (timeline)",
       "type": "state-timeline",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 6 },
@@ -194,8 +211,14 @@
             "steps": [{ "color": "gray", "value": null }]
           },
           "mappings": [
-            { "type": "range", "options": { "from": -0.5, "to": 0.5, "result": { "text": "DOWN", "color": "red", "index": 0 } } },
-            { "type": "range", "options": { "from": 0.5, "to": 1.5, "result": { "text": "UP", "color": "green", "index": 1 } } }
+            { "type": "range", "options": { "from": -0.5, "to": 0.5, "result": { "text": "ok", "color": "#4caf50", "index": 0 } } },
+            { "type": "range", "options": { "from": 0.5, "to": 1.5, "result": { "text": "timeout", "color": "#ff9800", "index": 1 } } },
+            { "type": "range", "options": { "from": 1.5, "to": 2.5, "result": { "text": "conn_error", "color": "#f44336", "index": 2 } } },
+            { "type": "range", "options": { "from": 2.5, "to": 3.5, "result": { "text": "dns_error", "color": "#9c27b0", "index": 3 } } },
+            { "type": "range", "options": { "from": 3.5, "to": 4.5, "result": { "text": "auth_error", "color": "#ffeb3b", "index": 4 } } },
+            { "type": "range", "options": { "from": 4.5, "to": 5.5, "result": { "text": "tls_error", "color": "#b71c1c", "index": 5 } } },
+            { "type": "range", "options": { "from": 5.5, "to": 6.5, "result": { "text": "unhealthy", "color": "#ff5722", "index": 6 } } },
+            { "type": "range", "options": { "from": 6.5, "to": 7.5, "result": { "text": "error", "color": "#f44336", "index": 7 } } }
           ]
         },
         "overrides": []
@@ -210,7 +233,7 @@
       },
       "targets": [
         {
-          "expr": "app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"}",
+          "expr": "max by (job, dependency, host, port) (\n  (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"ok\"} == 1) * 0\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"timeout\"} == 1) * 1\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"connection_error\"} == 1) * 2\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"dns_error\"} == 1) * 3\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"auth_error\"} == 1) * 4\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"tls_error\"} == 1) * 5\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"unhealthy\"} == 1) * 6\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"error\"} == 1) * 7\n)",
           "legendFormat": "{{job}}: {{dependency}} ({{host}}:{{port}})",
           "refId": "A"
         }
@@ -338,137 +361,89 @@
     },
     {
       "id": 20,
-      "title": "Статус соединения",
+      "title": "Доступность",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
-      "collapsed": false
-    },
-    {
-      "id": 21,
-      "title": "Категория статуса",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 30 },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "fixed" },
-          "mappings": [
-            { "type": "special", "options": { "match": "null", "result": { "text": "N/A", "color": "gray" } } }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "gray", "value": null }]
-          }
-        },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "ok" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4caf50" } }] },
-          { "matcher": { "id": "byName", "options": "timeout" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ff9800" } }] },
-          { "matcher": { "id": "byName", "options": "connection_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f44336" } }] },
-          { "matcher": { "id": "byName", "options": "dns_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9c27b0" } }] },
-          { "matcher": { "id": "byName", "options": "auth_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ffeb3b" } }] },
-          { "matcher": { "id": "byName", "options": "tls_error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#b71c1c" } }] },
-          { "matcher": { "id": "byName", "options": "unhealthy" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ff5722" } }] },
-          { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f44336" } }] }
-        ]
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "auto",
-        "textMode": "name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "max by (status) (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"} == 1)",
-          "legendFormat": "{{status}}",
-          "refId": "A",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 22,
-      "title": "Детали статуса",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 30 },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "text" },
-          "mappings": [
-            { "type": "special", "options": { "match": "null", "result": { "text": "N/A", "color": "gray" } } }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "auto",
-        "textMode": "name",
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center"
-      },
-      "targets": [
-        {
-          "expr": "max by (detail) (app_dependency_status_detail{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"} == 1)",
-          "legendFormat": "{{detail}}",
-          "refId": "A",
-          "instant": true,
-          "range": false
-        }
-      ]
-    },
-    {
-      "id": 23,
-      "title": "Статус соединения (timeline)",
-      "type": "state-timeline",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 35 },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 0,
-            "fillOpacity": 80
+          "id": 2,
+          "title": "SLA / Доступность",
+          "type": "stat",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "gridPos": { "h": 5, "w": 12, "x": 0, "y": 30 },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 2,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "orange", "value": 95 },
+                  { "color": "green", "value": 99 }
+                ]
+              },
+              "color": { "mode": "thresholds" },
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
           },
-          "color": { "mode": "fixed", "fixedColor": "gray" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "gray", "value": null }]
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "orientation": "auto",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
           },
-          "mappings": [
-            { "type": "range", "options": { "from": -0.5, "to": 0.5, "result": { "text": "ok", "color": "#4caf50", "index": 0 } } },
-            { "type": "range", "options": { "from": 0.5, "to": 1.5, "result": { "text": "timeout", "color": "#ff9800", "index": 1 } } },
-            { "type": "range", "options": { "from": 1.5, "to": 2.5, "result": { "text": "conn_error", "color": "#f44336", "index": 2 } } },
-            { "type": "range", "options": { "from": 2.5, "to": 3.5, "result": { "text": "dns_error", "color": "#9c27b0", "index": 3 } } },
-            { "type": "range", "options": { "from": 3.5, "to": 4.5, "result": { "text": "auth_error", "color": "#ffeb3b", "index": 4 } } },
-            { "type": "range", "options": { "from": 4.5, "to": 5.5, "result": { "text": "tls_error", "color": "#b71c1c", "index": 5 } } },
-            { "type": "range", "options": { "from": 5.5, "to": 6.5, "result": { "text": "unhealthy", "color": "#ff5722", "index": 6 } } },
-            { "type": "range", "options": { "from": 6.5, "to": 7.5, "result": { "text": "error", "color": "#f44336", "index": 7 } } }
+          "targets": [
+            {
+              "expr": "avg_over_time(min by (dependency, host, port, job) (app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"})[$__range]) * 100",
+              "legendFormat": "{{job}}",
+              "refId": "A",
+              "instant": true,
+              "range": false
+            }
           ]
         },
-        "overrides": []
-      },
-      "options": {
-        "showValue": "auto",
-        "mergeValues": true,
-        "rowHeight": 0.8,
-        "alignValue": "center",
-        "tooltip": { "mode": "single" },
-        "legend": { "displayMode": "list", "placement": "bottom" }
-      },
-      "targets": [
         {
-          "expr": "max by (job, dependency, host, port) (\n  (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"ok\"} == 1) * 0\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"timeout\"} == 1) * 1\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"connection_error\"} == 1) * 2\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"dns_error\"} == 1) * 3\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"auth_error\"} == 1) * 4\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"tls_error\"} == 1) * 5\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"unhealthy\"} == 1) * 6\n  or (app_dependency_status{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\", status=\"error\"} == 1) * 7\n)",
-          "legendFormat": "{{job}}: {{dependency}} ({{host}}:{{port}})",
-          "refId": "A"
+          "id": 3,
+          "title": "Flapping (15 мин)",
+          "type": "stat",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "gridPos": { "h": 5, "w": 12, "x": 12, "y": 30 },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 4 },
+                  { "color": "red", "value": 8 }
+                ]
+              },
+              "color": { "mode": "thresholds" },
+              "noValue": "0"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "orientation": "auto",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "targets": [
+            {
+              "expr": "max by (dependency, host, port, job) (changes(app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"}[15m]))",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ]
         }
       ]
     }
