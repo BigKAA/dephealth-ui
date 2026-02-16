@@ -59,13 +59,15 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
+              { "color": "#9e9e9e", "value": null },
+              { "color": "red", "value": 0 },
               { "color": "green", "value": 1 }
             ]
           },
           "color": { "mode": "thresholds" },
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } } }
+            { "type": "value", "options": { "-1": { "text": "STALE" }, "0": { "text": "DOWN" }, "1": { "text": "UP" } } },
+            { "type": "special", "options": { "match": "null", "result": { "text": "STALE", "color": "#9e9e9e" } } }
           ]
         },
         "overrides": []
@@ -80,9 +82,11 @@
       },
       "targets": [
         {
-          "expr": "min by (dependency, host, port, job) (app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"})",
+          "expr": "(min by (dependency, host, port, job) (app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"})) or (min by (dependency, host, port, job) (last_over_time(app_dependency_health{dependency=~\"$dependency\", host=~\"$host\", port=~\"$port\"}[$__range])) * 0 - 1)",
           "legendFormat": "{{job}}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ]
     },
@@ -289,7 +293,7 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"], "sortBy": "Name", "sortDesc": false }
       },
       "targets": [
         {
@@ -322,7 +326,7 @@
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"], "sortBy": "Name", "sortDesc": false }
       },
       "targets": [
         {

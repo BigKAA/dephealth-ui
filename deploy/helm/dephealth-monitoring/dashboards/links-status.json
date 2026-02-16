@@ -43,7 +43,7 @@
       "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "min by (dependency, type, host, port, job, namespace) (app_dependency_health{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"})",
+          "expr": "min by (dependency, type, host, port, job, namespace) (last_over_time(app_dependency_health{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"}[$__range]))",
           "format": "table",
           "instant": true,
           "range": false,
@@ -83,6 +83,13 @@
           "instant": true,
           "range": false,
           "refId": "F"
+        },
+        {
+          "expr": "clamp_max(count by (dependency, type, host, port, job, namespace) (app_dependency_health{namespace=~\"$namespace\", type=~\"$dependency_type\", host=~\"$host\"}), 1)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "G"
         }
       ],
       "transformations": [
@@ -109,12 +116,13 @@
               "host": 2,
               "port": 3,
               "job": 4,
-              "Value #A": 5,
-              "status": 6,
-              "detail": 7,
-              "Value #B": 8,
-              "Value #C": 9,
-              "Value #D": 10
+              "Value #G": 5,
+              "Value #A": 6,
+              "status": 7,
+              "detail": 8,
+              "Value #B": 9,
+              "Value #C": 10,
+              "Value #D": 11
             },
             "renameByName": {
               "dependency": "Зависимость",
@@ -122,6 +130,7 @@
               "host": "Хост",
               "port": "Порт",
               "job": "Сервис",
+              "Value #G": "Свежесть",
               "Value #A": "Статус",
               "status": "Статус соед.",
               "detail": "Детали",
@@ -217,7 +226,8 @@
               {
                 "id": "mappings",
                 "value": [
-                  { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+                  { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } },
+                  { "type": "special", "options": { "match": "null", "result": { "text": "N/A", "color": "#9e9e9e" } } }
                 ]
               }
             ]
@@ -301,7 +311,8 @@
                     "tls_error": { "text": "tls_error", "color": "#b71c1c" },
                     "unhealthy": { "text": "unhealthy", "color": "#ff5722" },
                     "error": { "text": "error", "color": "#f44336" }
-                  }}
+                  }},
+                  { "type": "special", "options": { "match": "null", "result": { "text": "—", "color": "#9e9e9e" } } }
                 ]
               }
             ]
@@ -309,7 +320,28 @@
           {
             "matcher": { "id": "byName", "options": "Детали" },
             "properties": [
-              { "id": "custom.minWidth", "value": 150 }
+              { "id": "custom.minWidth", "value": 150 },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "special", "options": { "match": "null", "result": { "text": "—", "color": "#9e9e9e" } } }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Свежесть" },
+            "properties": [
+              { "id": "custom.minWidth", "value": 110 },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "1": { "text": "Актуально", "color": "#4caf50" } } },
+                  { "type": "special", "options": { "match": "null", "result": { "text": "Устарело", "color": "#9e9e9e" } } }
+                ]
+              }
             ]
           }
         ]

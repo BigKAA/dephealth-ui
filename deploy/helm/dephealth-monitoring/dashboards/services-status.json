@@ -224,7 +224,7 @@
       "title": "Здоровье зависимостей",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "gridPos": { "h": 14, "w": 12, "x": 0, "y": 14 },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -244,20 +244,13 @@
             "showPoints": "never"
           },
           "min": 0,
-          "max": 1,
-          "links": [
-            {
-              "title": "Статус соединения \u2192",
-              "url": "/d/dephealth-link-status/?var-dependency=${__field.labels.dependency}&var-host=${__field.labels.host}&var-port=${__field.labels.port}&${__url_time_range}",
-              "targetBlank": false
-            }
-          ]
+          "max": 1
         },
         "overrides": []
       },
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] }
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"], "sortBy": "Name", "sortDesc": false }
       },
       "targets": [
         {
@@ -272,7 +265,7 @@
       "title": "Латентность (heatmap)",
       "type": "heatmap",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "gridPos": { "h": 14, "w": 12, "x": 12, "y": 14 },
       "fieldConfig": {
         "defaults": { "custom": {} },
         "overrides": []
@@ -309,7 +302,7 @@
       "id": 12,
       "title": "Латентность",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 },
       "collapsed": false
     },
     {
@@ -318,7 +311,7 @@
       "description": "Пороги: >1с — warning, >5с — critical",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 29 },
       "fieldConfig": {
         "defaults": {
           "unit": "s",

@@ -207,7 +207,7 @@
       "gridPos": { "h": 20, "w": 24, "x": 0, "y": 13 },
       "targets": [
         {
-          "expr": "min by (dependency, type, host, port, job, namespace) (app_dependency_health{namespace=~\"$namespace\", dependency=~\"$dependency\", type=~\"$dependency_type\", host=~\"$host\"})",
+          "expr": "min by (dependency, type, host, port, job, namespace) (last_over_time(app_dependency_health{namespace=~\"$namespace\", dependency=~\"$dependency\", type=~\"$dependency_type\", host=~\"$host\"}[$__range]))",
           "format": "table",
           "instant": true,
           "range": false,
@@ -226,6 +226,13 @@
           "instant": true,
           "range": false,
           "refId": "C"
+        },
+        {
+          "expr": "clamp_max(count by (dependency, type, host, port, job, namespace) (app_dependency_health{namespace=~\"$namespace\", dependency=~\"$dependency\", type=~\"$dependency_type\", host=~\"$host\"}), 1)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "D"
         }
       ],
       "transformations": [
@@ -244,9 +251,10 @@
               "type": 2,
               "host": 3,
               "port": 4,
-              "Value #A": 5,
-              "Value #B": 6,
-              "Value #C": 7
+              "Value #D": 5,
+              "Value #A": 6,
+              "Value #B": 7,
+              "Value #C": 8
             },
             "renameByName": {
               "job": "Сервис",
@@ -254,6 +262,7 @@
               "type": "Тип",
               "host": "Хост",
               "port": "Порт",
+              "Value #D": "Свежесть",
               "Value #A": "Статус",
               "Value #B": "P99 (сек)",
               "Value #C": "Flapping"
@@ -346,7 +355,8 @@
               {
                 "id": "mappings",
                 "value": [
-                  { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+                  { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } },
+                  { "type": "special", "options": { "match": "null", "result": { "text": "N/A", "color": "#9e9e9e" } } }
                 ]
               }
             ]
@@ -388,6 +398,21 @@
                     { "color": "red", "value": 8 }
                   ]
                 }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Свежесть" },
+            "properties": [
+              { "id": "custom.minWidth", "value": 110 },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "1": { "text": "Актуально", "color": "#4caf50" } } },
+                  { "type": "special", "options": { "match": "null", "result": { "text": "Устарело", "color": "#9e9e9e" } } }
+                ]
               }
             ]
           }
