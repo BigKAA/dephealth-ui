@@ -17,7 +17,7 @@ import { initShortcuts } from './shortcuts.js';
 import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js';
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu, setContextMenuGrafanaConfig } from './contextmenu.js';
-import { makeDraggable } from './draggable.js';
+import { makeDraggable, clampElement } from './draggable.js';
 import { computeCascadeWarnings } from './cascade.js';
 import {
   isGroupingEnabled, setGroupingEnabled,
@@ -454,6 +454,7 @@ function setupLegend() {
   btnToggle.addEventListener('click', () => {
     const isHidden = legend.classList.toggle('hidden');
     localStorage.setItem('dephealth-legend', isHidden ? 'hidden' : 'visible');
+    if (!isHidden) clampElement(legend);
   });
 
   // Close button
@@ -479,6 +480,7 @@ function setupNamespaceLegend() {
   btnToggle.addEventListener('click', () => {
     const isHidden = legend.classList.toggle('hidden');
     localStorage.setItem('dephealth-ns-legend', isHidden ? 'hidden' : 'visible');
+    if (!isHidden) clampElement(legend);
   });
 
   btnClose.addEventListener('click', () => {
@@ -502,6 +504,7 @@ function setupConnectionLegend() {
   btnToggle.addEventListener('click', () => {
     const isHidden = legend.classList.toggle('hidden');
     localStorage.setItem('dephealth-conn-legend', isHidden ? 'hidden' : 'visible');
+    if (!isHidden) clampElement(legend);
   });
 
   btnClose.addEventListener('click', () => {

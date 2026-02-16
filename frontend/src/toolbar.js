@@ -8,5 +8,5 @@ export function initToolbar() {
   const toolbar = document.getElementById('graph-toolbar');
   if (!toolbar) return;
 
-  makeDraggable(toolbar, 'dephealth-toolbar-pos', { exclude: 'button' });
+  makeDraggable(toolbar, 'dephealth-toolbar-pos', { dragHandle: '.toolbar-grip' });
 }
