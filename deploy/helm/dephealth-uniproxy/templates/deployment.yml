@@ -106,6 +106,58 @@ spec:
             - name: {{ $envPrefix }}_AMQP_URL
               value: {{ .amqpURL | quote }}
             {{- end }}
+            {{- if .auth }}
+            {{- if .auth.bearerToken }}
+            - name: {{ $envPrefix }}_BEARER_TOKEN
+              value: {{ .auth.bearerToken | quote }}
+            {{- end }}
+            {{- if .auth.basicUser }}
+            - name: {{ $envPrefix }}_BASIC_USER
+              value: {{ .auth.basicUser | quote }}
+            {{- end }}
+            {{- if .auth.basicPass }}
+            - name: {{ $envPrefix }}_BASIC_PASS
+              value: {{ .auth.basicPass | quote }}
+            {{- end }}
+            {{- if .auth.headers }}
+            - name: {{ $envPrefix }}_HEADERS
+              value: {{ .auth.headers | toJson | quote }}
+            {{- end }}
+            {{- if .auth.metadata }}
+            - name: {{ $envPrefix }}_METADATA
+              value: {{ .auth.metadata | toJson | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- if .serverAuth }}
+            {{- if .serverAuth.method }}
+            - name: AUTH_METHOD
+              value: {{ .serverAuth.method | quote }}
+            {{- end }}
+            {{- if .serverAuth.token }}
+            - name: AUTH_TOKEN
+              value: {{ .serverAuth.token | quote }}
+            {{- end }}
+            {{- if .serverAuth.username }}
+            - name: AUTH_USER
+              value: {{ .serverAuth.username | quote }}
+            {{- end }}
+            {{- if .serverAuth.password }}
+            - name: AUTH_PASS
+              value: {{ .serverAuth.password | quote }}
+            {{- end }}
+            {{- if .serverAuth.apiKey }}
+            - name: AUTH_API_KEY
+              value: {{ .serverAuth.apiKey | quote }}
+            {{- end }}
+            {{- if .serverAuth.metricsMethod }}
+            - name: AUTH_METRICS_METHOD
+              value: {{ .serverAuth.metricsMethod | quote }}
+            {{- end }}
+            {{- if .serverAuth.statusMethod }}
+            - name: AUTH_STATUS_METHOD
+              value: {{ .serverAuth.statusMethod | quote }}
             {{- end }}
             {{- end }}
             - name: POD_NAME

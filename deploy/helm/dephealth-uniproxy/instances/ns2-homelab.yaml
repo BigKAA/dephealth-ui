@@ -7,6 +7,8 @@ instances:
         url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
         critical: "yes"
         healthPath: "/"
+        auth:
+          bearerToken: "test-auth-token-05"
       - name: uniproxy-06
         type: http
         url: "http://uniproxy-06.dephealth-uniproxy-2.svc:8080"
@@ -15,6 +17,10 @@ instances:
 
   - name: uniproxy-05
     replicas: 1
+    serverAuth:
+      method: bearer
+      token: "test-auth-token-05"
+      metricsMethod: "none"
     connections: []
 
   - name: uniproxy-06
@@ -30,6 +36,16 @@ instances:
         url: "http://uniproxy-08.dephealth-uniproxy-2.svc:8080"
         critical: "no"
         healthPath: "/"
+        auth:
+          basicUser: "monitor"
+          basicPass: "monitor-pass-08"
+      - name: uniproxy-05
+        type: http
+        url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
+        critical: "no"
+        healthPath: "/"
+        auth:
+          bearerToken: "wrong-token-intentional"
 
   - name: uniproxy-07
     replicas: 1
@@ -41,6 +57,11 @@ instances:
 
   - name: uniproxy-08
     replicas: 1
+    serverAuth:
+      method: basic
+      username: "monitor"
+      password: "monitor-pass-08"
+      metricsMethod: "none"
     connections:
       - name: postgresql
         type: postgres
