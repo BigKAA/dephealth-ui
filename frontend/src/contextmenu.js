@@ -4,12 +4,29 @@ import { t } from './i18n.js';
 import { showToast } from './toast.js';
 import { openSidebar } from './sidebar.js';
 import { expandNamespace } from './grouping.js';
+import { isHistoryMode, getSelectedTime } from './timeline.js';
 
 const $ = (sel) => document.querySelector(sel);
 
 let menuEl = null;
 let cyInstance = null;
 let grafanaConfig = null;
+
+/**
+ * Append historical time range to a Grafana URL when in history mode.
+ * @param {string} url
+ * @returns {string}
+ */
+function appendHistoryTimeRange(url) {
+  if (!isHistoryMode()) return url;
+  const time = getSelectedTime();
+  if (!time) return url;
+  const ts = time.getTime();
+  const from = ts - 3600_000;
+  const to = ts + 3600_000;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}from=${from}&to=${to}`;
+}
 
 /**
  * Set Grafana config for context menu dashboard links.
@@ -45,21 +62,22 @@ export function initContextMenu(cy) {
     const items = [];
 
     if (data.grafanaUrl) {
+      const gUrl = appendHistoryTimeRange(data.grafanaUrl);
       items.push({
         label: t('contextMenu.openInGrafana'),
         icon: 'bi-graph-up',
-        action: () => window.open(data.grafanaUrl, '_blank'),
+        action: () => window.open(gUrl, '_blank'),
       });
       items.push({
         label: t('contextMenu.copyGrafanaUrl'),
         icon: 'bi-clipboard',
-        action: () => copyToClipboard(data.grafanaUrl),
+        action: () => copyToClipboard(gUrl),
       });
     }
 
     // Root Cause Analysis: only for nodes in cascade chain
     if (data.inCascadeChain && grafanaConfig && grafanaConfig.baseUrl && grafanaConfig.dashboards && grafanaConfig.dashboards.rootCause) {
-      const rcUrl = `${grafanaConfig.baseUrl}/d/${grafanaConfig.dashboards.rootCause}/?var-service=${encodeURIComponent(data.id)}&var-namespace=${encodeURIComponent(data.namespace || '')}`;
+      const rcUrl = appendHistoryTimeRange(`${grafanaConfig.baseUrl}/d/${grafanaConfig.dashboards.rootCause}/?var-service=${encodeURIComponent(data.id)}&var-namespace=${encodeURIComponent(data.namespace || '')}`);
       items.push({
         label: t('contextMenu.rootCauseAnalysis'),
         icon: 'bi-search',
@@ -124,16 +142,17 @@ export function initContextMenu(cy) {
 
     if (!data.grafanaUrl) return; // No menu if no Grafana URL
 
+    const edgeGUrl = appendHistoryTimeRange(data.grafanaUrl);
     const items = [
       {
         label: t('contextMenu.openInGrafana'),
         icon: 'bi-graph-up',
-        action: () => window.open(data.grafanaUrl, '_blank'),
+        action: () => window.open(edgeGUrl, '_blank'),
       },
       {
         label: t('contextMenu.copyGrafanaUrl'),
         icon: 'bi-clipboard',
-        action: () => copyToClipboard(data.grafanaUrl),
+        action: () => copyToClipboard(edgeGUrl),
       },
     ];
 

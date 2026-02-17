@@ -219,6 +219,8 @@ export default {
   'timeline.apply': 'Apply',
   'timeline.historyBanner': 'Viewing historical data: {time}',
   'status.viewing': 'Viewing {time} | {nodes} nodes, {edges} edges',
+  'timeline.noData': 'No status changes in this range',
+  'timeline.eventsError': 'Failed to load timeline events',
 
   // Time ago
   'time.secondsAgo': '{value}s ago',

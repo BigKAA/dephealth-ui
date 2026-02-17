@@ -7,6 +7,7 @@ import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
 import { STATUS_COLORS, STATUS_ABBREVIATIONS, STATUS_LABELS } from './graph.js';
 import { getCollapsedChildren, expandNamespace, findConnectedChild } from './grouping.js';
+import { isHistoryMode, getSelectedTime } from './timeline.js';
 
 let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
@@ -466,8 +467,25 @@ function renderActions(data) {
   `;
 
   $('#sidebar-grafana-btn').addEventListener('click', () => {
-    window.open(data.grafanaUrl, '_blank');
+    window.open(appendHistoryTimeRange(data.grafanaUrl), '_blank');
   });
+}
+
+/**
+ * Append historical time range (&from=&to=) to a Grafana URL when in history mode.
+ * Uses +/- 1 hour around the selected historical timestamp (Unix ms).
+ * @param {string} url - Grafana dashboard URL
+ * @returns {string} URL with time range params if in history mode
+ */
+function appendHistoryTimeRange(url) {
+  if (!isHistoryMode()) return url;
+  const time = getSelectedTime();
+  if (!time) return url;
+  const ts = time.getTime();
+  const from = ts - 3600_000; // -1h
+  const to = ts + 3600_000; // +1h
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}from=${from}&to=${to}`;
 }
 
 /**
@@ -575,7 +593,7 @@ function renderGrafanaDashboards(data) {
     ${dashboards
       .map(
         (d) => `
-      <a href="${d.url}" target="_blank" rel="noopener" class="sidebar-grafana-link">
+      <a href="${appendHistoryTimeRange(d.url)}" target="_blank" rel="noopener" class="sidebar-grafana-link">
         <i class="bi bi-graph-up"></i>
         <span>${d.label}</span>
         <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>
@@ -895,7 +913,7 @@ function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel, sourceNames
     ${dashboards
       .map(
         (d) => `
-      <a href="${d.url}" target="_blank" rel="noopener" class="sidebar-grafana-link">
+      <a href="${appendHistoryTimeRange(d.url)}" target="_blank" rel="noopener" class="sidebar-grafana-link">
         <i class="bi bi-graph-up"></i>
         <span>${d.label}</span>
         <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>

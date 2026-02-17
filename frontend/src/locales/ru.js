@@ -219,6 +219,8 @@ export default {
   'timeline.apply': 'Применить',
   'timeline.historyBanner': 'Просмотр исторических данных: {time}',
   'status.viewing': 'Просмотр {time} | {nodes} узлов, {edges} связей',
+  'timeline.noData': 'Нет изменений статуса за этот период',
+  'timeline.eventsError': 'Не удалось загрузить события',
 
   // Time ago
   'time.secondsAgo': '{value}с назад',

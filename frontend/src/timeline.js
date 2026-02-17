@@ -5,6 +5,7 @@
 
 import { t } from './i18n.js';
 import { fetchTimelineEvents } from './api.js';
+import { showToast } from './toast.js';
 
 // --- State ---
 let historyMode = false;
@@ -79,6 +80,8 @@ export function exitHistoryMode() {
       b.classList.remove('active');
     }
   }
+
+  clearURLParams();
 }
 
 /**
@@ -86,53 +89,87 @@ export function exitHistoryMode() {
  * @returns {boolean} true if history mode was activated from URL
  */
 export function restoreFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const timeParam = params.get('time');
-  if (!timeParam) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const timeParam = params.get('time');
+    if (!timeParam) return false;
 
-  const time = new Date(timeParam);
-  if (isNaN(time.getTime())) return false;
+    const time = new Date(timeParam);
+    if (isNaN(time.getTime())) return false;
 
-  const fromParam = params.get('from');
-  const toParam = params.get('to');
-  let start, end;
+    const fromParam = params.get('from');
+    const toParam = params.get('to');
+    let start, end;
 
-  if (fromParam && toParam) {
-    start = new Date(fromParam);
-    end = new Date(toParam);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    if (fromParam && toParam) {
+      start = new Date(fromParam);
+      end = new Date(toParam);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        start = new Date(time.getTime() - 3600_000);
+        end = new Date(time.getTime() + 3600_000);
+      }
+    } else {
+      // Default: +/- 1h around the selected time
       start = new Date(time.getTime() - 3600_000);
       end = new Date(time.getTime() + 3600_000);
     }
-  } else {
-    // Default: +/- 1h around the selected time
-    start = new Date(time.getTime() - 3600_000);
-    end = new Date(time.getTime() + 3600_000);
+
+    enterHistoryMode();
+    rangeStart = start;
+    rangeEnd = end;
+    selectedTime = time;
+
+    // Update inputs
+    const startInput = document.getElementById('timeline-start');
+    const endInput = document.getElementById('timeline-end');
+    if (startInput) startInput.value = toLocalDateTimeString(start);
+    if (endInput) endInput.value = toLocalDateTimeString(end);
+
+    // Position slider
+    if (sliderEl) {
+      const totalMs = end.getTime() - start.getTime();
+      const pos = totalMs > 0
+        ? ((time.getTime() - start.getTime()) / totalMs) * parseInt(sliderEl.max, 10)
+        : parseInt(sliderEl.max, 10);
+      sliderEl.value = Math.round(pos);
+    }
+
+    updateTimeDisplay();
+    loadMarkers();
+    return true;
+  } catch (err) {
+    console.warn('Failed to restore history from URL:', err);
+    return false;
   }
+}
 
-  enterHistoryMode();
-  rangeStart = start;
-  rangeEnd = end;
-  selectedTime = time;
-
-  // Update inputs
-  const startInput = document.getElementById('timeline-start');
-  const endInput = document.getElementById('timeline-end');
-  if (startInput) startInput.value = toLocalDateTimeString(start);
-  if (endInput) endInput.value = toLocalDateTimeString(end);
-
-  // Position slider
-  if (sliderEl) {
-    const totalMs = end.getTime() - start.getTime();
-    const pos = totalMs > 0
-      ? ((time.getTime() - start.getTime()) / totalMs) * parseInt(sliderEl.max, 10)
-      : parseInt(sliderEl.max, 10);
-    sliderEl.value = Math.round(pos);
+/**
+ * Sync current timeline state to URL query parameters.
+ * Preserves existing params like ?namespace=.
+ */
+function syncToURL() {
+  const url = new URL(window.location);
+  if (selectedTime) {
+    url.searchParams.set('time', selectedTime.toISOString());
   }
+  if (rangeStart) {
+    url.searchParams.set('from', rangeStart.toISOString());
+  }
+  if (rangeEnd) {
+    url.searchParams.set('to', rangeEnd.toISOString());
+  }
+  history.replaceState(null, '', url);
+}
 
-  updateTimeDisplay();
-  loadMarkers();
-  return true;
+/**
+ * Remove timeline-related params from URL.
+ */
+function clearURLParams() {
+  const url = new URL(window.location);
+  url.searchParams.delete('time');
+  url.searchParams.delete('from');
+  url.searchParams.delete('to');
+  history.replaceState(null, '', url);
 }
 
 // --- Private ---
@@ -196,6 +233,7 @@ function buildUI() {
   sliderEl.addEventListener('change', () => {
     updateTimeFromSlider();
     updateTimeDisplay();
+    syncToURL();
     if (onTimeChangedCb) onTimeChangedCb(selectedTime);
   });
 
@@ -226,6 +264,7 @@ function setRange(start, end) {
   if (sliderEl) sliderEl.value = sliderEl.max;
   selectedTime = new Date(end);
   updateTimeDisplay();
+  syncToURL();
 
   if (onTimeChangedCb) onTimeChangedCb(selectedTime);
 
@@ -237,10 +276,15 @@ async function loadMarkers() {
   if (!rangeStart || !rangeEnd || !markersEl) return;
   try {
     const events = await fetchTimelineEvents(rangeStart.toISOString(), rangeEnd.toISOString());
+    if (!events || events.length === 0) {
+      markersEl.innerHTML = `<div class="timeline-no-data">${t('timeline.noData')}</div>`;
+      return;
+    }
     renderMarkers(events);
   } catch (err) {
     console.warn('Failed to load timeline events:', err);
     markersEl.innerHTML = '';
+    showToast(t('timeline.eventsError'), 'warning');
   }
 }
 
@@ -268,6 +312,7 @@ function renderMarkers(events) {
       sliderEl.value = Math.round(pos);
       updateTimeFromSlider();
       updateTimeDisplay();
+      syncToURL();
       if (onTimeChangedCb) onTimeChangedCb(selectedTime);
     });
   }
