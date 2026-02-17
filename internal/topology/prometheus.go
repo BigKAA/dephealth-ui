@@ -455,13 +455,17 @@ func (c *prometheusClient) QueryHistoricalAlerts(ctx context.Context, at time.Ti
 			svc = r.Metric["service"]
 		}
 		if svc == "" {
+			svc = r.Metric["job"]
+		}
+		if svc == "" {
 			continue
 		}
 		alerts = append(alerts, HistoricalAlert{
-			AlertName: r.Metric["alertname"],
-			Namespace: r.Metric["namespace"],
-			Service:   svc,
-			Severity:  r.Metric["severity"],
+			AlertName:  r.Metric["alertname"],
+			Namespace:  r.Metric["namespace"],
+			Service:    svc,
+			Dependency: r.Metric["dependency"],
+			Severity:   r.Metric["severity"],
 		})
 	}
 	return alerts, nil

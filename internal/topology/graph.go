@@ -596,10 +596,11 @@ func historicalToAlerts(hist []HistoricalAlert) []alerts.Alert {
 	result := make([]alerts.Alert, 0, len(hist))
 	for _, h := range hist {
 		result = append(result, alerts.Alert{
-			AlertName: h.AlertName,
-			Service:   h.Service,
-			Severity:  h.Severity,
-			State:     "firing",
+			AlertName:  h.AlertName,
+			Service:    h.Service,
+			Dependency: h.Dependency,
+			Severity:   h.Severity,
+			State:      "firing",
 		})
 	}
 	return result

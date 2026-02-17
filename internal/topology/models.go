@@ -61,10 +61,11 @@ type TopologyMeta struct {
 
 // HistoricalAlert represents an alert reconstructed from the ALERTS metric at a historical timestamp.
 type HistoricalAlert struct {
-	AlertName string
-	Namespace string
-	Service   string // "name" or "service" label
-	Severity  string
+	AlertName  string
+	Namespace  string
+	Service    string // "name", "service", or "job" label
+	Dependency string // "dependency" label (target)
+	Severity   string
 }
 
 // TimeValue is a single data point in a range query result.
