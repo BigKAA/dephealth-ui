@@ -6,6 +6,7 @@
 claudedocs/
 .playwright-mcp
 .templates/
+plans/
 
 # Go
 /dephealth-ui

@@ -419,14 +419,28 @@ function buildUI() {
   // Copy URL button
   document.getElementById('timeline-copy-url').addEventListener('click', () => {
     const btn = document.getElementById('timeline-copy-url');
-    navigator.clipboard.writeText(window.location.href).then(() => {
+    const onSuccess = () => {
       showToast(t('timeline.urlCopied'), 'info');
       const icon = btn.querySelector('i');
       icon.className = 'bi bi-check';
       setTimeout(() => { icon.className = 'bi bi-clipboard'; }, 1500);
-    }).catch(() => {
-      showToast(t('timeline.urlCopied'), 'warning');
-    });
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(window.location.href).then(onSuccess).catch(() => {
+        showToast(t('timeline.urlCopied'), 'warning');
+      });
+    } else {
+      // Fallback for non-secure contexts (HTTP)
+      const textarea = document.createElement('textarea');
+      textarea.value = window.location.href;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); onSuccess(); }
+      catch { showToast(t('timeline.urlCopied'), 'warning'); }
+      document.body.removeChild(textarea);
+    }
   });
 
   // Live button
