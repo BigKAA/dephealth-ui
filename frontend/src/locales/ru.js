@@ -212,6 +212,14 @@ export default {
   'contextMenu.copyNamespaceName': 'Копировать имя namespace',
   'contextMenu.namespaceCopied': 'Имя namespace скопировано',
 
+  // Timeline / History mode
+  'toolbar.history': 'Режим истории',
+  'timeline.title': 'Временная шкала',
+  'timeline.live': 'Live',
+  'timeline.apply': 'Применить',
+  'timeline.historyBanner': 'Просмотр исторических данных: {time}',
+  'status.viewing': 'Просмотр {time} | {nodes} узлов, {edges} связей',
+
   // Time ago
   'time.secondsAgo': '{value}с назад',
   'time.minutesAgo': '{value}м назад',

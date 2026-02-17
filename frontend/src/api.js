@@ -19,19 +19,23 @@ let lastTopologyData = null;
 
 /**
  * Fetch topology data from the backend API.
- * Supports ETag/If-None-Match for efficient polling (disabled for namespace-filtered requests).
+ * Supports ETag/If-None-Match for efficient polling (disabled for namespace-filtered
+ * and historical requests).
  * @param {string} [namespace] - optional namespace filter
+ * @param {string} [time] - optional ISO8601 timestamp for historical queries
  * @returns {Promise<{nodes: Array, edges: Array, alerts: Array, meta: Object}>}
  */
-export async function fetchTopology(namespace) {
+export async function fetchTopology(namespace, time) {
   let url = '/api/v1/topology';
-  if (namespace) {
-    url += `?namespace=${encodeURIComponent(namespace)}`;
-  }
+  const params = new URLSearchParams();
+  if (namespace) params.set('namespace', namespace);
+  if (time) params.set('time', time);
+  const qs = params.toString();
+  if (qs) url += `?${qs}`;
 
   const headers = {};
-  // ETag only for unfiltered requests.
-  if (!namespace && lastETag) {
+  // ETag only for unfiltered live requests.
+  if (!namespace && !time && lastETag) {
     headers['If-None-Match'] = lastETag;
   }
 
@@ -46,8 +50,8 @@ export async function fetchTopology(namespace) {
   }
 
   const data = await resp.json();
-  // Only track ETag for unfiltered requests.
-  if (!namespace) {
+  // Only track ETag for unfiltered live requests.
+  if (!namespace && !time) {
     const etag = resp.headers.get('ETag');
     if (etag) {
       lastETag = etag;
@@ -55,6 +59,21 @@ export async function fetchTopology(namespace) {
     lastTopologyData = data;
   }
   return data;
+}
+
+/**
+ * Fetch timeline events (status transitions) for a given time range.
+ * @param {string} start - ISO8601 start timestamp
+ * @param {string} end - ISO8601 end timestamp
+ * @returns {Promise<Array<{timestamp: string, service: string, fromState: string, toState: string, kind: string}>>}
+ */
+export async function fetchTimelineEvents(start, end) {
+  const url = `/api/v1/timeline/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  const resp = await authenticatedFetch(url);
+  if (!resp.ok) {
+    throw new Error(`Timeline events API error: ${resp.status} ${resp.statusText}`);
+  }
+  return resp.json();
 }
 
 /**

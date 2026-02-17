@@ -212,6 +212,14 @@ export default {
   'contextMenu.copyNamespaceName': 'Copy Namespace Name',
   'contextMenu.namespaceCopied': 'Namespace name copied',
 
+  // Timeline / History mode
+  'toolbar.history': 'History mode',
+  'timeline.title': 'Timeline',
+  'timeline.live': 'Live',
+  'timeline.apply': 'Apply',
+  'timeline.historyBanner': 'Viewing historical data: {time}',
+  'status.viewing': 'Viewing {time} | {nodes} nodes, {edges} edges',
+
   // Time ago
   'time.secondsAgo': '{value}s ago',
   'time.minutesAgo': '{value}m ago',

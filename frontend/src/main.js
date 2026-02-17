@@ -20,6 +20,10 @@ import { initContextMenu, setContextMenuGrafanaConfig } from './contextmenu.js';
 import { makeDraggable, clampElement } from './draggable.js';
 import { computeCascadeWarnings } from './cascade.js';
 import {
+  initTimeline, isHistoryMode, getSelectedTime,
+  enterHistoryMode, exitHistoryMode, restoreFromURL,
+} from './timeline.js';
+import {
   isGroupingEnabled, setGroupingEnabled,
   collapseNamespace, expandNamespace, collapseAll, expandAll,
   hasExpandedGroups, reapplyCollapsedState, getCollapsedNamespaces,
@@ -49,9 +53,15 @@ const RETRY_BASE = 5000;
 const RETRY_MAX = 30000;
 
 function updateStatus(data) {
-  const now = new Date().toLocaleTimeString();
   const { nodeCount, edgeCount } = data.meta;
-  let text = t('status.updated', { time: now, nodes: nodeCount, edges: edgeCount });
+  let text;
+  if (data.meta.isHistory && data.meta.time) {
+    const histDate = new Date(data.meta.time).toLocaleString();
+    text = t('status.viewing', { time: histDate, nodes: nodeCount, edges: edgeCount });
+  } else {
+    const now = new Date().toLocaleTimeString();
+    text = t('status.updated', { time: now, nodes: nodeCount, edges: edgeCount });
+  }
 
   if (data.alerts && data.alerts.length > 0) {
     const critical = data.alerts.filter((a) => a.severity === 'critical').length;
@@ -194,7 +204,11 @@ function checkEmptyState(data) {
 
 async function refresh() {
   try {
-    const data = await fetchTopology(selectedNamespace || undefined);
+    const histTime = getSelectedTime();
+    const data = await fetchTopology(
+      selectedNamespace || undefined,
+      histTime ? histTime.toISOString() : undefined,
+    );
     const structureChanged = renderGraph(cy, data, appConfig);
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
@@ -637,6 +651,29 @@ async function init() {
     }
 
     initToolbar();
+    initTimeline((time) => {
+      // time is Date or null (back to live)
+      if (time) {
+        stopPolling();
+        refresh();
+      } else {
+        refresh();
+        startPolling();
+      }
+    });
+
+    // History mode toggle button
+    $('#btn-history').addEventListener('click', () => {
+      if (isHistoryMode()) {
+        exitHistoryMode();
+        refresh();
+        startPolling();
+      } else {
+        stopPolling();
+        enterHistoryMode();
+      }
+    });
+
     initTooltip(cy);
     initSearch(cy);
     initAlertDrawer(cy);
@@ -681,7 +718,17 @@ async function init() {
     const params = new URLSearchParams(window.location.search);
     selectedNamespace = params.get('namespace') || '';
 
-    const data = await withRetry(() => fetchTopology(selectedNamespace || undefined));
+    // Restore history mode from URL (?time=...) if present
+    const restoredHistory = restoreFromURL();
+    if (restoredHistory) {
+      stopPolling();
+    }
+
+    const histTime = getSelectedTime();
+    const data = await withRetry(() => fetchTopology(
+      selectedNamespace || undefined,
+      histTime ? histTime.toISOString() : undefined,
+    ));
     const structureChanged = renderGraph(cy, data, appConfig);
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
@@ -700,7 +747,9 @@ async function init() {
     setupGroupingHandlers();
     initContextMenu(cy);
     updateSidebarData(data);
-    startPolling();
+    if (!isHistoryMode()) {
+      startPolling();
+    }
   } catch (err) {
     console.error('Initialization failed:', err);
     showError(err.message);
