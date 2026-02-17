@@ -5,7 +5,7 @@
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-02-17
 - **Последнее обновление**: 2026-02-17
-- **Статус**: Pending
+- **Статус**: In Progress
 - **Дизайн-документ**: [.tasks/history-graf.md](../.tasks/history-graf.md)
 - **Целевая версия**: v0.16.0
 
@@ -19,18 +19,18 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 1
-- **Активный подпункт**: 1.1
+- **Активная фаза**: Phase 4
+- **Активный подпункт**: 4.1
 - **Последнее обновление**: 2026-02-17
-- **Примечание**: План создан, ожидает начала реализации
+- **Примечание**: Phases 1–3 completed. Backend built, deployed (v0.16.0-1), integration tested.
 
 ---
 
 ## Оглавление
 
-- [ ] [Phase 1: Backend — Historical Queries](#phase-1-backend--historical-queries)
-- [ ] [Phase 2: Backend — Timeline Events Endpoint](#phase-2-backend--timeline-events-endpoint)
-- [ ] [Phase 3: Backend — Build & Test](#phase-3-backend--build--test)
+- [x] [Phase 1: Backend — Historical Queries](#phase-1-backend--historical-queries)
+- [x] [Phase 2: Backend — Timeline Events Endpoint](#phase-2-backend--timeline-events-endpoint)
+- [x] [Phase 3: Backend — Build & Test](#phase-3-backend--build--test)
 - [ ] [Phase 4: Frontend — Timeline Panel UI](#phase-4-frontend--timeline-panel-ui)
 - [ ] [Phase 5: Frontend — Event Markers & Polish](#phase-5-frontend--event-markers--polish)
 - [ ] [Phase 6: Full Build, Deploy & E2E Test](#phase-6-full-build-deploy--e2e-test)
@@ -40,7 +40,7 @@
 ## Phase 1: Backend — Historical Queries
 
 **Dependencies**: None
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -107,7 +107,7 @@ Add time-travel capability to all Prometheus queries. The core idea: extend `Que
 ## Phase 2: Backend — Timeline Events Endpoint
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -160,7 +160,7 @@ Create a new `internal/timeline/` package and `/api/v1/timeline/events` endpoint
 ## Phase 3: Backend — Build & Test
 
 **Dependencies**: Phase 1, Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
