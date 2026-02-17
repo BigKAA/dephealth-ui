@@ -19,10 +19,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 4
-- **Активный подпункт**: 4.1
+- **Активная фаза**: Phase 6
+- **Активный подпункт**: 6.1
 - **Последнее обновление**: 2026-02-17
-- **Примечание**: Phases 1–3 completed. Backend built, deployed (v0.16.0-1), integration tested.
+- **Примечание**: Phases 1–5 completed. URL sync, Grafana history links, error handling added.
 
 ---
 
@@ -31,8 +31,8 @@
 - [x] [Phase 1: Backend — Historical Queries](#phase-1-backend--historical-queries)
 - [x] [Phase 2: Backend — Timeline Events Endpoint](#phase-2-backend--timeline-events-endpoint)
 - [x] [Phase 3: Backend — Build & Test](#phase-3-backend--build--test)
-- [ ] [Phase 4: Frontend — Timeline Panel UI](#phase-4-frontend--timeline-panel-ui)
-- [ ] [Phase 5: Frontend — Event Markers & Polish](#phase-5-frontend--event-markers--polish)
+- [x] [Phase 4: Frontend — Timeline Panel UI](#phase-4-frontend--timeline-panel-ui)
+- [x] [Phase 5: Frontend — Event Markers & Polish](#phase-5-frontend--event-markers--polish)
 - [ ] [Phase 6: Full Build, Deploy & E2E Test](#phase-6-full-build-deploy--e2e-test)
 
 ---
@@ -202,7 +202,7 @@ Build the Docker image with all backend changes and deploy to the test cluster. 
 ## Phase 4: Frontend — Timeline Panel UI
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -265,7 +265,7 @@ Build the timeline panel UI: history mode toggle button in toolbar, bottom panel
 ## Phase 5: Frontend — Event Markers & Polish
 
 **Dependencies**: Phase 4
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -273,39 +273,39 @@ Add event markers on the slider, URL synchronization, Grafana link adjustments f
 
 ### Подпункты
 
-- [ ] **5.1 Fetch and render event markers on slider**
+- [x] **5.1 Fetch and render event markers on slider** *(done in Phase 4)*
   - **Dependencies**: None
   - **Description**: When time range changes (preset click or custom apply), call `fetchTimelineEvents(start, end)`. Render markers as positioned `<div>` elements inside `.timeline-markers` container. Each marker has CSS class based on `kind` (degradation=red, recovery=green, change=orange). Marker `title` attribute shows `service: fromState → toState`. Click on marker snaps slider to that timestamp and triggers graph update.
   - **Modifies**:
     - `frontend/src/timeline.js`
 
-- [ ] **5.2 URL synchronization**
+- [x] **5.2 URL synchronization**
   - **Dependencies**: None
   - **Description**: When slider position changes: update URL with `?time=<ISO8601>` via `history.replaceState()`. Preserve existing `?namespace=` param. Optionally include `?from=` and `?to=` for the range. When entering live mode: remove `?time=`, `?from=`, `?to=` from URL. `syncFromURL()` called during init reads these params and restores state.
   - **Modifies**:
     - `frontend/src/timeline.js`
     - `frontend/src/main.js` (init section)
 
-- [ ] **5.3 History mode visual indicator**
+- [x] **5.3 History mode visual indicator** *(done in Phase 4)*
   - **Dependencies**: None
   - **Description**: When in history mode, show a prominent banner/badge with the current timestamp (e.g., in the header or above the timeline panel). Update the timestamp display as the slider moves. Format: locale-aware datetime string. The header should have a visually distinct background (CSS `header.history-mode`). Add `data-history-time` attribute for CSS `::after` content display.
   - **Modifies**:
     - `frontend/src/timeline.js`
     - `frontend/src/style.css`
 
-- [ ] **5.4 Grafana links with historical time range**
+- [x] **5.4 Grafana links with historical time range**
   - **Dependencies**: None
   - **Description**: In `sidebar.js`, when building Grafana dashboard URLs and `isHistoryMode()` is true: append `&from=<ts-1h>&to=<ts+1h>` (Unix milliseconds) to all Grafana URLs. This ensures "Open in Grafana" links navigate to the relevant historical time window. Import `isHistoryMode` and `getSelectedTime` from `timeline.js`.
   - **Modifies**:
     - `frontend/src/sidebar.js`
 
-- [ ] **5.5 Status bar update for history mode**
+- [x] **5.5 Status bar update for history mode** *(done in Phase 4)*
   - **Dependencies**: None
   - **Description**: In `updateStatus()` function in `main.js`, when `data.meta.isHistory` is true, show a different status line: replace "Updated at HH:MM:SS" with "Viewing: <historical_timestamp>". Use a distinct icon or style for the status connection dot.
   - **Modifies**:
     - `frontend/src/main.js`
 
-- [ ] **5.6 Edge cases and error handling**
+- [x] **5.6 Edge cases and error handling**
   - **Dependencies**: 5.1, 5.2
   - **Description**: Handle: (a) timeline events API failure (show toast, keep slider functional without markers), (b) topology API failure in history mode (show error, don't break timeline panel), (c) invalid URL `?time=` param (ignore, stay in live mode), (d) time range with no data from VM (show "no data" message in timeline), (e) slider at exact range boundaries. Add `timeline.noData` and `timeline.eventsError` localization keys.
   - **Modifies**:
@@ -315,15 +315,15 @@ Add event markers on the slider, URL synchronization, Grafana link adjustments f
 
 ### Критерии завершения Phase 5
 
-- [ ] Все подпункты завершены (5.1–5.6)
-- [ ] Event markers render on slider at correct positions
-- [ ] Clicking a marker snaps slider and updates graph
-- [ ] URL reflects current `?time=` and can be shared
-- [ ] Opening shared URL enters history mode at correct time
-- [ ] Grafana links include historical time range
-- [ ] Status bar shows historical timestamp in history mode
-- [ ] Error scenarios handled gracefully (toast messages, no crashes)
-- [ ] All new text localized (en + ru)
+- [x] Все подпункты завершены (5.1–5.6)
+- [x] Event markers render on slider at correct positions
+- [x] Clicking a marker snaps slider and updates graph
+- [x] URL reflects current `?time=` and can be shared
+- [x] Opening shared URL enters history mode at correct time
+- [x] Grafana links include historical time range
+- [x] Status bar shows historical timestamp in history mode
+- [x] Error scenarios handled gracefully (toast messages, no crashes)
+- [x] All new text localized (en + ru)
 
 ---
 
