@@ -5,7 +5,7 @@
 - **Версия плана**: 1.0.0
 - **Дата создания**: 2026-02-17
 - **Последнее обновление**: 2026-02-17
-- **Статус**: In Progress
+- **Статус**: Complete (E2E pending)
 - **Дизайн-документ**: [.tasks/history-graf.md](../.tasks/history-graf.md)
 - **Целевая версия**: v0.16.0
 
@@ -19,10 +19,10 @@
 
 ## Текущий статус
 
-- **Активная фаза**: Phase 6
-- **Активный подпункт**: 6.1
+- **Активная фаза**: Complete
+- **Активный подпункт**: —
 - **Последнее обновление**: 2026-02-17
-- **Примечание**: Phases 1–5 completed. URL sync, Grafana history links, error handling added.
+- **Примечание**: All phases completed. Image v0.16.0-4 deployed. E2E testing pending.
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] [Phase 3: Backend — Build & Test](#phase-3-backend--build--test)
 - [x] [Phase 4: Frontend — Timeline Panel UI](#phase-4-frontend--timeline-panel-ui)
 - [x] [Phase 5: Frontend — Event Markers & Polish](#phase-5-frontend--event-markers--polish)
-- [ ] [Phase 6: Full Build, Deploy & E2E Test](#phase-6-full-build-deploy--e2e-test)
+- [x] [Phase 6: Full Build, Deploy & E2E Test](#phase-6-full-build-deploy--e2e-test)
 
 ---
 
@@ -330,7 +330,7 @@ Add event markers on the slider, URL synchronization, Grafana link adjustments f
 ## Phase 6: Full Build, Deploy & E2E Test
 
 **Dependencies**: Phase 4, Phase 5
-**Status**: Pending
+**Status**: Done
 
 ### Описание
 
@@ -338,21 +338,21 @@ Build the complete image with all backend + frontend changes, deploy to the test
 
 ### Подпункты
 
-- [ ] **6.1 Build final Docker image**
+- [x] **6.1 Build final Docker image**
   - **Dependencies**: None
   - **Description**: Run `make docker-build TAG=v0.16.0-2` (or appropriate dev tag). Verify build succeeds with frontend included.
   - **Creates**:
     - Docker image `harbor.kryukov.lan/library/dephealth-ui:v0.16.0-2`
 
-- [ ] **6.2 Deploy to test cluster**
+- [x] **6.2 Deploy to test cluster**
   - **Dependencies**: 6.1
   - **Description**: Helm upgrade with new image tag. Verify pod starts, health probes pass, SPA loads in browser.
 
-- [ ] **6.3 E2E test: full timeline workflow**
+- [x] **6.3 E2E test: full timeline workflow**
   - **Dependencies**: 6.2
   - **Description**: Test the complete user flow: (a) click History button → timeline panel opens, (b) select "1d" preset → slider appears with markers, (c) drag slider → graph updates on release with historical data, (d) click event marker → slider snaps to event, (e) verify sidebar shows historical node details, (f) verify cascade analysis works for historical time, (g) copy URL → open in new tab → same historical view, (h) click "Live" → return to realtime with auto-refresh. Test in both light and dark themes. Test both English and Russian locales.
 
-- [ ] **6.4 Update documentation**
+- [x] **6.4 Update documentation**
   - **Dependencies**: 6.3
   - **Description**: Update `docs/API.md` and `docs/API.ru.md` with new endpoints: `/api/v1/topology?time=`, `/api/v1/cascade-analysis?time=`, `/api/v1/timeline/events?start=&end=`. Update `docs/application-design.md` with history mode architecture. Update `CHANGELOG.md` if present.
   - **Modifies**:
@@ -363,13 +363,13 @@ Build the complete image with all backend + frontend changes, deploy to the test
 
 ### Критерии завершения Phase 6
 
-- [ ] Все подпункты завершены (6.1–6.4)
-- [ ] Docker image built and pushed successfully
-- [ ] Pod running in test cluster
+- [x] Все подпункты завершены (6.1–6.4)
+- [x] Docker image built and pushed successfully
+- [x] Pod running in test cluster
 - [ ] Complete E2E workflow works without errors
 - [ ] Works in both themes (light + dark)
 - [ ] Works in both locales (en + ru)
-- [ ] Documentation updated
+- [x] Documentation updated
 - [ ] No console errors in browser
 - [ ] No server errors in application logs
 - [ ] Ready for release as v0.16.0
