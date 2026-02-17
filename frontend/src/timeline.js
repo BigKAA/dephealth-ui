@@ -1,11 +1,14 @@
 /**
  * Timeline module for history mode.
- * Manages time-travel UI: presets, custom range, slider, and Live button.
+ * Manages time-travel UI: presets, custom range, custom slider, and Live button.
  */
 
 import { t } from './i18n.js';
 import { fetchTimelineEvents } from './api.js';
 import { showToast } from './toast.js';
+
+// --- Interaction states ---
+const INTERACTION = { IDLE: 0, THUMB_DRAG: 1, RANGE_SELECT: 2, MARKER_HOVER: 3 };
 
 // --- State ---
 let historyMode = false;
@@ -13,10 +16,16 @@ let selectedTime = null; // Date
 let rangeStart = null; // Date
 let rangeEnd = null; // Date
 let onTimeChangedCb = null;
+let interactionState = INTERACTION.IDLE;
+let savedThumbRatio = null; // saved position for marker hover restore
 
 // DOM references
 let panelEl = null;
-let sliderEl = null;
+let trackEl = null;
+let thumbEl = null;
+let trackFillEl = null;
+let rangeOverlayEl = null;
+let tooltipEl = null;
 let markersEl = null;
 let timeDisplayEl = null;
 
@@ -125,14 +134,12 @@ export function restoreFromURL() {
     if (startInput) startInput.value = toLocalDateTimeString(start);
     if (endInput) endInput.value = toLocalDateTimeString(end);
 
-    // Position slider
-    if (sliderEl) {
-      const totalMs = end.getTime() - start.getTime();
-      const pos = totalMs > 0
-        ? ((time.getTime() - start.getTime()) / totalMs) * parseInt(sliderEl.max, 10)
-        : parseInt(sliderEl.max, 10);
-      sliderEl.value = Math.round(pos);
-    }
+    // Position thumb
+    const totalMs = end.getTime() - start.getTime();
+    const ratio = totalMs > 0
+      ? (time.getTime() - start.getTime()) / totalMs
+      : 1;
+    setThumbPositionVisual(Math.max(0, Math.min(1, ratio)));
 
     updateTimeDisplay();
     loadMarkers();
@@ -172,6 +179,110 @@ function clearURLParams() {
   history.replaceState(null, '', url);
 }
 
+// --- Slider helpers ---
+
+/**
+ * Move thumb and track fill visually without updating selectedTime.
+ * @param {number} ratio - 0..1 position on the track
+ */
+function setThumbPositionVisual(ratio) {
+  ratio = Math.max(0, Math.min(1, ratio));
+  if (thumbEl) thumbEl.style.left = `${ratio * 100}%`;
+  if (trackFillEl) trackFillEl.style.width = `${ratio * 100}%`;
+}
+
+/**
+ * Move thumb visually and update selectedTime from ratio.
+ * @param {number} ratio - 0..1 position on the track
+ */
+function setThumbPosition(ratio) {
+  ratio = Math.max(0, Math.min(1, ratio));
+  setThumbPositionVisual(ratio);
+  if (rangeStart && rangeEnd) {
+    const ms = rangeStart.getTime() + ratio * (rangeEnd.getTime() - rangeStart.getTime());
+    selectedTime = new Date(ms);
+  }
+}
+
+/**
+ * Get current thumb position as 0..1 ratio.
+ */
+function getThumbRatio() {
+  if (!thumbEl) return 1;
+  return (parseFloat(thumbEl.style.left) || 0) / 100;
+}
+
+/**
+ * Convert a mouse clientX to a 0..1 ratio on the track.
+ */
+function getTrackRatio(clientX) {
+  if (!trackEl) return 0;
+  const rect = trackEl.getBoundingClientRect();
+  if (rect.width === 0) return 0;
+  return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+}
+
+// --- Slider interaction handlers ---
+
+function onThumbMouseDown(e) {
+  if (interactionState !== INTERACTION.IDLE) return;
+  e.preventDefault();
+  e.stopPropagation();
+  interactionState = INTERACTION.THUMB_DRAG;
+  thumbEl.classList.add('dragging');
+
+  const onMouseMove = (ev) => {
+    const ratio = getTrackRatio(ev.clientX);
+    setThumbPosition(ratio);
+    updateTimeDisplay();
+  };
+
+  const onMouseUp = () => {
+    interactionState = INTERACTION.IDLE;
+    thumbEl.classList.remove('dragging');
+    syncToURL();
+    if (onTimeChangedCb) onTimeChangedCb(selectedTime);
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function onContainerMouseDown(e) {
+  if (interactionState !== INTERACTION.IDLE) return;
+  if (e.target.closest('.timeline-marker')) return;
+  e.preventDefault();
+
+  const startRatio = getTrackRatio(e.clientX);
+  let hasMoved = false;
+
+  const onMouseMove = (ev) => {
+    const currentRatio = getTrackRatio(ev.clientX);
+    if (Math.abs(currentRatio - startRatio) > 0.01) {
+      hasMoved = true;
+      // Range selection will be implemented in Phase 3
+    }
+  };
+
+  const onMouseUp = (ev) => {
+    if (!hasMoved) {
+      // Treat as click: jump thumb to position
+      const ratio = getTrackRatio(ev.clientX);
+      setThumbPosition(ratio);
+      updateTimeDisplay();
+      syncToURL();
+      if (onTimeChangedCb) onTimeChangedCb(selectedTime);
+    }
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
 // --- Private ---
 
 function buildUI() {
@@ -192,13 +303,22 @@ function buildUI() {
       <div class="timeline-time-display" id="timeline-time-display"></div>
       <button id="timeline-live" class="timeline-live-btn" data-i18n="timeline.live">Live</button>
     </div>
-    <div class="timeline-slider-container">
-      <input type="range" id="timeline-slider" min="0" max="1000" value="1000" class="timeline-slider">
+    <div class="timeline-slider-container" id="timeline-slider-container">
+      <div class="timeline-track" id="timeline-track">
+        <div class="timeline-track-fill" id="timeline-track-fill"></div>
+        <div class="timeline-range-overlay hidden" id="timeline-range-overlay"></div>
+      </div>
       <div id="timeline-markers" class="timeline-markers"></div>
+      <div class="timeline-thumb" id="timeline-thumb"></div>
+      <div class="timeline-tooltip hidden" id="timeline-tooltip"></div>
     </div>
   `;
 
-  sliderEl = document.getElementById('timeline-slider');
+  trackEl = document.getElementById('timeline-track');
+  thumbEl = document.getElementById('timeline-thumb');
+  trackFillEl = document.getElementById('timeline-track-fill');
+  rangeOverlayEl = document.getElementById('timeline-range-overlay');
+  tooltipEl = document.getElementById('timeline-tooltip');
   markersEl = document.getElementById('timeline-markers');
   timeDisplayEl = document.getElementById('timeline-time-display');
 
@@ -224,18 +344,12 @@ function buildUI() {
     for (const b of panelEl.querySelectorAll('.timeline-preset')) b.classList.remove('active');
   });
 
-  // Slider: display update on drag, fire callback on release
-  sliderEl.addEventListener('input', () => {
-    updateTimeFromSlider();
-    updateTimeDisplay();
-  });
+  // Custom slider: thumb drag
+  thumbEl.addEventListener('mousedown', onThumbMouseDown);
 
-  sliderEl.addEventListener('change', () => {
-    updateTimeFromSlider();
-    updateTimeDisplay();
-    syncToURL();
-    if (onTimeChangedCb) onTimeChangedCb(selectedTime);
-  });
+  // Custom slider: container click / range select
+  const containerEl = document.getElementById('timeline-slider-container');
+  containerEl.addEventListener('mousedown', onContainerMouseDown);
 
   // Live button
   document.getElementById('timeline-live').addEventListener('click', () => {
@@ -260,9 +374,8 @@ function setRange(start, end) {
   if (startInput) startInput.value = toLocalDateTimeString(start);
   if (endInput) endInput.value = toLocalDateTimeString(end);
 
-  // Position slider at the end (most recent)
-  if (sliderEl) sliderEl.value = sliderEl.max;
-  selectedTime = new Date(end);
+  // Position thumb at the end (most recent)
+  setThumbPosition(1);
   updateTimeDisplay();
   syncToURL();
 
@@ -304,25 +417,17 @@ function renderMarkers(events) {
     return `<div class="timeline-marker ${cls}" style="left:${pct}%" title="${title}" data-ts="${ts}"></div>`;
   }).join('');
 
-  // Click on marker → snap slider to that event
+  // Click on marker -> snap thumb to that event
   for (const m of markersEl.querySelectorAll('.timeline-marker')) {
     m.addEventListener('click', () => {
       const ts = parseInt(m.dataset.ts, 10);
-      const pos = ((ts - rangeStart.getTime()) / totalMs) * parseInt(sliderEl.max, 10);
-      sliderEl.value = Math.round(pos);
-      updateTimeFromSlider();
+      const ratio = (ts - rangeStart.getTime()) / totalMs;
+      setThumbPosition(ratio);
       updateTimeDisplay();
       syncToURL();
       if (onTimeChangedCb) onTimeChangedCb(selectedTime);
     });
   }
-}
-
-function updateTimeFromSlider() {
-  if (!rangeStart || !rangeEnd || !sliderEl) return;
-  const ratio = parseInt(sliderEl.value, 10) / parseInt(sliderEl.max, 10);
-  const ms = rangeStart.getTime() + ratio * (rangeEnd.getTime() - rangeStart.getTime());
-  selectedTime = new Date(ms);
 }
 
 function updateTimeDisplay() {

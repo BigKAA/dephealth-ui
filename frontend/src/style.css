@@ -1960,40 +1960,89 @@ body.fullscreen .alert-drawer {
 .timeline-slider-container {
   position: relative;
   height: 24px;
+  cursor: crosshair;
+  user-select: none;
 }
 
-.timeline-slider {
-  width: 100%;
-  height: 6px;
-  margin: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--border-color);
-  border-radius: 3px;
-  outline: none;
+.timeline-track {
   position: absolute;
   top: 9px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  cursor: crosshair;
 }
 
-.timeline-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
+.timeline-track-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--btn-primary-bg);
+  border-radius: 3px;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.timeline-range-overlay {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(66, 133, 244, 0.25);
+  border: 1px solid rgba(66, 133, 244, 0.6);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.timeline-range-overlay.hidden {
+  display: none;
+}
+
+.timeline-thumb {
+  position: absolute;
+  top: 4px;
+  left: 100%;
   width: 16px;
   height: 16px;
   border-radius: 50%;
   background: var(--btn-primary-bg);
-  cursor: pointer;
   border: 2px solid var(--bg-primary);
   box-shadow: 0 1px 3px var(--shadow);
+  cursor: grab;
+  transform: translateX(-50%);
+  z-index: 2;
+  transition: box-shadow 0.15s;
 }
 
-.timeline-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--btn-primary-bg);
-  cursor: pointer;
-  border: 2px solid var(--bg-primary);
-  box-shadow: 0 1px 3px var(--shadow);
+.timeline-thumb:hover {
+  box-shadow: 0 1px 6px var(--shadow);
+}
+
+.timeline-thumb.dragging {
+  cursor: grabbing;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.timeline-tooltip {
+  position: absolute;
+  bottom: 28px;
+  left: 100%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.timeline-tooltip.hidden {
+  display: none;
 }
 
 .timeline-markers {
