@@ -36,8 +36,9 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
 | `namespace` | string | No | Filter by Kubernetes namespace (empty = all) |
+| `time` | string | No | ISO8601/RFC3339 timestamp for historical queries (e.g. `2026-02-15T12:00:00Z`). When set, returns topology state as of this point in time |
 
-**Caching:** Unfiltered requests (`namespace` empty) are cached server-side. Supports `ETag` / `If-None-Match` headers — returns `304 Not Modified` when data hasn't changed.
+**Caching:** Unfiltered live requests (`namespace` and `time` empty) are cached server-side. Supports `ETag` / `If-None-Match` headers — returns `304 Not Modified` when data hasn't changed. Historical requests (`time` set) bypass the cache entirely.
 
 **Response:** `200 OK`
 
@@ -99,7 +100,9 @@ Returns the complete service topology graph with pre-calculated node/edge states
     "nodeCount": 42,
     "edgeCount": 187,
     "partial": false,
-    "errors": []
+    "errors": [],
+    "time": "2026-02-10T09:00:00Z",
+    "isHistory": true
   }
 }
 ```
@@ -148,6 +151,8 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | `edgeCount` | int | Total number of edges |
 | `partial` | bool | `true` if some queries failed and data may be incomplete |
 | `errors` | string[] | Error descriptions if `partial=true` (omitted if empty) |
+| `time` | string | RFC3339 timestamp of the requested historical point (omitted in live mode) |
+| `isHistory` | bool | `true` when viewing historical data (omitted in live mode) |
 
 **Node States (service nodes):**
 - `ok` — all outgoing edges healthy (health=1)
@@ -178,6 +183,7 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
 | `service` | string | No | Analyze cascade for a specific service (empty = analyze all) |
 | `namespace` | string | No | Filter by Kubernetes namespace |
 | `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
+| `time` | string | No | ISO8601/RFC3339 timestamp for historical cascade analysis |
 
 **Response:** `200 OK`
 
@@ -319,6 +325,66 @@ The `arc__*` fields control the colored ring around each node in the Grafana Nod
 | `source` | string | Source node ID |
 | `target` | string | Target node ID |
 | `mainStat` | string | Reserved for future use |
+
+---
+
+### `GET /api/v1/timeline/events`
+
+Returns status transition events within a time range. Used by the frontend timeline slider to display event markers. Queries `app_dependency_status` via Prometheus `query_range` API, detects state changes, and returns timestamped events.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `start` | string | Yes | RFC3339 start timestamp (e.g. `2026-02-15T00:00:00Z`) |
+| `end` | string | Yes | RFC3339 end timestamp (must be after `start`) |
+
+The query step is auto-calculated based on the range duration:
+
+| Range | Step |
+|-------|------|
+| ≤ 1h | 15s |
+| ≤ 6h | 1m |
+| ≤ 24h | 5m |
+| ≤ 7d | 15m |
+| ≤ 30d | 1h |
+| ≤ 90d | 3h |
+| > 90d | 6h |
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "timestamp": "2026-02-15T08:32:15Z",
+    "service": "payment-api",
+    "fromState": "ok",
+    "toState": "timeout",
+    "kind": "degradation"
+  },
+  {
+    "timestamp": "2026-02-15T08:45:00Z",
+    "service": "payment-api",
+    "fromState": "timeout",
+    "toState": "ok",
+    "kind": "recovery"
+  }
+]
+```
+
+**Event fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | string | RFC3339 timestamp of the state change |
+| `service` | string | Service name where the transition occurred |
+| `namespace` | string | Kubernetes namespace (omitted if empty) |
+| `fromState` | string | Previous dependency status |
+| `toState` | string | New dependency status |
+| `kind` | string | `degradation` (worse state), `recovery` (better state), or `change` |
+
+**Errors:**
+- `400 Bad Request` — missing `start`/`end`, invalid format, or `start` ≥ `end`
 
 ---
 

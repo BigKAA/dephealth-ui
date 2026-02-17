@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-02-17
+
+### Added
+
+- **History mode** — time-travel through topology graph to view dependency state at any historical point
+- **Historical queries** — all Prometheus queries accept optional `?time=` parameter; uses `ALERTS` metric instead of AlertManager for historical alerts
+- **Timeline events endpoint** — `GET /api/v1/timeline/events?start=&end=` detects `app_dependency_status` transitions via `query_range` with auto-calculated step
+- **Timeline panel UI** — bottom panel with time range presets (1h–90d), custom datetime inputs, range slider with event markers
+- **Event markers** — colored markers on timeline slider (red=degradation, green=recovery, orange=change) with click-to-snap
+- **URL synchronization** — `?time=`, `?from=`, `?to=` query parameters maintained via `history.replaceState()` for shareable historical links
+- **Grafana history links** — all Grafana dashboard URLs include `&from=<ts-1h>&to=<ts+1h>` in history mode (sidebar, context menu)
+- **History mode visual indicator** — distinct header background and timestamp display in status bar
+- **Error handling** — graceful fallbacks for timeline events API failures (toast notification), empty results ("no status changes" message), invalid URL params
+
+### Changed
+
+- Historical requests bypass in-memory cache entirely (no Get, no Set)
+- `TopologyMeta` extended with `time` and `isHistory` fields
+- `QueryOptions` extended with `Time *time.Time` for historical point-in-time queries
+- `PrometheusClient` interface extended with `QueryStatusRange()` and `QueryHistoricalAlerts()` methods
+- Auto-refresh pauses in history mode and resumes on "Live" button click
+
+### Documentation
+
+- API docs updated with `?time=` parameter on topology and cascade-analysis endpoints (EN + RU)
+- New `/api/v1/timeline/events` endpoint documented with step auto-calculation table (EN + RU)
+- History Mode architecture section added to application-design docs (EN + RU)
+- `meta.time` and `meta.isHistory` fields documented in API reference (EN + RU)
+
 ## [0.14.1] - 2026-02-12
 
 ### Added
@@ -157,6 +186,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.16.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.14.1...v0.16.0
 [0.14.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.13.0...v0.14.1
 [0.13.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.11.4...v0.12.0

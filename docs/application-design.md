@@ -451,6 +451,55 @@ When `degraded` or `down` state filter is active, the filter system also reveals
 
 ---
 
+## History Mode
+
+History mode enables time-travel through the topology graph, allowing users to view the dependency state at any point in the past.
+
+### Architecture
+
+```
+Browser                          Go Backend                    VictoriaMetrics
+  │                                  │                              │
+  │  /api/v1/topology?time=T         │                              │
+  ├─────────────────────────────────►│  query(promql, at=T)         │
+  │                                  ├─────────────────────────────►│
+  │                                  │  /api/v1/query?time=T        │
+  │  {meta: {isHistory:true, time:T}}│◄─────────────────────────────┤
+  │◄─────────────────────────────────┤                              │
+  │                                  │                              │
+  │  /api/v1/timeline/events         │  query_range(start,end,step) │
+  │  ?start=S&end=E                  │                              │
+  ├─────────────────────────────────►├─────────────────────────────►│
+  │  [{timestamp,service,kind}]      │◄─────────────────────────────┤
+  │◄─────────────────────────────────┤  detect transitions          │
+```
+
+**Backend:**
+- All Prometheus queries accept an optional `time` parameter. When set, the Prometheus `/api/v1/query?time=<unix_ts>` parameter is used instead of the current time
+- Historical alerts are reconstructed from the `ALERTS{alertstate="firing"}` metric at the requested timestamp (AlertManager is not queried for historical data)
+- Historical requests bypass the in-memory cache entirely (no Get, no Set)
+- The `lookback` window is applied relative to `opts.Time` for stale node detection
+- The `/api/v1/timeline/events` endpoint uses `query_range` to detect `app_dependency_status` transitions over a time window, with auto-calculated step size
+
+**Frontend:**
+- Timeline panel: bottom panel with time range presets (1h–90d), custom datetime inputs, and a range slider
+- Event markers: colored markers on the slider showing state transitions (red=degradation, green=recovery, orange=change)
+- URL synchronization: `?time=`, `?from=`, `?to=` query parameters are maintained via `history.replaceState()` for shareable links
+- Grafana links: in history mode, all Grafana dashboard URLs include `&from=<ts-1h>&to=<ts+1h>` (Unix ms) to navigate to the relevant time window
+- Auto-refresh is paused in history mode and resumed when returning to live mode
+
+### User Flow
+
+1. Click the History button (clock icon) in the toolbar
+2. Select a time range via preset buttons or custom datetime inputs
+3. Slider appears with event markers; drag to select a point in time
+4. Graph updates on slider release showing the historical topology state
+5. Click an event marker to snap to that specific transition
+6. Copy the URL to share the historical view with colleagues
+7. Click "Live" to return to real-time mode
+
+---
+
 ## PromQL Queries (executed on the backend)
 
 ```promql
