@@ -21,20 +21,22 @@ func testSeverityLevels() []config.SeverityLevel {
 
 // mockPrometheusClient implements PrometheusClient for testing.
 type mockPrometheusClient struct {
-	edges         []TopologyEdge
-	lookbackEdges []TopologyEdge // edges returned by lookback query (nil = same as edges)
-	health        map[EdgeKey]float64
-	avg           map[EdgeKey]float64
-	p99           map[EdgeKey]float64
-	depStatus     map[EdgeKey]string // SDK v0.4.1 dependency status
-	depDetail     map[EdgeKey]string // SDK v0.4.1 dependency status detail
-	err           error              // default error for all methods
-	edgesErr      error              // override for QueryTopologyEdges
-	lookbackErr   error              // override for QueryTopologyEdgesLookback
-	healthErr     error              // override for QueryHealthState
-	avgErr        error              // override for QueryAvgLatency
-	depStatusErr  error              // override for QueryDependencyStatus
-	depDetailErr  error              // override for QueryDependencyStatusDetail
+	edges            []TopologyEdge
+	lookbackEdges    []TopologyEdge // edges returned by lookback query (nil = same as edges)
+	health           map[EdgeKey]float64
+	avg              map[EdgeKey]float64
+	p99              map[EdgeKey]float64
+	depStatus        map[EdgeKey]string // SDK v0.4.1 dependency status
+	depDetail        map[EdgeKey]string // SDK v0.4.1 dependency status detail
+	historicalAlerts []HistoricalAlert  // historical alerts for history mode
+	err              error              // default error for all methods
+	edgesErr         error              // override for QueryTopologyEdges
+	lookbackErr      error              // override for QueryTopologyEdgesLookback
+	healthErr        error              // override for QueryHealthState
+	avgErr           error              // override for QueryAvgLatency
+	depStatusErr     error              // override for QueryDependencyStatus
+	depDetailErr     error              // override for QueryDependencyStatusDetail
+	histAlertsErr    error              // override for QueryHistoricalAlerts
 }
 
 func (m *mockPrometheusClient) QueryTopologyEdges(_ context.Context, _ QueryOptions) ([]TopologyEdge, error) {
@@ -88,6 +90,13 @@ func (m *mockPrometheusClient) QueryDependencyStatusDetail(_ context.Context, _ 
 		return nil, m.depDetailErr
 	}
 	return m.depDetail, m.err
+}
+
+func (m *mockPrometheusClient) QueryHistoricalAlerts(_ context.Context, _ time.Time) ([]HistoricalAlert, error) {
+	if m.histAlertsErr != nil {
+		return nil, m.histAlertsErr
+	}
+	return m.historicalAlerts, m.err
 }
 
 func TestGraphBuilder_Build(t *testing.T) {
@@ -1330,5 +1339,114 @@ func TestStaleDetection_AllStale(t *testing.T) {
 		if e.Health != -1 {
 			t.Errorf("edge %s→%s Health = %v, want -1", e.Source, e.Target, e.Health)
 		}
+	}
+}
+
+func TestGraphBuilder_Build_HistoryMode(t *testing.T) {
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432", Critical: true},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg-primary", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg-primary", Port: "5432"}: 0.005,
+		},
+		historicalAlerts: []HistoricalAlert{
+			{AlertName: "DependencyDown", Service: "svc-go", Namespace: "default", Severity: "critical"},
+		},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+
+	ts := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	resp, err := builder.Build(context.Background(), QueryOptions{Time: &ts})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// Meta should indicate history mode.
+	if !resp.Meta.IsHistory {
+		t.Error("Meta.IsHistory = false, want true")
+	}
+	if resp.Meta.Time == nil {
+		t.Fatal("Meta.Time = nil, want non-nil")
+	}
+	if !resp.Meta.Time.Equal(ts) {
+		t.Errorf("Meta.Time = %v, want %v", resp.Meta.Time, ts)
+	}
+
+	// Should have alerts from historical data.
+	if len(resp.Alerts) != 1 {
+		t.Fatalf("got %d alerts, want 1", len(resp.Alerts))
+	}
+	if resp.Alerts[0].AlertName != "DependencyDown" {
+		t.Errorf("alert[0].AlertName = %q, want DependencyDown", resp.Alerts[0].AlertName)
+	}
+}
+
+func TestGraphBuilder_Build_HistoryMode_UsesHistoricalAlerts(t *testing.T) {
+	// Verify that in history mode, historical alerts from Prometheus are used
+	// instead of AlertManager alerts.
+	amMock := &mockAlertManagerClient{
+		alerts: []alerts.Alert{
+			{AlertName: "LiveAlert", Service: "svc-go", Dependency: "postgres", Severity: "critical", State: "firing"},
+		},
+	}
+
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+		historicalAlerts: []HistoricalAlert{
+			{AlertName: "HistoricalAlert", Service: "svc-go", Namespace: "default", Severity: "warning"},
+		},
+	}
+
+	builder := NewGraphBuilder(mock, amMock, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+
+	ts := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	resp, err := builder.Build(context.Background(), QueryOptions{Time: &ts})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// Should have historical alert, not AM alert.
+	if len(resp.Alerts) != 1 {
+		t.Fatalf("got %d alerts, want 1", len(resp.Alerts))
+	}
+	if resp.Alerts[0].AlertName != "HistoricalAlert" {
+		t.Errorf("alert = %q, want HistoricalAlert (not LiveAlert from AM)", resp.Alerts[0].AlertName)
+	}
+}
+
+func TestGraphBuilder_Build_LiveMode_Meta(t *testing.T) {
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// Live mode: meta should NOT indicate history.
+	if resp.Meta.IsHistory {
+		t.Error("Meta.IsHistory = true, want false in live mode")
+	}
+	if resp.Meta.Time != nil {
+		t.Errorf("Meta.Time = %v, want nil in live mode", resp.Meta.Time)
 	}
 }

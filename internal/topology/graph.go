@@ -100,9 +100,18 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 		queryErrors = append(queryErrors, fmt.Sprintf("dependency status detail: %v", err))
 	}
 
-	// Fetch alerts (non-fatal: log and continue with empty alerts).
+	// Fetch alerts: use historical ALERTS metric when in history mode,
+	// otherwise fetch from AlertManager (live mode).
 	var fetchedAlerts []alerts.Alert
-	if b.am != nil {
+	if opts.Time != nil {
+		histAlerts, hErr := b.prom.QueryHistoricalAlerts(ctx, *opts.Time)
+		if hErr != nil {
+			b.logger.Warn("failed to query historical alerts", "error", hErr)
+			queryErrors = append(queryErrors, fmt.Sprintf("historical alerts: %v", hErr))
+		} else {
+			fetchedAlerts = historicalToAlerts(histAlerts)
+		}
+	} else if b.am != nil {
 		fetchedAlerts, err = b.am.FetchAlerts(ctx)
 		if err != nil {
 			b.logger.Warn("failed to fetch alerts from AlertManager", "error", err)
@@ -125,18 +134,24 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 
 	alertInfos := b.enrichWithAlerts(nodes, edges, fetchedAlerts, depLookup)
 
+	meta := TopologyMeta{
+		CachedAt:  time.Now().UTC(),
+		TTL:       int(b.ttl.Seconds()),
+		NodeCount: len(nodes),
+		EdgeCount: len(edges),
+		Partial:   len(queryErrors) > 0,
+		Errors:    queryErrors,
+	}
+	if opts.Time != nil {
+		meta.Time = opts.Time
+		meta.IsHistory = true
+	}
+
 	return &TopologyResponse{
 		Nodes:  nodes,
 		Edges:  edges,
 		Alerts: alertInfos,
-		Meta: TopologyMeta{
-			CachedAt:  time.Now().UTC(),
-			TTL:       int(b.ttl.Seconds()),
-			NodeCount: len(nodes),
-			EdgeCount: len(edges),
-			Partial:   len(queryErrors) > 0,
-			Errors:    queryErrors,
-		},
+		Meta:   meta,
 	}, nil
 }
 
@@ -573,6 +588,21 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 	}
 
 	return alertInfos
+}
+
+// historicalToAlerts converts HistoricalAlert slice to alerts.Alert slice
+// for compatibility with enrichWithAlerts.
+func historicalToAlerts(hist []HistoricalAlert) []alerts.Alert {
+	result := make([]alerts.Alert, 0, len(hist))
+	for _, h := range hist {
+		result = append(result, alerts.Alert{
+			AlertName: h.AlertName,
+			Service:   h.Service,
+			Severity:  h.Severity,
+			State:     "firing",
+		})
+	}
+	return result
 }
 
 // QueryInstances returns all instances (pods/containers) for a given service.

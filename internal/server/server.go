@@ -141,8 +141,20 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	opts := topology.QueryOptions{Namespace: namespace}
 
-	// Namespace-filtered requests bypass cache (infrequent, analytical).
-	if namespace == "" {
+	// Parse optional ?time= parameter for historical queries.
+	if timeStr := r.URL.Query().Get("time"); timeStr != "" {
+		t, err := time.Parse(time.RFC3339, timeStr)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			return
+		}
+		opts.Time = &t
+	}
+
+	// Historical requests bypass cache entirely.
+	if opts.Time == nil && namespace == "" {
 		if cached, etag, ok := s.cache.GetWithETag(); ok {
 			if clientETag := r.Header.Get("If-None-Match"); clientETag == etag {
 				w.WriteHeader(http.StatusNotModified)
@@ -166,8 +178,8 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only cache unfiltered requests.
-	if namespace == "" {
+	// Only cache unfiltered live requests.
+	if opts.Time == nil && namespace == "" {
 		s.cache.Set(resp)
 		_, etag, _ := s.cache.GetWithETag()
 		w.Header().Set("ETag", etag)
@@ -349,11 +361,38 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Parse optional ?time= parameter for historical queries.
+	var queryTime *time.Time
+	if timeStr := r.URL.Query().Get("time"); timeStr != "" {
+		t, err := time.Parse(time.RFC3339, timeStr)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			return
+		}
+		queryTime = &t
+	}
+
 	// Get topology data from cache or build fresh.
+	// Historical requests always build fresh (bypass cache).
 	var nodes []topology.Node
 	var edges []topology.Edge
 
-	if cached, ok := s.cache.Get(); ok {
+	if queryTime != nil {
+		// History mode: always build fresh with historical timestamp.
+		opts := topology.QueryOptions{Namespace: namespace, Time: queryTime}
+		resp, err := s.builder.Build(r.Context(), opts)
+		if err != nil {
+			s.logger.Error("failed to build historical topology for cascade analysis", "error", err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			return
+		}
+		nodes = resp.Nodes
+		edges = resp.Edges
+	} else if cached, ok := s.cache.Get(); ok {
 		nodes = cached.Nodes
 		edges = cached.Edges
 	} else {

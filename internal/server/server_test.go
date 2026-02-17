@@ -336,6 +336,98 @@ func TestCascadeGraphInvalidDepth(t *testing.T) {
 	}
 }
 
+func TestTopologyHistoryMode(t *testing.T) {
+	srv := newTestServer()
+
+	// Valid RFC3339 time parameter.
+	req := httptest.NewRequest("GET", "/api/v1/topology?time=2026-01-15T12:00:00Z", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var resp topology.TopologyResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if !resp.Meta.IsHistory {
+		t.Error("Meta.IsHistory = false, want true")
+	}
+	if resp.Meta.Time == nil {
+		t.Fatal("Meta.Time = nil, want non-nil")
+	}
+
+	// Historical requests should not have ETag.
+	if w.Header().Get("ETag") != "" {
+		t.Error("historical request should not have ETag header")
+	}
+}
+
+func TestTopologyHistoryModeBypassesCache(t *testing.T) {
+	srv := newTestServer()
+
+	// First request — populate cache.
+	req1 := httptest.NewRequest("GET", "/api/v1/topology", nil)
+	w1 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w1, req1)
+	if w1.Code != http.StatusOK {
+		t.Fatalf("first request status = %d, want 200", w1.Code)
+	}
+	etag := w1.Header().Get("ETag")
+
+	// Historical request with matching ETag — should return 200, not 304.
+	req2 := httptest.NewRequest("GET", "/api/v1/topology?time=2026-01-15T12:00:00Z", nil)
+	req2.Header.Set("If-None-Match", etag)
+	w2 := httptest.NewRecorder()
+	srv.router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Errorf("historical request status = %d, want 200 (bypass cache)", w2.Code)
+	}
+}
+
+func TestTopologyInvalidTimeParam(t *testing.T) {
+	srv := newTestServer()
+
+	req := httptest.NewRequest("GET", "/api/v1/topology?time=not-a-date", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCascadeAnalysisHistoryMode(t *testing.T) {
+	srv := newTestServer()
+
+	req := httptest.NewRequest("GET", "/api/v1/cascade-analysis?time=2026-01-15T12:00:00Z", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want %q", ct, "application/json")
+	}
+}
+
+func TestCascadeAnalysisInvalidTimeParam(t *testing.T) {
+	srv := newTestServer()
+
+	req := httptest.NewRequest("GET", "/api/v1/cascade-analysis?time=bad", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
 func TestCORSHeaders(t *testing.T) {
 	srv := newTestServer()
 	req := httptest.NewRequest("OPTIONS", "/api/v1/topology", nil)

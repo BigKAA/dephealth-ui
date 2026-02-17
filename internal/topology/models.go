@@ -49,12 +49,22 @@ type AlertInfo struct {
 
 // TopologyMeta holds metadata about the topology response.
 type TopologyMeta struct {
-	CachedAt  time.Time `json:"cachedAt"`
-	TTL       int       `json:"ttl"`
-	NodeCount int       `json:"nodeCount"`
-	EdgeCount int       `json:"edgeCount"`
-	Partial   bool      `json:"partial"`
-	Errors    []string  `json:"errors,omitempty"`
+	CachedAt  time.Time  `json:"cachedAt"`
+	TTL       int        `json:"ttl"`
+	NodeCount int        `json:"nodeCount"`
+	EdgeCount int        `json:"edgeCount"`
+	Partial   bool       `json:"partial"`
+	Errors    []string   `json:"errors,omitempty"`
+	Time      *time.Time `json:"time,omitempty"`      // Historical timestamp when set.
+	IsHistory bool       `json:"isHistory,omitempty"` // True when viewing historical data.
+}
+
+// HistoricalAlert represents an alert reconstructed from the ALERTS metric at a historical timestamp.
+type HistoricalAlert struct {
+	AlertName string
+	Namespace string
+	Service   string // "name" or "service" label
+	Severity  string
 }
 
 // TopologyResponse is the complete topology API response.
@@ -86,6 +96,7 @@ type TopologyEdge struct {
 // QueryOptions holds optional parameters for topology queries.
 type QueryOptions struct {
 	Namespace string
+	Time      *time.Time // Historical timestamp; nil means "now" (live mode).
 }
 
 // Instance represents a single instance (pod or container) of a service.

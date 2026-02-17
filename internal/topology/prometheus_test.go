@@ -365,6 +365,107 @@ func TestParseEdgeStringValues(t *testing.T) {
 	}
 }
 
+func TestQueryWithTimeParameter(t *testing.T) {
+	var capturedTime string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedTime = r.URL.Query().Get("time")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+
+	// Without time — no time parameter.
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{})
+	if capturedTime != "" {
+		t.Errorf("expected no time param, got %q", capturedTime)
+	}
+
+	// With time — time parameter should be Unix timestamp.
+	ts := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Time: &ts})
+	if capturedTime == "" {
+		t.Fatal("expected time param, got empty")
+	}
+	if capturedTime != "1768478400" {
+		t.Errorf("time param = %q, want 1768478400", capturedTime)
+	}
+}
+
+const historicalAlertsResponse = `{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {"__name__": "ALERTS", "alertname": "DependencyDown", "alertstate": "firing", "name": "svc-go", "namespace": "default", "severity": "critical"},
+        "value": [1700000000, "1"]
+      },
+      {
+        "metric": {"__name__": "ALERTS", "alertname": "DependencyDegraded", "alertstate": "firing", "service": "svc-python", "namespace": "default", "severity": "warning"},
+        "value": [1700000000, "1"]
+      },
+      {
+        "metric": {"__name__": "ALERTS", "alertname": "SomeOtherAlert", "alertstate": "firing"},
+        "value": [1700000000, "1"]
+      }
+    ]
+  }
+}`
+
+func TestQueryHistoricalAlerts(t *testing.T) {
+	srv := newTestPromServer(historicalAlertsResponse)
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	at := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	alerts, err := client.QueryHistoricalAlerts(context.Background(), at)
+	if err != nil {
+		t.Fatalf("QueryHistoricalAlerts() error: %v", err)
+	}
+
+	// Third entry has no name/service label, should be skipped.
+	if len(alerts) != 2 {
+		t.Fatalf("got %d alerts, want 2", len(alerts))
+	}
+
+	a0 := alerts[0]
+	if a0.AlertName != "DependencyDown" {
+		t.Errorf("alert[0].AlertName = %q, want DependencyDown", a0.AlertName)
+	}
+	if a0.Service != "svc-go" {
+		t.Errorf("alert[0].Service = %q, want svc-go", a0.Service)
+	}
+	if a0.Severity != "critical" {
+		t.Errorf("alert[0].Severity = %q, want critical", a0.Severity)
+	}
+	if a0.Namespace != "default" {
+		t.Errorf("alert[0].Namespace = %q, want default", a0.Namespace)
+	}
+
+	// Second alert uses "service" label instead of "name".
+	a1 := alerts[1]
+	if a1.Service != "svc-python" {
+		t.Errorf("alert[1].Service = %q, want svc-python (from service label)", a1.Service)
+	}
+}
+
+func TestQueryHistoricalAlertsEmpty(t *testing.T) {
+	srv := newTestPromServer(`{"status":"success","data":{"resultType":"vector","result":[]}}`)
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	at := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	alerts, err := client.QueryHistoricalAlerts(context.Background(), at)
+	if err != nil {
+		t.Fatalf("QueryHistoricalAlerts() error: %v", err)
+	}
+	if len(alerts) != 0 {
+		t.Errorf("got %d alerts, want 0", len(alerts))
+	}
+}
+
 func TestQueryErrorStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
