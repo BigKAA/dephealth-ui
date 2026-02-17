@@ -515,6 +515,7 @@ function renderMarkers(events) {
       if (interactionState !== INTERACTION.IDLE) return;
       interactionState = INTERACTION.MARKER_HOVER;
       savedThumbRatio = getThumbRatio();
+      if (thumbEl) thumbEl.style.pointerEvents = 'none';
 
       const ts = parseInt(m.dataset.ts, 10);
       const ratio = (ts - rangeStart.getTime()) / totalMs;
@@ -529,6 +530,7 @@ function renderMarkers(events) {
       if (interactionState !== INTERACTION.MARKER_HOVER) return;
       setThumbPositionVisual(savedThumbRatio);
       savedThumbRatio = null;
+      if (thumbEl) thumbEl.style.pointerEvents = '';
       hideTooltip();
       interactionState = INTERACTION.IDLE;
     });
@@ -537,6 +539,7 @@ function renderMarkers(events) {
     m.addEventListener('click', () => {
       interactionState = INTERACTION.IDLE;
       savedThumbRatio = null;
+      if (thumbEl) thumbEl.style.pointerEvents = '';
       hideTooltip();
 
       const ts = parseInt(m.dataset.ts, 10);
