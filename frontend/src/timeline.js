@@ -222,6 +222,31 @@ function getTrackRatio(clientX) {
   return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 }
 
+// --- Tooltip helpers ---
+
+/**
+ * Show tooltip at the given track ratio with the specified text.
+ * Clamped to container edges so it doesn't overflow.
+ */
+function showTooltip(text, ratio) {
+  if (!tooltipEl || !trackEl) return;
+  tooltipEl.textContent = text;
+  tooltipEl.classList.remove('hidden');
+
+  const containerWidth = trackEl.parentElement.offsetWidth;
+  const tooltipWidth = tooltipEl.offsetWidth;
+  const targetPx = ratio * containerWidth;
+
+  let leftPx = targetPx - tooltipWidth / 2;
+  leftPx = Math.max(0, Math.min(containerWidth - tooltipWidth, leftPx));
+  tooltipEl.style.left = `${leftPx}px`;
+}
+
+function hideTooltip() {
+  if (!tooltipEl) return;
+  tooltipEl.classList.add('hidden');
+}
+
 // --- Slider interaction handlers ---
 
 function onThumbMouseDown(e) {
@@ -235,11 +260,13 @@ function onThumbMouseDown(e) {
     const ratio = getTrackRatio(ev.clientX);
     setThumbPosition(ratio);
     updateTimeDisplay();
+    showTooltip(selectedTime.toLocaleString(), ratio);
   };
 
   const onMouseUp = () => {
     interactionState = INTERACTION.IDLE;
     thumbEl.classList.remove('dragging');
+    hideTooltip();
     syncToURL();
     if (onTimeChangedCb) onTimeChangedCb(selectedTime);
     document.removeEventListener('mousemove', onMouseMove);
@@ -417,9 +444,36 @@ function renderMarkers(events) {
     return `<div class="timeline-marker ${cls}" style="left:${pct}%" title="${title}" data-ts="${ts}"></div>`;
   }).join('');
 
-  // Click on marker -> snap thumb to that event
   for (const m of markersEl.querySelectorAll('.timeline-marker')) {
+    // Hover: snap thumb visually and show tooltip
+    m.addEventListener('mouseenter', () => {
+      if (interactionState !== INTERACTION.IDLE) return;
+      interactionState = INTERACTION.MARKER_HOVER;
+      savedThumbRatio = getThumbRatio();
+
+      const ts = parseInt(m.dataset.ts, 10);
+      const ratio = (ts - rangeStart.getTime()) / totalMs;
+      setThumbPositionVisual(ratio);
+
+      const time = new Date(ts).toLocaleString();
+      const info = m.getAttribute('title');
+      showTooltip(info ? `${time}\n${info}` : time, ratio);
+    });
+
+    m.addEventListener('mouseleave', () => {
+      if (interactionState !== INTERACTION.MARKER_HOVER) return;
+      setThumbPositionVisual(savedThumbRatio);
+      savedThumbRatio = null;
+      hideTooltip();
+      interactionState = INTERACTION.IDLE;
+    });
+
+    // Click: commit to marker position and load data
     m.addEventListener('click', () => {
+      interactionState = INTERACTION.IDLE;
+      savedThumbRatio = null;
+      hideTooltip();
+
       const ts = parseInt(m.dataset.ts, 10);
       const ratio = (ts - rangeStart.getTime()) / totalMs;
       setThumbPosition(ratio);

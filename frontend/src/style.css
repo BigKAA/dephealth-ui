@@ -2029,14 +2029,13 @@ body.fullscreen .alert-drawer {
 .timeline-tooltip {
   position: absolute;
   bottom: 28px;
-  left: 100%;
-  transform: translateX(-50%);
+  left: 0;
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
-  white-space: nowrap;
+  white-space: pre-line;
   pointer-events: none;
   z-index: 10;
 }
