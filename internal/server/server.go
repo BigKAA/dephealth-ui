@@ -19,6 +19,7 @@ import (
 	"github.com/BigKAA/dephealth-ui/internal/cascade"
 	"github.com/BigKAA/dephealth-ui/internal/config"
 	"github.com/BigKAA/dephealth-ui/internal/logging"
+	"github.com/BigKAA/dephealth-ui/internal/timeline"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
 
@@ -28,18 +29,20 @@ type Server struct {
 	logger  *slog.Logger
 	router  *chi.Mux
 	builder *topology.GraphBuilder
+	prom    topology.PrometheusClient
 	am      alerts.AlertManagerClient
 	cache   *cache.Cache
 	auth    auth.Authenticator
 }
 
 // New creates a new Server instance with configured routes and middleware.
-func New(cfg *config.Config, logger *slog.Logger, builder *topology.GraphBuilder, am alerts.AlertManagerClient, c *cache.Cache, authenticator auth.Authenticator) *Server {
+func New(cfg *config.Config, logger *slog.Logger, builder *topology.GraphBuilder, prom topology.PrometheusClient, am alerts.AlertManagerClient, c *cache.Cache, authenticator auth.Authenticator) *Server {
 	s := &Server{
 		cfg:     cfg,
 		logger:  logger,
 		router:  chi.NewRouter(),
 		builder: builder,
+		prom:    prom,
 		am:      am,
 		cache:   c,
 		auth:    authenticator,
@@ -118,6 +121,7 @@ func (s *Server) setupRoutes() {
 		r.Get("/instances", s.handleInstances)
 		r.Get("/cascade-analysis", s.handleCascadeAnalysis)
 		r.Get("/cascade-graph", s.handleCascadeGraph)
+		r.Get("/timeline/events", s.handleTimelineEvents)
 	})
 
 	// SPA static files (embedded via embed.FS)
@@ -605,6 +609,67 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		s.logger.Error("failed to encode cascade graph response", "error", err)
+	}
+}
+
+func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
+	startStr := r.URL.Query().Get("start")
+	endStr := r.URL.Query().Get("end")
+
+	if startStr == "" || endStr == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"missing required query parameters: start and end"}`)
+		return
+	}
+
+	start, err := time.Parse(time.RFC3339, startStr)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"invalid start parameter: must be RFC3339 format"}`)
+		return
+	}
+
+	end, err := time.Parse(time.RFC3339, endStr)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"invalid end parameter: must be RFC3339 format"}`)
+		return
+	}
+
+	if !start.Before(end) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"start must be before end"}`)
+		return
+	}
+
+	namespace := r.URL.Query().Get("namespace")
+
+	req := timeline.EventsRequest{
+		Start:     start,
+		End:       end,
+		Namespace: namespace,
+	}
+
+	events, err := timeline.QueryStatusTransitions(r.Context(), s.prom, req)
+	if err != nil {
+		s.logger.Error("failed to query timeline events", "error", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprintf(w, `{"error":"failed to fetch timeline events: %s"}`, err.Error())
+		return
+	}
+
+	if events == nil {
+		events = []timeline.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(events); err != nil {
+		s.logger.Error("failed to encode timeline events response", "error", err)
 	}
 }
 

@@ -59,7 +59,7 @@ func newTestServer() *Server {
 	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, 0, logger, cfg.Alerts.SeverityLevels)
 	topologyCache := cache.New(cfg.Cache.TTL)
 	authenticator, _ := auth.NewFromConfig(config.AuthConfig{Type: "none"})
-	return New(cfg, logger, builder, nil, topologyCache, authenticator)
+	return New(cfg, logger, builder, promClient, nil, topologyCache, authenticator)
 }
 
 func TestRoutes(t *testing.T) {
@@ -425,6 +425,90 @@ func TestCascadeAnalysisInvalidTimeParam(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestTimelineEventsMissingParams(t *testing.T) {
+	srv := newTestServer()
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"no params", "/api/v1/timeline/events"},
+		{"only start", "/api/v1/timeline/events?start=2026-01-15T12:00:00Z"},
+		{"only end", "/api/v1/timeline/events?end=2026-01-15T13:00:00Z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.url, nil)
+			w := httptest.NewRecorder()
+			srv.router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+			}
+		})
+	}
+}
+
+func TestTimelineEventsInvalidFormat(t *testing.T) {
+	srv := newTestServer()
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"bad start", "/api/v1/timeline/events?start=bad&end=2026-01-15T13:00:00Z"},
+		{"bad end", "/api/v1/timeline/events?start=2026-01-15T12:00:00Z&end=bad"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.url, nil)
+			w := httptest.NewRecorder()
+			srv.router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+			}
+		})
+	}
+}
+
+func TestTimelineEventsStartAfterEnd(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/timeline/events?start=2026-01-15T14:00:00Z&end=2026-01-15T12:00:00Z", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestTimelineEventsReturnsJSON(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest("GET", "/api/v1/timeline/events?start=2026-01-15T12:00:00Z&end=2026-01-15T13:00:00Z", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want %q", ct, "application/json")
+	}
+
+	// Response should be a JSON array.
+	var events []any
+	if err := json.NewDecoder(w.Body).Decode(&events); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	// With the mock server returning simple data, we expect an empty array.
+	if events == nil {
+		t.Error("expected non-nil array (even if empty)")
 	}
 }
 

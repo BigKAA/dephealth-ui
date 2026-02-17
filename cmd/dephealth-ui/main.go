@@ -76,7 +76,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := server.New(cfg, logger, builder, amClient, topologyCache, authenticator)
+	srv := server.New(cfg, logger, builder, promClient, amClient, topologyCache, authenticator)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

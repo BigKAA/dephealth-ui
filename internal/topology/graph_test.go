@@ -99,6 +99,10 @@ func (m *mockPrometheusClient) QueryHistoricalAlerts(_ context.Context, _ time.T
 	return m.historicalAlerts, m.err
 }
 
+func (m *mockPrometheusClient) QueryStatusRange(_ context.Context, _, _ time.Time, _ time.Duration, _ string) ([]RangeResult, error) {
+	return nil, m.err
+}
+
 func TestGraphBuilder_Build(t *testing.T) {
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{

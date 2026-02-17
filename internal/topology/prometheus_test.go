@@ -466,6 +466,92 @@ func TestQueryHistoricalAlertsEmpty(t *testing.T) {
 	}
 }
 
+const queryRangeResponse = `{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {"name": "svc-go", "host": "pg", "port": "5432", "status": "ok"},
+        "values": [[1700000000, "1"], [1700000015, "1"], [1700000030, "0"]]
+      },
+      {
+        "metric": {"name": "svc-go", "host": "pg", "port": "5432", "status": "timeout"},
+        "values": [[1700000000, "0"], [1700000015, "0"], [1700000030, "1"]]
+      }
+    ]
+  }
+}`
+
+func TestQueryStatusRange(t *testing.T) {
+	var capturedPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(queryRangeResponse))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	start := time.Date(2023, 11, 15, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2023, 11, 15, 1, 0, 0, 0, time.UTC)
+
+	results, err := client.QueryStatusRange(context.Background(), start, end, 15*time.Second, "")
+	if err != nil {
+		t.Fatalf("QueryStatusRange() error: %v", err)
+	}
+
+	if capturedPath != "/api/v1/query_range" {
+		t.Errorf("path = %q, want /api/v1/query_range", capturedPath)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("got %d results, want 2", len(results))
+	}
+
+	// Check first result (ok status).
+	r0 := results[0]
+	if r0.Key.Name != "svc-go" || r0.Key.Host != "pg" || r0.Key.Port != "5432" {
+		t.Errorf("result[0].Key = %+v, unexpected", r0.Key)
+	}
+	if r0.Status != "ok" {
+		t.Errorf("result[0].Status = %q, want ok", r0.Status)
+	}
+	if len(r0.Values) != 3 {
+		t.Fatalf("result[0] has %d values, want 3", len(r0.Values))
+	}
+	if r0.Values[0].Value != 1 {
+		t.Errorf("result[0].Values[0].Value = %v, want 1", r0.Values[0].Value)
+	}
+	if r0.Values[2].Value != 0 {
+		t.Errorf("result[0].Values[2].Value = %v, want 0", r0.Values[2].Value)
+	}
+}
+
+func TestQueryStatusRangeWithNamespace(t *testing.T) {
+	var capturedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.Query().Get("query")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	start := time.Date(2023, 11, 15, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2023, 11, 15, 1, 0, 0, 0, time.UTC)
+
+	_, err := client.QueryStatusRange(context.Background(), start, end, time.Minute, "prod")
+	if err != nil {
+		t.Fatalf("QueryStatusRange() error: %v", err)
+	}
+
+	want := `app_dependency_status{namespace="prod"} == 1`
+	if capturedQuery != want {
+		t.Errorf("query = %q, want %q", capturedQuery, want)
+	}
+}
+
 func TestQueryErrorStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)

@@ -67,6 +67,19 @@ type HistoricalAlert struct {
 	Severity  string
 }
 
+// TimeValue is a single data point in a range query result.
+type TimeValue struct {
+	Timestamp time.Time
+	Value     float64
+}
+
+// RangeResult represents a single time series from a range query, identified by EdgeKey and status label.
+type RangeResult struct {
+	Key    EdgeKey
+	Status string
+	Values []TimeValue
+}
+
 // TopologyResponse is the complete topology API response.
 type TopologyResponse struct {
 	Nodes  []Node       `json:"nodes"`

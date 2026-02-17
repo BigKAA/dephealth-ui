@@ -44,6 +44,10 @@ type PrometheusClient interface {
 	// QueryHistoricalAlerts returns alerts reconstructed from the ALERTS metric
 	// at a given historical timestamp. Used instead of AlertManager in history mode.
 	QueryHistoricalAlerts(ctx context.Context, at time.Time) ([]HistoricalAlert, error)
+
+	// QueryStatusRange queries app_dependency_status == 1 over a time range
+	// and returns per-edge time series data for transition detection.
+	QueryStatusRange(ctx context.Context, start, end time.Time, step time.Duration, namespace string) ([]RangeResult, error)
 }
 
 // PrometheusConfig holds Prometheus connection settings.
@@ -159,6 +163,138 @@ func (c *prometheusClient) query(ctx context.Context, promql string, at *time.Ti
 	}
 
 	return pr.Data.Result, nil
+}
+
+// promRangeResponse represents Prometheus API v1 range query response.
+type promRangeResponse struct {
+	Status string        `json:"status"`
+	Data   promRangeData `json:"data"`
+}
+
+type promRangeData struct {
+	ResultType string            `json:"resultType"`
+	Result     []promMatrixEntry `json:"result"`
+}
+
+type promMatrixEntry struct {
+	Metric map[string]string    `json:"metric"`
+	Values []json.RawMessage    `json:"values"` // each element is [timestamp, "value"]
+}
+
+func (c *prometheusClient) queryRange(ctx context.Context, promql string, start, end time.Time, step time.Duration) ([]promMatrixEntry, error) {
+	u, err := url.Parse(c.cfg.URL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid prometheus URL: %w", err)
+	}
+	u.Path = "/api/v1/query_range"
+	u.RawQuery = url.Values{
+		"query": {promql},
+		"start": {fmt.Sprintf("%d", start.Unix())},
+		"end":   {fmt.Sprintf("%d", end.Unix())},
+		"step":  {fmt.Sprintf("%d", int(step.Seconds()))},
+	}.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	if c.cfg.Username != "" {
+		req.SetBasicAuth(c.cfg.Username, c.cfg.Password)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("querying prometheus range: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("prometheus returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var pr promRangeResponse
+	if err := json.Unmarshal(body, &pr); err != nil {
+		return nil, fmt.Errorf("parsing range response: %w", err)
+	}
+
+	if pr.Status != "success" {
+		return nil, fmt.Errorf("prometheus range query failed: status=%s", pr.Status)
+	}
+
+	return pr.Data.Result, nil
+}
+
+// QueryStatusRange queries app_dependency_status == 1 over a range and returns
+// per-edge time series with status labels and timestamped values.
+func (c *prometheusClient) QueryStatusRange(ctx context.Context, start, end time.Time, step time.Duration, namespace string) ([]RangeResult, error) {
+	f := nsFilter(namespace)
+	promql := fmt.Sprintf(queryDependencyStatus, f)
+
+	entries, err := c.queryRange(ctx, promql, start, end, step)
+	if err != nil {
+		return nil, fmt.Errorf("querying status range: %w", err)
+	}
+
+	results := make([]RangeResult, 0, len(entries))
+	for _, entry := range entries {
+		key := EdgeKey{
+			Name: entry.Metric["name"],
+			Host: entry.Metric["host"],
+			Port: entry.Metric["port"],
+		}
+		status := entry.Metric["status"]
+
+		values, err := parseMatrixValues(entry.Values)
+		if err != nil {
+			continue
+		}
+
+		results = append(results, RangeResult{
+			Key:    key,
+			Status: status,
+			Values: values,
+		})
+	}
+	return results, nil
+}
+
+// parseMatrixValues parses the raw JSON values from a Prometheus matrix response.
+// Each element is a two-element array: [unix_timestamp, "string_value"].
+func parseMatrixValues(raw []json.RawMessage) ([]TimeValue, error) {
+	values := make([]TimeValue, 0, len(raw))
+	for _, r := range raw {
+		var pair [2]json.RawMessage
+		if err := json.Unmarshal(r, &pair); err != nil {
+			continue
+		}
+
+		var ts float64
+		if err := json.Unmarshal(pair[0], &ts); err != nil {
+			continue
+		}
+
+		var valStr string
+		if err := json.Unmarshal(pair[1], &valStr); err != nil {
+			continue
+		}
+
+		val, err := strconv.ParseFloat(valStr, 64)
+		if err != nil {
+			continue
+		}
+
+		values = append(values, TimeValue{
+			Timestamp: time.Unix(int64(ts), 0).UTC(),
+			Value:     val,
+		})
+	}
+	return values, nil
 }
 
 func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOptions) ([]TopologyEdge, error) {
