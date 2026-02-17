@@ -287,13 +287,35 @@ function onContainerMouseDown(e) {
 
   const onMouseMove = (ev) => {
     const currentRatio = getTrackRatio(ev.clientX);
-    if (Math.abs(currentRatio - startRatio) > 0.01) {
+    if (!hasMoved && Math.abs(currentRatio - startRatio) > 0.01) {
       hasMoved = true;
-      // Range selection will be implemented in Phase 3
+      interactionState = INTERACTION.RANGE_SELECT;
+      if (rangeOverlayEl) rangeOverlayEl.classList.remove('hidden');
+    }
+    if (hasMoved) {
+      // Update overlay position and size
+      const lo = Math.min(startRatio, currentRatio);
+      const hi = Math.max(startRatio, currentRatio);
+      if (rangeOverlayEl) {
+        rangeOverlayEl.style.left = `${lo * 100}%`;
+        rangeOverlayEl.style.width = `${(hi - lo) * 100}%`;
+      }
+      // Show tooltip with current time at cursor position
+      if (rangeStart && rangeEnd) {
+        const ms = rangeStart.getTime() + currentRatio * (rangeEnd.getTime() - rangeStart.getTime());
+        showTooltip(new Date(ms).toLocaleString(), currentRatio);
+      }
     }
   };
 
   const onMouseUp = (ev) => {
+    hideTooltip();
+    if (rangeOverlayEl) {
+      rangeOverlayEl.classList.add('hidden');
+      rangeOverlayEl.style.left = '';
+      rangeOverlayEl.style.width = '';
+    }
+
     if (!hasMoved) {
       // Treat as click: jump thumb to position
       const ratio = getTrackRatio(ev.clientX);
@@ -301,7 +323,20 @@ function onContainerMouseDown(e) {
       updateTimeDisplay();
       syncToURL();
       if (onTimeChangedCb) onTimeChangedCb(selectedTime);
+    } else {
+      // Zoom into selected range
+      const endRatio = getTrackRatio(ev.clientX);
+      const lo = Math.min(startRatio, endRatio);
+      const hi = Math.max(startRatio, endRatio);
+      if (rangeStart && rangeEnd) {
+        const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+        const newStart = new Date(rangeStart.getTime() + lo * totalMs);
+        const newEnd = new Date(rangeStart.getTime() + hi * totalMs);
+        setRange(newStart, newEnd);
+      }
     }
+
+    interactionState = INTERACTION.IDLE;
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
   };

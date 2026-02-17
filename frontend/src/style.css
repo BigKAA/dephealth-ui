@@ -2098,3 +2098,12 @@ html[data-theme="dark"] header.history-mode {
   background: #283593;
   border-bottom-color: #5c6bc0;
 }
+
+html[data-theme="dark"] .timeline-range-overlay {
+  background: rgba(100, 160, 255, 0.3);
+  border-color: rgba(100, 160, 255, 0.6);
+}
+
+html[data-theme="dark"] .timeline-tooltip {
+  background: rgba(30, 30, 30, 0.92);
+}
