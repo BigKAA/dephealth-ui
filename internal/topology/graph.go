@@ -478,9 +478,6 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 	nodeWorstSeverity := make(map[string]int)  // node ID → best (lowest) severity priority
 	edgeWorstSeverity := make(map[int]int)      // edge index → best (lowest) severity priority
 
-	// Initialize worst severity to a value beyond all levels.
-	const maxPriority = 999
-
 	var alertInfos []AlertInfo
 	for _, a := range fetched {
 		alertInfos = append(alertInfos, AlertInfo{

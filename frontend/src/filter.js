@@ -497,19 +497,6 @@ export function applyFilters(cy) {
 }
 
 /**
- * Get a copy of current active filters (for external use).
- * @returns {{type: string[], state: string[], job: string[]}}
- */
-export function getActiveFilters() {
-  return {
-    type: [...activeFilters.type],
-    state: [...activeFilters.state],
-    status: [...activeFilters.status],
-    job: [...activeFilters.job],
-  };
-}
-
-/**
  * Reset all filters (including Tom Select instances) and clear localStorage.
  */
 export function resetFilters() {

@@ -152,12 +152,3 @@ export function computeCascadeWarnings(cy) {
   });
 }
 
-/**
- * Check if a node has cascade warnings.
- *
- * @param {import('cytoscape').NodeSingular} node
- * @returns {boolean}
- */
-export function hasCascadeWarning(node) {
-  return (node.data('cascadeCount') || 0) > 0;
-}
