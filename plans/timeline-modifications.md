@@ -17,10 +17,10 @@
 
 ## Current Status
 
-- **Active phase**: Phase 4
-- **Active subtask**: 4.1
+- **Active phase**: Phase 5
+- **Active subtask**: 5.1
 - **Last updated**: 2026-02-17
-- **Note**: Phase 3 complete — drag range selection with overlay and zoom-in
+- **Note**: Phase 4 complete — copy URL button and i18n keys added
 
 ---
 
@@ -29,7 +29,7 @@
 - [x] [Phase 1: Custom Slider](#phase-1-custom-slider)
 - [x] [Phase 2: Tooltip and Marker Hover](#phase-2-tooltip-and-marker-hover)
 - [x] [Phase 3: Range Selection Drag](#phase-3-range-selection-drag)
-- [ ] [Phase 4: Copy URL Button and i18n](#phase-4-copy-url-button-and-i18n)
+- [x] [Phase 4: Copy URL Button and i18n](#phase-4-copy-url-button-and-i18n)
 - [ ] [Phase 5: Build and Test](#phase-5-build-and-test)
 
 ---

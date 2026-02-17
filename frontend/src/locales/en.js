@@ -221,6 +221,8 @@ export default {
   'status.viewing': 'Viewing {time} | {nodes} nodes, {edges} edges',
   'timeline.noData': 'No status changes in this range',
   'timeline.eventsError': 'Failed to load timeline events',
+  'timeline.copyUrl': 'Copy URL',
+  'timeline.urlCopied': 'URL copied to clipboard',
 
   // Time ago
   'time.secondsAgo': '{value}s ago',

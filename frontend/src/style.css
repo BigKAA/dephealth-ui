@@ -1940,8 +1940,25 @@ body.fullscreen .alert-drawer {
   text-align: center;
 }
 
-.timeline-live-btn {
+.timeline-copy-btn {
   margin-left: auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.timeline-copy-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--border-hover);
+}
+
+.timeline-live-btn {
   padding: 3px 14px;
   border: 1px solid #4caf50;
   border-radius: 4px;

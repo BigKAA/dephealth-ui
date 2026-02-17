@@ -363,6 +363,9 @@ function buildUI() {
         <button id="timeline-apply" class="timeline-apply-btn" data-i18n="timeline.apply">Apply</button>
       </div>
       <div class="timeline-time-display" id="timeline-time-display"></div>
+      <button id="timeline-copy-url" class="timeline-copy-btn" title="${t('timeline.copyUrl')}">
+        <i class="bi bi-clipboard"></i>
+      </button>
       <button id="timeline-live" class="timeline-live-btn" data-i18n="timeline.live">Live</button>
     </div>
     <div class="timeline-slider-container" id="timeline-slider-container">
@@ -412,6 +415,19 @@ function buildUI() {
   // Custom slider: container click / range select
   const containerEl = document.getElementById('timeline-slider-container');
   containerEl.addEventListener('mousedown', onContainerMouseDown);
+
+  // Copy URL button
+  document.getElementById('timeline-copy-url').addEventListener('click', () => {
+    const btn = document.getElementById('timeline-copy-url');
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      showToast(t('timeline.urlCopied'), 'info');
+      const icon = btn.querySelector('i');
+      icon.className = 'bi bi-check';
+      setTimeout(() => { icon.className = 'bi bi-clipboard'; }, 1500);
+    }).catch(() => {
+      showToast(t('timeline.urlCopied'), 'warning');
+    });
+  });
 
   // Live button
   document.getElementById('timeline-live').addEventListener('click', () => {

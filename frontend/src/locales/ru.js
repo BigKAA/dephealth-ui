@@ -221,6 +221,8 @@ export default {
   'status.viewing': 'Просмотр {time} | {nodes} узлов, {edges} связей',
   'timeline.noData': 'Нет изменений статуса за этот период',
   'timeline.eventsError': 'Не удалось загрузить события',
+  'timeline.copyUrl': 'Копировать URL',
+  'timeline.urlCopied': 'URL скопирован в буфер обмена',
 
   // Time ago
   'time.secondsAgo': '{value}с назад',
