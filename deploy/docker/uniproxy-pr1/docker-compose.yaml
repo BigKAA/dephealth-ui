@@ -1,0 +1,52 @@
+services:
+  uniproxy-pr1:
+    image: harbor.kryukov.lan/library/uniproxy:v0.5.0
+    container_name: uniproxy-pr1
+    ports:
+      - "8080:8080"
+    environment:
+      DEPHEALTH_NAME: uniproxy-pr1
+      LISTEN_ADDR: ":8080"
+      DEPHEALTH_CHECK_INTERVAL: "10"
+      DEPHEALTH_DEPS: "postgresql:postgres,redis:redis"
+      DEPHEALTH_POSTGRESQL_URL: "postgres://dephealth:dephealth@postgresql:5432/dephealth?sslmode=disable"
+      DEPHEALTH_POSTGRESQL_CRITICAL: "yes"
+      DEPHEALTH_REDIS_URL: "redis://redis:6379"
+      DEPHEALTH_REDIS_CRITICAL: "no"
+      LOG_FORMAT: json
+      LOG_LEVEL: info
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgresql:
+    image: harbor.kryukov.lan/docker/library/postgres:17-alpine
+    container_name: postgresql
+    environment:
+      POSTGRES_USER: dephealth
+      POSTGRES_PASSWORD: dephealth
+      POSTGRES_DB: dephealth
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dephealth -d dephealth"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  redis:
+    image: harbor.kryukov.lan/docker/library/redis:7-alpine
+    container_name: redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

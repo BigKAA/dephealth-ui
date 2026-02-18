@@ -110,6 +110,24 @@ data:
         static_configs:
           - targets:
               - localhost:8428
+
+      {{- range .Values.victoriametrics.externalTargets }}
+      # --- External target: {{ .jobName }} ---
+      - job_name: '{{ .jobName }}'
+        static_configs:
+          - targets:
+              - '{{ .target }}'
+            labels:
+              {{- range $key, $value := .labels }}
+              {{ $key }}: '{{ $value }}'
+              {{- end }}
+        {{- if .metricsPath }}
+        metrics_path: '{{ .metricsPath }}'
+        {{- end }}
+        {{- if .scrapeInterval }}
+        scrape_interval: {{ .scrapeInterval }}
+        {{- end }}
+      {{- end }}
 ---
 # --- StatefulSet ---
 apiVersion: apps/v1

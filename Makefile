@@ -1,6 +1,7 @@
 .PHONY: build lint test frontend-build docker-build docker-push \
        helm-deploy helm-undeploy dev clean \
        uniproxy-deploy uniproxy-undeploy \
+       host-deploy host-undeploy host-status \
        env-deploy env-undeploy env-status
 
 # --- Variables ---
@@ -18,6 +19,10 @@ HELM_VALUES   ?= $(HELM_CHART)/values-homelab.yaml
 INFRA_CHART      ?= deploy/helm/dephealth-infra
 MONITORING_CHART ?= deploy/helm/dephealth-monitoring
 UNIPROXY_CHART   ?= deploy/helm/dephealth-uniproxy
+
+# Host deployment (bare metal)
+HOST_PR1_IP  ?= 192.168.218.168
+HOST_PR1_DIR ?= deploy/docker/uniproxy-pr1
 
 # --- Local ---
 
@@ -67,6 +72,19 @@ uniproxy-undeploy:
 	-helm uninstall uniproxy-ns1 -n dephealth-uniproxy
 	-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2
 
+# --- Host deployment (bare metal) ---
+
+host-deploy:
+	ssh root@$(HOST_PR1_IP) 'mkdir -p /opt/uniproxy-pr1'
+	scp $(HOST_PR1_DIR)/docker-compose.yaml root@$(HOST_PR1_IP):/opt/uniproxy-pr1/
+	ssh root@$(HOST_PR1_IP) 'cd /opt/uniproxy-pr1 && docker compose up -d'
+
+host-undeploy:
+	ssh root@$(HOST_PR1_IP) 'cd /opt/uniproxy-pr1 && docker compose down'
+
+host-status:
+	ssh root@$(HOST_PR1_IP) 'docker ps --filter name=uniproxy-pr1 --filter name=postgresql --filter name=redis'
+
 # --- Helm (dephealth-ui) ---
 
 helm-deploy:
@@ -83,6 +101,7 @@ env-deploy:
 	helm upgrade --install dephealth-infra $(INFRA_CHART) \
 		-f $(INFRA_CHART)/values-homelab.yaml
 	$(MAKE) uniproxy-deploy
+	$(MAKE) host-deploy
 	helm upgrade --install dephealth-monitoring $(MONITORING_CHART) \
 		-f $(MONITORING_CHART)/values-homelab.yaml \
 		-n dephealth-monitoring --create-namespace
@@ -90,6 +109,7 @@ env-deploy:
 env-undeploy:
 	-helm uninstall dephealth-monitoring -n dephealth-monitoring
 	-$(MAKE) uniproxy-undeploy
+	-$(MAKE) host-undeploy
 	-helm uninstall dephealth-infra
 	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
 		dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
@@ -113,6 +133,9 @@ env-status:
 	@echo ""
 	@echo "=== dephealth-monitoring ==="
 	@kubectl get pods -n dephealth-monitoring 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== host: uniproxy-pr1 ($(HOST_PR1_IP)) ==="
+	@ssh root@$(HOST_PR1_IP) 'docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter name=uniproxy-pr1 --filter name=postgresql --filter name=redis' 2>/dev/null || echo "  host unreachable"
 
 # --- Development cycle ---
 

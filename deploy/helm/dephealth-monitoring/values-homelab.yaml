@@ -3,6 +3,14 @@ global:
   imageRegistry: harbor.kryukov.lan/docker
   storageClass: nfs-client
 
+victoriametrics:
+  externalTargets:
+    - jobName: uniproxy-pr1
+      target: "192.168.218.168:8080"
+      labels:
+        namespace: hostpr1
+        service: uniproxy-pr1
+
 grafana:
   rootUrl: "http://grafana.kryukov.lan"
   route:
