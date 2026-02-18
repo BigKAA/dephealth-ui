@@ -1,6 +1,6 @@
 services:
   uniproxy-pr1:
-    image: harbor.kryukov.lan/library/uniproxy:v0.5.0
+    image: harbor.kryukov.lan/library/uniproxy:v0.6.0
     container_name: uniproxy-pr1
     ports:
       - "8080:8080"
