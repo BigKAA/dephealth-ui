@@ -19,7 +19,7 @@ The test environment creates a realistic microservice topology with multiple nam
 ### Required Software
 
 | Tool | Version | Purpose |
-|------|---------|---------|
+| ------ | --------- | --------- |
 | **Kubernetes** | 1.28+ | Cluster with `kubectl` access |
 | **Helm** | 3.0+ | Chart deployment |
 | **Docker** | 24+ | Container builds, bare metal deployment |
@@ -38,6 +38,7 @@ The test environment creates a realistic microservice topology with multiple nam
 ### Container Registry
 
 The test environment pulls images from a private Harbor registry. You need either:
+
 - Your own container registry, or
 - Direct access to Docker Hub (modify `values.yaml` to use default registries)
 
@@ -45,7 +46,7 @@ The test environment pulls images from a private Harbor registry. You need eithe
 
 ## Directory Structure
 
-```
+```text
 deploy/
 ├── docker/
 │   └── uniproxy-pr1/             # Bare metal host deployment
@@ -81,7 +82,7 @@ deploy/
 Infrastructure services shared by test microservices.
 
 | Service | Namespace | Default | Description |
-|---------|-----------|---------|-------------|
+| --------- | ----------- | --------- | ------------- |
 | PostgreSQL | `dephealth-postgresql` | Enabled | v17-alpine, credentials: `dephealth/dephealth-test-pass` |
 | Redis | `dephealth-redis` | Enabled | v7-alpine, in-memory cache |
 | gRPC Stub | `dephealth-grpc-stub` | Enabled | Simple gRPC health check responder |
@@ -96,7 +97,7 @@ Infrastructure services shared by test microservices.
 **Namespace 1** (`dephealth-uniproxy`):
 
 | Instance | Replicas | Dependencies | Notes |
-|----------|----------|-------------|-------|
+| ---------- | ---------- | ------------- | ------- |
 | uniproxy-01 | 2 | uniproxy-02 (critical), uniproxy-03 (critical) | Entry point, NodePort 30080 |
 | uniproxy-02 | 2 | redis, grpc-stub, uniproxy-04 (critical), uniproxy-pr1 (critical) | Cross-namespace + bare metal |
 | uniproxy-03 | 3 | postgresql (critical) | Database dependency |
@@ -104,7 +105,7 @@ Infrastructure services shared by test microservices.
 **Namespace 2** (`dephealth-uniproxy-2`) — authentication test scenarios:
 
 | Instance | Replicas | Dependencies | Auth |
-|----------|----------|-------------|------|
+| ---------- | ---------- | ------------- | ------ |
 | uniproxy-04 | 2 | uniproxy-05 (Bearer), uniproxy-06 | Client auth |
 | uniproxy-05 | 1 | — | Server: Bearer token |
 | uniproxy-06 | 2 | uniproxy-07, uniproxy-08 (Basic), uniproxy-05 (wrong token) | Mixed auth |
@@ -116,13 +117,14 @@ Infrastructure services shared by test microservices.
 Full monitoring stack for metrics collection and visualization.
 
 | Component | Version | Description |
-|-----------|---------|-------------|
+| ----------- | --------- | ------------- |
 | VictoriaMetrics | v1.108.1 | Prometheus-compatible TSDB, 7d retention |
 | VMAlert | v1.108.1 | Alert rule evaluation engine |
 | AlertManager | v0.28.1 | Alert routing and grouping |
 | Grafana | v11.6.0 | Dashboards (8 pre-built), admin/dephealth |
 
 **Metrics collection:**
+
 - Kubernetes pods auto-discovered via `prometheus.io/scrape=true` + `app.kubernetes.io/part-of=dephealth`
 - External targets (bare metal hosts) via `victoriametrics.externalTargets` in values
 
@@ -137,11 +139,13 @@ The application itself. See [deploy/helm/dephealth-ui/README.md](./helm/dephealt
 The `deploy/docker/uniproxy-pr1/` directory contains a Docker Compose setup for running `uniproxy-pr1` on a physical host outside the Kubernetes cluster. This tests dephealth-ui's ability to visualize mixed K8s + bare metal topologies.
 
 **Services:**
+
 - `uniproxy-pr1` — test proxy with dephealth SDK (port 8080)
 - `postgresql` — local PostgreSQL 17 (critical dependency)
 - `redis` — local Redis 7 (non-critical dependency)
 
 **Prerequisites for the host:**
+
 - Docker with Compose plugin
 - Network access from the K8s cluster (for Prometheus scraping)
 - Trust to the private CA certificate (if using a private registry)
@@ -150,7 +154,7 @@ The `deploy/docker/uniproxy-pr1/` directory contains a Docker Compose setup for 
 
 ## Test Topology
 
-```
+```text
                            ┌─ NS: dephealth-uniproxy ──────────────────────────────────┐
                            │                                                            │
                            │  uniproxy-01 ──critical──► uniproxy-02 ──► redis           │
@@ -227,6 +231,7 @@ The `values-homelab.yaml` files contain environment-specific settings. To use yo
 **Current:** `harbor.kryukov.lan/library` (images), `harbor.kryukov.lan/docker` (Docker Hub proxy)
 
 **Options:**
+
 - Use Docker Hub directly: remove `global.imageRegistry` overrides from `values-homelab.yaml`
 - Use your own registry: replace `harbor.kryukov.lan` with your registry URL
 - For private registries with self-signed CA: install the CA certificate on all K8s nodes and bare metal hosts
@@ -236,6 +241,7 @@ The `values-homelab.yaml` files contain environment-specific settings. To use yo
 **Current:** `nfs-client`
 
 Replace with your cluster's StorageClass:
+
 ```yaml
 global:
   storageClass: "local-path"  # or "standard", "gp3", etc.
@@ -246,12 +252,13 @@ global:
 **Current hostnames** (must resolve to your cluster's Gateway/LoadBalancer IP):
 
 | Hostname | Service | Port |
-|----------|---------|------|
+| ---------- | --------- | ------ |
 | `dephealth.kryukov.lan` | dephealth-ui | HTTPS |
 | `grafana.kryukov.lan` | Grafana | HTTP |
 | `dex.kryukov.lan` | Dex OIDC (optional) | HTTPS |
 
 **To adapt:**
+
 1. Choose your own domain (e.g., `dephealth.mylab.local`)
 2. Update all `values-homelab.yaml` files with new hostnames
 3. Add DNS records pointing to your Gateway/LoadBalancer IP
@@ -262,6 +269,7 @@ global:
 **Current:** Envoy Gateway (`eg` in `envoy-gateway-system` namespace)
 
 If you use a different Gateway controller or Ingress:
+
 - Modify `route.gateway.name` and `route.gateway.namespace` in values
 - Or switch to Ingress: set `ingress.enabled=true` and `route.enabled=false`
 
@@ -270,16 +278,19 @@ If you use a different Gateway controller or Ingress:
 **Current:** `192.168.218.168` (Rocky Linux, SSH as root)
 
 To use your own host:
+
 ```bash
 make host-deploy HOST_PR1_IP=10.0.0.50
 ```
 
 Or set permanently in Makefile:
+
 ```makefile
 HOST_PR1_IP ?= 10.0.0.50
 ```
 
 **Requirements for the host:**
+
 - Docker with Compose plugin installed
 - SSH access (key-based recommended)
 - Port 8080 accessible from the K8s cluster
@@ -290,6 +301,7 @@ HOST_PR1_IP ?= 10.0.0.50
 **Current:** cert-manager with `ClusterIssuer: dev-ca-issuer` (self-signed CA)
 
 For your environment:
+
 - Use cert-manager with Let's Encrypt for public clusters
 - Use your own CA and configure `customCA` in dephealth-ui values
 - Or disable TLS for development (not recommended)
@@ -331,6 +343,7 @@ config:
 ```
 
 Then deploy:
+
 ```bash
 helm upgrade --install dephealth-infra deploy/helm/dephealth-infra -f deploy/helm/dephealth-infra/values-myenv.yaml
 ```
@@ -342,6 +355,7 @@ helm upgrade --install dephealth-infra deploy/helm/dephealth-infra -f deploy/hel
 ### Pods stuck in ImagePullBackOff
 
 Your cluster cannot access the container registry. Check:
+
 - Registry URL in `values-homelab.yaml` (or your override)
 - Network connectivity from cluster nodes to registry
 - CA certificate trust (for private registries with self-signed certificates)
@@ -349,6 +363,7 @@ Your cluster cannot access the container registry. Check:
 ### VictoriaMetrics not scraping external targets
 
 After updating the monitoring Helm chart, VictoriaMetrics needs a pod restart to reload the scrape config:
+
 ```bash
 kubectl delete pod victoriametrics-0 -n dephealth-monitoring
 ```
@@ -356,6 +371,7 @@ kubectl delete pod victoriametrics-0 -n dephealth-monitoring
 ### Bare metal host: TLS certificate error
 
 Docker on the host does not trust your private CA. Install the CA certificate:
+
 ```bash
 # Rocky Linux / CentOS / RHEL
 scp ca.crt root@<HOST_IP>:/etc/pki/ca-trust/source/anchors/
@@ -375,6 +391,7 @@ ssh root@<HOST_IP> 'update-ca-certificates && systemctl restart docker'
 ### Custom CA for dephealth-ui
 
 Before deploying dephealth-ui, create the ConfigMap with your CA certificate:
+
 ```bash
 kubectl create configmap custom-ca \
   --from-file=ca.crt=/path/to/your/ca.crt \
@@ -386,7 +403,7 @@ kubectl create configmap custom-ca \
 ## Related Documentation
 
 | Document | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | [Helm Chart Guide](./helm/dephealth-ui/README.md) | dephealth-ui Kubernetes deployment |
 | [Metrics Specification](../docs/METRICS.md) | Required Prometheus metrics format |
 | [API Reference](../docs/API.md) | REST API endpoints |

@@ -19,7 +19,7 @@
 ### Программное обеспечение
 
 | Инструмент | Версия | Назначение |
-|------------|--------|------------|
+| ------------ | -------- | ------------ |
 | **Kubernetes** | 1.28+ | Кластер с доступом через `kubectl` |
 | **Helm** | 3.0+ | Развёртывание чартов |
 | **Docker** | 24+ | Сборка контейнеров, деплой на bare metal |
@@ -38,6 +38,7 @@
 ### Реестр контейнеров
 
 Тестовая среда загружает образы из приватного Harbor реестра. Вам нужен:
+
 - Собственный реестр контейнеров, или
 - Прямой доступ к Docker Hub (измените `values.yaml` для использования стандартных реестров)
 
@@ -45,7 +46,7 @@
 
 ## Структура каталога
 
-```
+```text
 deploy/
 ├── docker/
 │   └── uniproxy-pr1/             # Деплой на bare metal хост
@@ -81,7 +82,7 @@ deploy/
 Инфраструктурные сервисы, используемые тестовыми микросервисами.
 
 | Сервис | Namespace | По умолчанию | Описание |
-|--------|-----------|-------------|----------|
+| -------- | ----------- | ------------- | ---------- |
 | PostgreSQL | `dephealth-postgresql` | Включён | v17-alpine, креды: `dephealth/dephealth-test-pass` |
 | Redis | `dephealth-redis` | Включён | v7-alpine, in-memory кэш |
 | gRPC Stub | `dephealth-grpc-stub` | Включён | Простой gRPC health check responder |
@@ -96,7 +97,7 @@ deploy/
 **Namespace 1** (`dephealth-uniproxy`):
 
 | Экземпляр | Реплики | Зависимости | Примечание |
-|-----------|---------|-------------|------------|
+| ----------- | --------- | ------------- | ------------ |
 | uniproxy-01 | 2 | uniproxy-02 (critical), uniproxy-03 (critical) | Точка входа, NodePort 30080 |
 | uniproxy-02 | 2 | redis, grpc-stub, uniproxy-04 (critical), uniproxy-pr1 (critical) | Кросс-namespace + bare metal |
 | uniproxy-03 | 3 | postgresql (critical) | Зависимость от БД |
@@ -104,7 +105,7 @@ deploy/
 **Namespace 2** (`dephealth-uniproxy-2`) — тестовые сценарии аутентификации:
 
 | Экземпляр | Реплики | Зависимости | Аутентификация |
-|-----------|---------|-------------|---------------|
+| ----------- | --------- | ------------- | --------------- |
 | uniproxy-04 | 2 | uniproxy-05 (Bearer), uniproxy-06 | Клиентская auth |
 | uniproxy-05 | 1 | — | Сервер: Bearer-токен |
 | uniproxy-06 | 2 | uniproxy-07, uniproxy-08 (Basic), uniproxy-05 (неверный токен) | Смешанная auth |
@@ -116,13 +117,14 @@ deploy/
 Полный стек мониторинга для сбора метрик и визуализации.
 
 | Компонент | Версия | Описание |
-|-----------|--------|----------|
+| ----------- | -------- | ---------- |
 | VictoriaMetrics | v1.108.1 | Prometheus-совместимая TSDB, 7 дней хранения |
 | VMAlert | v1.108.1 | Движок вычисления алертов |
 | AlertManager | v0.28.1 | Маршрутизация и группировка алертов |
 | Grafana | v11.6.0 | Дашборды (8 готовых), admin/dephealth |
 
 **Сбор метрик:**
+
 - Поды Kubernetes обнаруживаются автоматически через `prometheus.io/scrape=true` + `app.kubernetes.io/part-of=dephealth`
 - Внешние таргеты (bare metal хосты) через `victoriametrics.externalTargets` в values
 
@@ -137,11 +139,13 @@ deploy/
 Каталог `deploy/docker/uniproxy-pr1/` содержит Docker Compose для запуска `uniproxy-pr1` на физическом хосте вне Kubernetes кластера. Это позволяет тестировать визуализацию смешанных K8s + bare metal топологий.
 
 **Сервисы:**
+
 - `uniproxy-pr1` — тестовый прокси с dephealth SDK (порт 8080)
 - `postgresql` — локальный PostgreSQL 17 (критическая зависимость)
 - `redis` — локальный Redis 7 (некритическая зависимость)
 
 **Требования к хосту:**
+
 - Docker с плагином Compose
 - Сетевой доступ из K8s кластера (для скрейпинга Prometheus)
 - Доверие к приватному CA-сертификату (при использовании приватного реестра)
@@ -150,7 +154,7 @@ deploy/
 
 ## Тестовая топология
 
-```
+```text
                            ┌─ NS: dephealth-uniproxy ────────────────────────────────────┐
                            │                                                             │
                            │  uniproxy-01 ──critical──► uniproxy-02 ──► redis            │
@@ -227,6 +231,7 @@ make host-status        # Проверить контейнеры на bare meta
 **Текущий:** `harbor.kryukov.lan/library` (образы), `harbor.kryukov.lan/docker` (Docker Hub прокси)
 
 **Варианты:**
+
 - Docker Hub напрямую: уберите переопределения `global.imageRegistry` из `values-homelab.yaml`
 - Свой реестр: замените `harbor.kryukov.lan` на URL вашего реестра
 - Для приватных реестров с самоподписанным CA: установите CA-сертификат на все узлы K8s и bare metal хосты
@@ -236,6 +241,7 @@ make host-status        # Проверить контейнеры на bare meta
 **Текущий:** `nfs-client`
 
 Замените на StorageClass вашего кластера:
+
 ```yaml
 global:
   storageClass: "local-path"  # или "standard", "gp3" и т.д.
@@ -246,12 +252,13 @@ global:
 **Текущие имена хостов** (должны резолвиться на IP вашего Gateway/LoadBalancer):
 
 | Имя хоста | Сервис | Порт |
-|-----------|--------|------|
+| ----------- | -------- | ------ |
 | `dephealth.kryukov.lan` | dephealth-ui | HTTPS |
 | `grafana.kryukov.lan` | Grafana | HTTP |
 | `dex.kryukov.lan` | Dex OIDC (опционально) | HTTPS |
 
 **Для адаптации:**
+
 1. Выберите свой домен (например `dephealth.mylab.local`)
 2. Обновите все файлы `values-homelab.yaml` с новыми именами хостов
 3. Добавьте DNS-записи, указывающие на IP вашего Gateway/LoadBalancer
@@ -262,6 +269,7 @@ global:
 **Текущий:** Envoy Gateway (`eg` в namespace `envoy-gateway-system`)
 
 Если вы используете другой Gateway-контроллер или Ingress:
+
 - Измените `route.gateway.name` и `route.gateway.namespace` в values
 - Или переключитесь на Ingress: `ingress.enabled=true` и `route.enabled=false`
 
@@ -270,16 +278,19 @@ global:
 **Текущий:** `192.168.218.168` (Rocky Linux, SSH от root)
 
 Для использования своего хоста:
+
 ```bash
 make host-deploy HOST_PR1_IP=10.0.0.50
 ```
 
 Или установите постоянно в Makefile:
+
 ```makefile
 HOST_PR1_IP ?= 10.0.0.50
 ```
 
 **Требования к хосту:**
+
 - Docker с плагином Compose
 - SSH-доступ (рекомендуется авторизация по ключу)
 - Порт 8080 доступен из K8s кластера
@@ -290,6 +301,7 @@ HOST_PR1_IP ?= 10.0.0.50
 **Текущий:** cert-manager с `ClusterIssuer: dev-ca-issuer` (самоподписанный CA)
 
 Для вашей среды:
+
 - Используйте cert-manager с Let's Encrypt для публичных кластеров
 - Используйте свой CA и настройте `customCA` в values dephealth-ui
 - Или отключите TLS для разработки (не рекомендуется)
@@ -331,6 +343,7 @@ config:
 ```
 
 Затем деплой:
+
 ```bash
 helm upgrade --install dephealth-infra deploy/helm/dephealth-infra -f deploy/helm/dephealth-infra/values-myenv.yaml
 ```
@@ -342,6 +355,7 @@ helm upgrade --install dephealth-infra deploy/helm/dephealth-infra -f deploy/hel
 ### Поды зависли в ImagePullBackOff
 
 Кластер не может получить доступ к реестру контейнеров. Проверьте:
+
 - URL реестра в `values-homelab.yaml` (или вашем переопределении)
 - Сетевую связность от узлов кластера к реестру
 - Доверие к CA-сертификату (для приватных реестров с самоподписанными сертификатами)
@@ -349,6 +363,7 @@ helm upgrade --install dephealth-infra deploy/helm/dephealth-infra -f deploy/hel
 ### VictoriaMetrics не скрейпит внешние таргеты
 
 После обновления Helm-чарта мониторинга VictoriaMetrics требуется перезапуск пода для перезагрузки конфига:
+
 ```bash
 kubectl delete pod victoriametrics-0 -n dephealth-monitoring
 ```
@@ -356,6 +371,7 @@ kubectl delete pod victoriametrics-0 -n dephealth-monitoring
 ### Bare metal хост: ошибка TLS-сертификата
 
 Docker на хосте не доверяет вашему приватному CA. Установите CA-сертификат:
+
 ```bash
 # Rocky Linux / CentOS / RHEL
 scp ca.crt root@<HOST_IP>:/etc/pki/ca-trust/source/anchors/
@@ -375,6 +391,7 @@ ssh root@<HOST_IP> 'update-ca-certificates && systemctl restart docker'
 ### Custom CA для dephealth-ui
 
 Перед деплоем dephealth-ui создайте ConfigMap с вашим CA-сертификатом:
+
 ```bash
 kubectl create configmap custom-ca \
   --from-file=ca.crt=/path/to/your/ca.crt \
@@ -386,7 +403,7 @@ kubectl create configmap custom-ca \
 ## Связанная документация
 
 | Документ | Описание |
-|----------|----------|
+| ---------- | ---------- |
 | [Руководство по Helm-чарту](./helm/dephealth-ui/README.ru.md) | Развёртывание dephealth-ui в Kubernetes |
 | [Спецификация метрик](../docs/METRICS.ru.md) | Формат необходимых Prometheus-метрик |
 | [Справочник API](../docs/API.ru.md) | REST API endpoint'ы |
