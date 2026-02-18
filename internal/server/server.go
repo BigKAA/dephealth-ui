@@ -143,7 +143,8 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
-	opts := topology.QueryOptions{Namespace: namespace}
+	group := r.URL.Query().Get("group")
+	opts := topology.QueryOptions{Namespace: namespace, Group: group}
 
 	// Parse optional ?time= parameter for historical queries.
 	if timeStr := r.URL.Query().Get("time"); timeStr != "" {
@@ -157,8 +158,8 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 		opts.Time = &t
 	}
 
-	// Historical requests bypass cache entirely.
-	if opts.Time == nil && namespace == "" {
+	// Historical and filtered requests bypass cache entirely.
+	if opts.Time == nil && namespace == "" && group == "" {
 		if cached, etag, ok := s.cache.GetWithETag(); ok {
 			if clientETag := r.Header.Get("If-None-Match"); clientETag == etag {
 				w.WriteHeader(http.StatusNotModified)
@@ -183,7 +184,7 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only cache unfiltered live requests.
-	if opts.Time == nil && namespace == "" {
+	if opts.Time == nil && namespace == "" && group == "" {
 		s.cache.Set(resp)
 		_, etag, _ := s.cache.GetWithETag()
 		w.Header().Set("ETag", etag)

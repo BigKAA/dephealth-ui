@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
@@ -176,6 +177,7 @@ func (b *GraphBuilder) buildGraph(
 	type nodeInfo struct {
 		typ       string
 		namespace string
+		group     string
 		host      string
 		port      string
 		deps      map[string]bool // for services: set of dependency endpoint IDs
@@ -216,6 +218,7 @@ func (b *GraphBuilder) buildGraph(
 			nodeMap[e.Name] = &nodeInfo{
 				typ:       "service",
 				namespace: e.Namespace,
+				group:     e.Group,
 				deps:      make(map[string]bool),
 			}
 		}
@@ -310,6 +313,32 @@ func (b *GraphBuilder) buildGraph(
 		nodeTotalIncoming[depNodeID]++
 	}
 
+	// Second pass: resolve namespace for dependency nodes that have no namespace.
+	for id, info := range nodeMap {
+		if info.typ == "service" || info.namespace != "" {
+			continue
+		}
+		// Try FQDN extraction from host.
+		if ns := resolveDepNamespace(info.host); ns != "" {
+			info.namespace = ns
+			continue
+		}
+		// Try inheriting from sole source service namespace.
+		sourceNamespaces := make(map[string]bool)
+		for _, e := range rawEdges {
+			if resolveTarget(e) == id {
+				if src, ok := nodeMap[e.Name]; ok && src.namespace != "" {
+					sourceNamespaces[src.namespace] = true
+				}
+			}
+		}
+		if len(sourceNamespaces) == 1 {
+			for ns := range sourceNamespaces {
+				info.namespace = ns
+			}
+		}
+	}
+
 	// Build nodes.
 	nodes := make([]Node, 0, len(nodeMap))
 	for id, info := range nodeMap {
@@ -342,6 +371,7 @@ func (b *GraphBuilder) buildGraph(
 			State:           state,
 			Type:            info.typ,
 			Namespace:       info.namespace,
+			Group:           info.group,
 			Host:            info.host,
 			Port:            info.port,
 			DependencyCount: len(info.deps),
@@ -429,6 +459,22 @@ func formatLatency(seconds float64) string {
 		return fmt.Sprintf("%.1fms", seconds*1000)
 	}
 	return fmt.Sprintf("%.2fs", seconds)
+}
+
+// resolveDepNamespace extracts a Kubernetes namespace from a FQDN host.
+// Pattern: <service>.<namespace>.svc[.<cluster-domain>] → namespace.
+// Returns empty string if the host doesn't match the pattern.
+func resolveDepNamespace(host string) string {
+	if host == "" {
+		return ""
+	}
+	parts := strings.Split(host, ".")
+	for i, p := range parts {
+		if p == "svc" && i >= 2 {
+			return parts[i-1]
+		}
+	}
+	return ""
 }
 
 func (b *GraphBuilder) serviceGrafanaURL(name string) string {

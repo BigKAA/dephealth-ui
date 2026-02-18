@@ -187,13 +187,13 @@ func TestQueryWithNamespaceFilter(t *testing.T) {
 
 	// Without namespace — no filter injected.
 	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{})
-	if capturedQuery != `group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)` {
+	if capturedQuery != `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)` {
 		t.Errorf("unfiltered query = %q", capturedQuery)
 	}
 
 	// With namespace — filter injected.
 	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Namespace: "prod"})
-	want := `group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health{namespace="prod"})`
+	want := `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health{namespace="prod"})`
 	if capturedQuery != want {
 		t.Errorf("filtered query = %q, want %q", capturedQuery, want)
 	}
@@ -227,14 +227,14 @@ func TestQueryTopologyEdgesLookback(t *testing.T) {
 	if len(edges) != 3 {
 		t.Fatalf("got %d edges, want 3", len(edges))
 	}
-	want := `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health[1h]))`
+	want := `group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health[1h]))`
 	if capturedQuery != want {
 		t.Errorf("query = %q, want %q", capturedQuery, want)
 	}
 
 	// With namespace.
 	_, _ = client.QueryTopologyEdgesLookback(context.Background(), QueryOptions{Namespace: "prod"}, 30*time.Minute)
-	want = `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health{namespace="prod"}[30m]))`
+	want = `group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health{namespace="prod"}[30m]))`
 	if capturedQuery != want {
 		t.Errorf("filtered query = %q, want %q", capturedQuery, want)
 	}
@@ -563,5 +563,112 @@ func TestQueryErrorStatus(t *testing.T) {
 	_, err := client.QueryTopologyEdges(context.Background(), QueryOptions{})
 	if err == nil {
 		t.Fatal("expected error for 503 response")
+	}
+}
+
+// --- Group label tests ---
+
+const topologyEdgesWithGroupResponse = `{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {"name": "svc-go", "namespace": "ns1", "group": "cluster-1", "dependency": "postgres", "type": "postgres", "host": "pg-primary", "port": "5432", "critical": "yes"},
+        "value": [1700000000, "1"]
+      },
+      {
+        "metric": {"name": "svc-python", "namespace": "ns1", "group": "cluster-2", "dependency": "redis", "type": "redis", "host": "redis", "port": "6379", "critical": "no"},
+        "value": [1700000000, "1"]
+      }
+    ]
+  }
+}`
+
+func TestQueryTopologyEdges_GroupLabel(t *testing.T) {
+	srv := newTestPromServer(topologyEdgesWithGroupResponse)
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	edges, err := client.QueryTopologyEdges(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("QueryTopologyEdges() error: %v", err)
+	}
+
+	if len(edges) != 2 {
+		t.Fatalf("got %d edges, want 2", len(edges))
+	}
+
+	if edges[0].Group != "cluster-1" {
+		t.Errorf("edge[0].Group = %q, want cluster-1", edges[0].Group)
+	}
+	if edges[1].Group != "cluster-2" {
+		t.Errorf("edge[1].Group = %q, want cluster-2", edges[1].Group)
+	}
+}
+
+func TestQueryTopologyEdges_NoGroupLabel(t *testing.T) {
+	// Old SDK: no group label → Group should be empty.
+	srv := newTestPromServer(topologyEdgesResponse)
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+	edges, err := client.QueryTopologyEdges(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("QueryTopologyEdges() error: %v", err)
+	}
+
+	for i, e := range edges {
+		if e.Group != "" {
+			t.Errorf("edge[%d].Group = %q, want empty (no group label)", i, e.Group)
+		}
+	}
+}
+
+func TestOptFilter(t *testing.T) {
+	tests := []struct {
+		name string
+		opts QueryOptions
+		want string
+	}{
+		{"empty", QueryOptions{}, ""},
+		{"namespace only", QueryOptions{Namespace: "prod"}, `{namespace="prod"}`},
+		{"group only", QueryOptions{Group: "cluster-1"}, `{group="cluster-1"}`},
+		{"both", QueryOptions{Namespace: "prod", Group: "cluster-1"}, `{namespace="prod",group="cluster-1"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := optFilter(tt.opts)
+			if got != tt.want {
+				t.Errorf("optFilter(%+v) = %q, want %q", tt.opts, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestQueryWithGroupFilter(t *testing.T) {
+	var capturedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.Query().Get("query")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+	}))
+	defer srv.Close()
+
+	client := NewPrometheusClient(PrometheusConfig{URL: srv.URL})
+
+	// Group filter only.
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Group: "cluster-1"})
+	want := `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health{group="cluster-1"})`
+	if capturedQuery != want {
+		t.Errorf("group filter query = %q, want %q", capturedQuery, want)
+	}
+
+	// Combined namespace + group.
+	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Namespace: "prod", Group: "cluster-1"})
+	want = `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health{namespace="prod",group="cluster-1"})`
+	if capturedQuery != want {
+		t.Errorf("combined filter query = %q, want %q", capturedQuery, want)
 	}
 }

@@ -1454,3 +1454,200 @@ func TestGraphBuilder_Build_LiveMode_Meta(t *testing.T) {
 		t.Errorf("Meta.Time = %v, want nil in live mode", resp.Meta.Time)
 	}
 }
+
+// --- Group label tests ---
+
+func TestGroupPropagation(t *testing.T) {
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "ns1", Group: "cluster-1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			{Name: "svc-python", Namespace: "ns1", Group: "cluster-2", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-python", Host: "redis", Port: "6379"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// Service nodes should have group.
+	if nodeByID["svc-go"].Group != "cluster-1" {
+		t.Errorf("svc-go.Group = %q, want cluster-1", nodeByID["svc-go"].Group)
+	}
+	if nodeByID["svc-python"].Group != "cluster-2" {
+		t.Errorf("svc-python.Group = %q, want cluster-2", nodeByID["svc-python"].Group)
+	}
+
+	// Dependency nodes should NOT have group.
+	if nodeByID["pg:5432"].Group != "" {
+		t.Errorf("pg:5432.Group = %q, want empty", nodeByID["pg:5432"].Group)
+	}
+	if nodeByID["redis:6379"].Group != "" {
+		t.Errorf("redis:6379.Group = %q, want empty", nodeByID["redis:6379"].Group)
+	}
+}
+
+func TestGroupBackwardCompat(t *testing.T) {
+	// Old SDK metrics without group label should still work.
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-old", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-old", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// Group should be empty (backward compat).
+	if nodeByID["svc-old"].Group != "" {
+		t.Errorf("svc-old.Group = %q, want empty (old SDK)", nodeByID["svc-old"].Group)
+	}
+	// Namespace should still work.
+	if nodeByID["svc-old"].Namespace != "default" {
+		t.Errorf("svc-old.Namespace = %q, want default", nodeByID["svc-old"].Namespace)
+	}
+}
+
+func TestResolveDepNamespace(t *testing.T) {
+	tests := []struct {
+		host string
+		want string
+	}{
+		// FQDN patterns.
+		{"redis.dephealth-redis.svc.cluster.local", "dephealth-redis"},
+		{"pg-primary.dephealth-postgresql.svc", "dephealth-postgresql"},
+		{"svc-b.ns1.svc.cluster.local", "ns1"},
+		// Short names or bare metal hosts — no namespace.
+		{"redis", ""},
+		{"pg-primary", ""},
+		{"192.168.1.100", ""},
+		{"", ""},
+		// Edge case: just "svc" in the name but not the right position.
+		{"svc.example.com", ""},
+		// Two-part name with svc at index 1 (need index >= 2).
+		{"a.svc", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			got := resolveDepNamespace(tt.host)
+			if got != tt.want {
+				t.Errorf("resolveDepNamespace(%q) = %q, want %q", tt.host, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDepNamespaceResolution_FQDN(t *testing.T) {
+	// Dependency node with FQDN host should get namespace resolved.
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis.dephealth-redis.svc.cluster.local", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "redis.dephealth-redis.svc.cluster.local", Port: "6379"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	depNode := nodeByID["redis.dephealth-redis.svc.cluster.local:6379"]
+	if depNode.Namespace != "dephealth-redis" {
+		t.Errorf("dep node Namespace = %q, want dephealth-redis", depNode.Namespace)
+	}
+}
+
+func TestDepNamespaceResolution_Inheritance(t *testing.T) {
+	// Dependency with bare-metal host (no FQDN) connected by a single service
+	// should inherit that service's namespace.
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-go", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-go", Host: "redis-host", Port: "6379"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	depNode := nodeByID["redis-host:6379"]
+	if depNode.Namespace != "ns1" {
+		t.Errorf("dep node Namespace = %q, want ns1 (inherited)", depNode.Namespace)
+	}
+}
+
+func TestDepNamespaceResolution_MultiSourceConflict(t *testing.T) {
+	// Dependency connected by two services from different namespaces —
+	// should NOT inherit (ambiguous).
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-a", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+			{Name: "svc-b", Namespace: "ns2", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-a", Host: "redis-host", Port: "6379"}: 1,
+			{Name: "svc-b", Host: "redis-host", Port: "6379"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	depNode := nodeByID["redis-host:6379"]
+	if depNode.Namespace != "" {
+		t.Errorf("dep node Namespace = %q, want empty (multi-source conflict)", depNode.Namespace)
+	}
+}

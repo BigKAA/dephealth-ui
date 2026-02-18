@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -78,13 +79,13 @@ func NewPrometheusClient(cfg PrometheusConfig) PrometheusClient {
 // PromQL query templates for topology construction.
 // When namespace is provided, a label filter is injected.
 const (
-	queryTopologyEdges = `group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health%s)`
+	queryTopologyEdges = `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health%s)`
 	queryHealthState   = `app_dependency_health%s`
 	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
 	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
 	queryInstances     = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
 	// queryTopologyEdgesLookback uses last_over_time to include stale series.
-	queryTopologyEdgesLookback = `group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health%s[%s]))`
+	queryTopologyEdgesLookback = `group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health%s[%s]))`
 	// SDK v0.4.1: dependency status (enum pattern, exactly one series == 1 per endpoint).
 	queryDependencyStatus       = `app_dependency_status%s == 1`
 	queryDependencyStatusDetail = `app_dependency_status_detail%s == 1`
@@ -99,6 +100,24 @@ func nsFilter(ns string) string {
 		return ""
 	}
 	return fmt.Sprintf(`{namespace="%s"}`, ns)
+}
+
+// optFilter returns a PromQL label filter combining namespace and group from QueryOptions.
+// Returns empty string if neither is set. Examples:
+//
+//	{namespace="prod"}, {group="cluster-1"}, {namespace="prod",group="cluster-1"}
+func optFilter(opts QueryOptions) string {
+	var parts []string
+	if opts.Namespace != "" {
+		parts = append(parts, fmt.Sprintf(`namespace="%s"`, opts.Namespace))
+	}
+	if opts.Group != "" {
+		parts = append(parts, fmt.Sprintf(`group="%s"`, opts.Group))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "{" + strings.Join(parts, ",") + "}"
 }
 
 // promResponse represents Prometheus API v1 instant query response.
@@ -298,7 +317,7 @@ func parseMatrixValues(raw []json.RawMessage) ([]TimeValue, error) {
 }
 
 func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOptions) ([]TopologyEdge, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryTopologyEdges, f), opts.Time)
 	if err != nil {
 		return nil, err
@@ -309,6 +328,7 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOpt
 		edges = append(edges, TopologyEdge{
 			Name:       r.Metric["name"],
 			Namespace:  r.Metric["namespace"],
+			Group:      r.Metric["group"],
 			Dependency: r.Metric["dependency"],
 			Type:       r.Metric["type"],
 			Host:       r.Metric["host"],
@@ -320,7 +340,7 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOpt
 }
 
 func (c *prometheusClient) QueryTopologyEdgesLookback(ctx context.Context, opts QueryOptions, lookback time.Duration) ([]TopologyEdge, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	lb := formatPromDuration(lookback)
 	results, err := c.query(ctx, fmt.Sprintf(queryTopologyEdgesLookback, f, lb), opts.Time)
 	if err != nil {
@@ -332,6 +352,7 @@ func (c *prometheusClient) QueryTopologyEdgesLookback(ctx context.Context, opts 
 		edges = append(edges, TopologyEdge{
 			Name:       r.Metric["name"],
 			Namespace:  r.Metric["namespace"],
+			Group:      r.Metric["group"],
 			Dependency: r.Metric["dependency"],
 			Type:       r.Metric["type"],
 			Host:       r.Metric["host"],
@@ -354,7 +375,7 @@ func formatPromDuration(d time.Duration) string {
 }
 
 func (c *prometheusClient) QueryHealthState(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryHealthState, f), opts.Time)
 	if err != nil {
 		return nil, err
@@ -363,7 +384,7 @@ func (c *prometheusClient) QueryHealthState(ctx context.Context, opts QueryOptio
 }
 
 func (c *prometheusClient) QueryAvgLatency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryAvgLatency, f, f), opts.Time)
 	if err != nil {
 		return nil, err
@@ -372,7 +393,7 @@ func (c *prometheusClient) QueryAvgLatency(ctx context.Context, opts QueryOption
 }
 
 func (c *prometheusClient) QueryP99Latency(ctx context.Context, opts QueryOptions) (map[EdgeKey]float64, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryP99Latency, f), opts.Time)
 	if err != nil {
 		return nil, err
@@ -406,7 +427,7 @@ func (c *prometheusClient) QueryInstances(ctx context.Context, serviceName strin
 }
 
 func (c *prometheusClient) QueryDependencyStatus(ctx context.Context, opts QueryOptions) (map[EdgeKey]string, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryDependencyStatus, f), opts.Time)
 	if err != nil {
 		return nil, err
@@ -415,7 +436,7 @@ func (c *prometheusClient) QueryDependencyStatus(ctx context.Context, opts Query
 }
 
 func (c *prometheusClient) QueryDependencyStatusDetail(ctx context.Context, opts QueryOptions) (map[EdgeKey]string, error) {
-	f := nsFilter(opts.Namespace)
+	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryDependencyStatusDetail, f), opts.Time)
 	if err != nil {
 		return nil, err

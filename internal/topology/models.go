@@ -9,6 +9,7 @@ type Node struct {
 	State           string `json:"state"`           // "ok", "degraded", "down", "unknown"
 	Type            string `json:"type"`            // "service" or dependency type
 	Namespace       string `json:"namespace"`
+	Group           string `json:"group,omitempty"`
 	Host            string `json:"host,omitempty"`
 	Port            string `json:"port,omitempty"`
 	DependencyCount int    `json:"dependencyCount"`
@@ -100,6 +101,7 @@ type EdgeKey struct {
 type TopologyEdge struct {
 	Name       string
 	Namespace  string
+	Group      string
 	Dependency string
 	Type       string
 	Host       string
@@ -110,6 +112,7 @@ type TopologyEdge struct {
 // QueryOptions holds optional parameters for topology queries.
 type QueryOptions struct {
 	Namespace string
+	Group     string
 	Time      *time.Time // Historical timestamp; nil means "now" (live mode).
 }
 
