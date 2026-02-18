@@ -390,6 +390,17 @@ func (b *GraphBuilder) buildGraph(
 		nodes = append(nodes, node)
 	}
 
+	// Mark root nodes (no incoming edges).
+	targetNodes := make(map[string]bool, len(edges))
+	for _, e := range edges {
+		targetNodes[e.Target] = true
+	}
+	for i := range nodes {
+		if !targetNodes[nodes[i].ID] {
+			nodes[i].IsRoot = true
+		}
+	}
+
 	return nodes, edges, depLookup
 }
 

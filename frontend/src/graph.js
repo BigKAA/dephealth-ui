@@ -246,6 +246,15 @@ const cytoscapeStyles = [
       cursor: 'pointer',
     },
   },
+  // Root nodes — entry point services (no incoming edges)
+  {
+    selector: 'node[?isRoot]',
+    style: {
+      'border-width': 3,
+      'border-color': '#1976d2',
+      'border-style': 'solid',
+    },
+  },
   // Edges
   {
     selector: 'edge',
@@ -566,6 +575,7 @@ export function renderGraph(cy, data, config) {
         alertCount: alertCounts[node.id] || 0,
         alertSeverity: node.alertSeverity || undefined,
         grafanaUrl: node.grafanaUrl || undefined,
+        isRoot: node.isRoot || false,
       };
       // Assign parent when grouping is enabled and node has a namespace
       if (grouping && parentMap && parentMap.has(node.id)) {

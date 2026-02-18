@@ -1206,6 +1206,11 @@ body {
   margin-left: 6px;
 }
 
+.sidebar-root-badge {
+  color: #1976d2;
+  font-weight: 600;
+}
+
 .sidebar-edge-item.stale {
   opacity: 0.6;
   border-left: 2px dashed #9e9e9e;

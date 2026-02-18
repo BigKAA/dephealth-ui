@@ -1651,3 +1651,99 @@ func TestDepNamespaceResolution_MultiSourceConflict(t *testing.T) {
 		t.Errorf("dep node Namespace = %q, want empty (multi-source conflict)", depNode.Namespace)
 	}
 }
+
+func TestRootNodeDetection(t *testing.T) {
+	// Topology: A→B→C, D→C
+	// Root nodes (no incoming edges): A, D
+	// Non-root: B (target of A), C (target of B and D)
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "svc-a", Namespace: "ns1", Dependency: "svc-b", Type: "http", Host: "svc-b.ns1.svc", Port: "8080"},
+			{Name: "svc-b", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+			{Name: "svc-d", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "svc-a", Host: "svc-b.ns1.svc", Port: "8080"}: 1,
+			{Name: "svc-b", Host: "redis-host", Port: "6379"}:     1,
+			{Name: "svc-d", Host: "redis-host", Port: "6379"}:     1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// svc-a: root (no incoming edges)
+	if n, ok := nodeByID["svc-a"]; !ok {
+		t.Error("missing svc-a node")
+	} else if !n.IsRoot {
+		t.Error("svc-a.IsRoot = false, want true")
+	}
+
+	// svc-d: root (no incoming edges)
+	if n, ok := nodeByID["svc-d"]; !ok {
+		t.Error("missing svc-d node")
+	} else if !n.IsRoot {
+		t.Error("svc-d.IsRoot = false, want true")
+	}
+
+	// svc-b: not root (target of svc-a via connected graph)
+	if n, ok := nodeByID["svc-b"]; !ok {
+		t.Error("missing svc-b node")
+	} else if n.IsRoot {
+		t.Error("svc-b.IsRoot = true, want false")
+	}
+
+	// redis-host:6379: not root (target of svc-b and svc-d)
+	if n, ok := nodeByID["redis-host:6379"]; !ok {
+		t.Error("missing redis-host:6379 node")
+	} else if n.IsRoot {
+		t.Error("redis-host:6379.IsRoot = true, want false")
+	}
+}
+
+func TestRootNodeDetection_IsolatedService(t *testing.T) {
+	// A service with only outgoing edges is a root node.
+	mock := &mockPrometheusClient{
+		edges: []TopologyEdge{
+			{Name: "gateway", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+		},
+		health: map[EdgeKey]float64{
+			{Name: "gateway", Host: "pg", Port: "5432"}: 1,
+		},
+		avg: map[EdgeKey]float64{},
+	}
+
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	nodeByID := make(map[string]Node)
+	for _, n := range resp.Nodes {
+		nodeByID[n.ID] = n
+	}
+
+	// gateway: root (only outgoing)
+	if n, ok := nodeByID["gateway"]; !ok {
+		t.Error("missing gateway node")
+	} else if !n.IsRoot {
+		t.Error("gateway.IsRoot = false, want true")
+	}
+
+	// pg:5432: not root (target of gateway)
+	if n, ok := nodeByID["pg:5432"]; !ok {
+		t.Error("missing pg:5432 node")
+	} else if n.IsRoot {
+		t.Error("pg:5432.IsRoot = true, want false")
+	}
+}

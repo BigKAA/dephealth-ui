@@ -119,6 +119,8 @@ export default {
   'sidebar.host': 'Host',
   'sidebar.port': 'Port',
   'sidebar.activeAlerts': 'Active Alerts',
+  'sidebar.role': 'Role',
+  'sidebar.entryPoint': 'Entry point',
   'sidebar.activeAlertsCount': 'Active Alerts ({count})',
   'sidebar.connectedEdges': 'Connected Edges ({count})',
   'sidebar.outgoingEdges': 'Outgoing ({count})',

@@ -14,6 +14,7 @@ type Node struct {
 	Port            string `json:"port,omitempty"`
 	DependencyCount int    `json:"dependencyCount"`
 	Stale           bool   `json:"stale,omitempty"`
+	IsRoot          bool   `json:"isRoot,omitempty"`
 	GrafanaURL      string `json:"grafanaUrl,omitempty"`
 	AlertCount      int    `json:"alertCount,omitempty"`
 	AlertSeverity   string `json:"alertSeverity,omitempty"`
