@@ -1,5 +1,6 @@
 instances:
   - name: uniproxy-04
+    group: proxy-cluster-2
     replicas: 2
     connections:
       - name: uniproxy-05
@@ -16,6 +17,7 @@ instances:
         healthPath: "/"
 
   - name: uniproxy-05
+    group: proxy-cluster-2
     replicas: 1
     serverAuth:
       method: bearer
@@ -24,6 +26,7 @@ instances:
     connections: []
 
   - name: uniproxy-06
+    group: proxy-cluster-2
     replicas: 2
     connections:
       - name: uniproxy-07
@@ -48,6 +51,7 @@ instances:
           bearerToken: "wrong-token-intentional"
 
   - name: uniproxy-07
+    group: proxy-cluster-2
     replicas: 1
     connections:
       - name: postgresql
@@ -56,6 +60,7 @@ instances:
         critical: "yes"
 
   - name: uniproxy-08
+    group: proxy-cluster-2
     replicas: 1
     serverAuth:
       method: basic

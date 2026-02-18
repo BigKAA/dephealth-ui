@@ -6,6 +6,7 @@ services:
       - "8080:8080"
     environment:
       DEPHEALTH_NAME: uniproxy-pr1
+      DEPHEALTH_GROUP: infra-host1
       LISTEN_ADDR: ":8080"
       DEPHEALTH_CHECK_INTERVAL: "10"
       DEPHEALTH_DEPS: "postgresql:postgres,redis:redis"
