@@ -36,9 +36,10 @@ dephealth-ui предоставляет REST API для визуализации
 | Параметр | Тип | Обязателен | Описание |
 |----------|-----|:----------:|----------|
 | `namespace` | string | Нет | Фильтр по Kubernetes namespace (пусто = все) |
+| `group` | string | Нет | Фильтр по логической группе (SDK v0.5.0+, пусто = все) |
 | `time` | string | Нет | ISO8601/RFC3339 метка времени для исторических запросов (например, `2026-02-15T12:00:00Z`). Возвращает состояние топологии на указанный момент |
 
-**Кэширование:** Нефильтрованные live-запросы (`namespace` и `time` пусты) кэшируются на сервере. Поддерживаются заголовки `ETag` / `If-None-Match` — возвращает `304 Not Modified`, если данные не изменились. Исторические запросы (`time` задан) полностью обходят кэш.
+**Кэширование:** Нефильтрованные live-запросы (`namespace`, `group` и `time` пусты) кэшируются на сервере. Поддерживаются заголовки `ETag` / `If-None-Match` — возвращает `304 Not Modified`, если данные не изменились. Исторические запросы (`time` задан) полностью обходят кэш.
 
 **Ответ:** `200 OK`
 
@@ -51,6 +52,7 @@ dephealth-ui предоставляет REST API для визуализации
       "state": "ok",
       "type": "service",
       "namespace": "production",
+      "group": "payment-team",
       "dependencyCount": 3,
       "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
@@ -116,6 +118,7 @@ dephealth-ui предоставляет REST API для визуализации
 | `state` | string | `ok`, `degraded`, `down`, `unknown` |
 | `type` | string | `service` (инструментированное приложение) или тип зависимости (`postgres`, `redis`, `http` и т.д.) |
 | `namespace` | string | Kubernetes namespace |
+| `group` | string | Логическая группа сервиса (SDK v0.5.0+, пропускается если пуста) |
 | `host` | string | Hostname endpoint (пропускается для service-узлов) |
 | `port` | string | Порт endpoint (пропускается для service-узлов) |
 | `dependencyCount` | int | Количество исходящих рёбер |
@@ -182,6 +185,7 @@ dephealth-ui предоставляет REST API для визуализации
 |----------|-----|:----------:|----------|
 | `service` | string | Нет | Анализ каскада для конкретного сервиса (пусто = все) |
 | `namespace` | string | Нет | Фильтр по Kubernetes namespace |
+| `group` | string | Нет | Фильтр по логической группе (SDK v0.5.0+) |
 | `depth` | int | Нет | Максимальная глубина BFS (`0` = без ограничений) |
 | `time` | string | Нет | ISO8601/RFC3339 метка времени для исторического анализа каскадов |
 
@@ -263,6 +267,7 @@ dephealth-ui предоставляет REST API для визуализации
 |----------|-----|:----------:|----------|
 | `service` | string | Нет | Фильтр графа каскада для конкретного сервиса (пусто = все) |
 | `namespace` | string | Нет | Фильтр по Kubernetes namespace |
+| `group` | string | Нет | Фильтр по логической группе (SDK v0.5.0+) |
 | `depth` | int | Нет | Максимальная глубина BFS (`0` = без ограничений) |
 
 **Ответ:** `200 OK`

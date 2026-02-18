@@ -36,9 +36,10 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
 | `namespace` | string | No | Filter by Kubernetes namespace (empty = all) |
+| `group` | string | No | Filter by logical group (SDK v0.5.0+, empty = all) |
 | `time` | string | No | ISO8601/RFC3339 timestamp for historical queries (e.g. `2026-02-15T12:00:00Z`). When set, returns topology state as of this point in time |
 
-**Caching:** Unfiltered live requests (`namespace` and `time` empty) are cached server-side. Supports `ETag` / `If-None-Match` headers — returns `304 Not Modified` when data hasn't changed. Historical requests (`time` set) bypass the cache entirely.
+**Caching:** Unfiltered live requests (`namespace`, `group`, and `time` empty) are cached server-side. Supports `ETag` / `If-None-Match` headers — returns `304 Not Modified` when data hasn't changed. Historical requests (`time` set) bypass the cache entirely.
 
 **Response:** `200 OK`
 
@@ -51,6 +52,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
       "state": "ok",
       "type": "service",
       "namespace": "production",
+      "group": "payment-team",
       "dependencyCount": 3,
       "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
@@ -116,6 +118,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | `state` | string | `ok`, `degraded`, `down`, `unknown` |
 | `type` | string | `service` (instrumented app) or dependency type (`postgres`, `redis`, `http`, etc.) |
 | `namespace` | string | Kubernetes namespace |
+| `group` | string | Logical service group (SDK v0.5.0+, omitted if empty) |
 | `host` | string | Endpoint hostname (omitted for service nodes) |
 | `port` | string | Endpoint port (omitted for service nodes) |
 | `dependencyCount` | int | Number of outgoing edges |
@@ -182,6 +185,7 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
 |-----------|------|:--------:|-------------|
 | `service` | string | No | Analyze cascade for a specific service (empty = analyze all) |
 | `namespace` | string | No | Filter by Kubernetes namespace |
+| `group` | string | No | Filter by logical group (SDK v0.5.0+) |
 | `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
 | `time` | string | No | ISO8601/RFC3339 timestamp for historical cascade analysis |
 
@@ -263,6 +267,7 @@ Returns cascade failure topology in [Grafana Node Graph panel](https://grafana.c
 |-----------|------|:--------:|-------------|
 | `service` | string | No | Filter cascade graph for a specific service (empty = all) |
 | `namespace` | string | No | Filter by Kubernetes namespace |
+| `group` | string | No | Filter by logical group (SDK v0.5.0+) |
 | `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
 
 **Response:** `200 OK`

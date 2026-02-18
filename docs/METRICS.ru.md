@@ -44,6 +44,7 @@
 
 | Метка | Описание | Примеры значений |
 |-------|----------|------------------|
+| `group` | Логическая группа сервиса (SDK v0.5.0+). Активирует переключатель группировки в UI. При отсутствии используется только группировка по namespace. | `proxy-cluster-1`, `infra-host1`, `payment-team` |
 | `role` | Роль инстанса (для реплицированных систем) | `primary`, `replica`, `standby` |
 | `shard` | Идентификатор шарда (для шардированных систем) | `shard-01`, `shard-02` |
 | `vhost` | AMQP virtual host | `/`, `/app` |
@@ -93,9 +94,9 @@ app_dependency_latency_seconds_count{name="order-service",namespace="production"
 
 ### 1. **Обнаружение топологии** — извлечение всех уникальных рёбер
 ```promql
-group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)
 ```
-**Назначение:** Обнаружить все связи сервис→зависимость в системе.
+**Назначение:** Обнаружить все связи сервис→зависимость в системе. Метка `group` включается при наличии (SDK v0.5.0+).
 
 ### 2. **Состояние здоровья** — текущее значение health для каждого ребра
 ```promql
@@ -126,7 +127,7 @@ group by (instance, pod, job) (app_dependency_health{name="<service-name>"})
 ## Модель графа
 
 - **Узлы (Vertices):** Уникальные значения метки `name` → представляют сервисы/приложения
-- **Рёбра (Directed):** Уникальные комбинации `{name, namespace, dependency, type, host, port, critical}` → представляют связи сервис→зависимость
+- **Рёбра (Directed):** Уникальные комбинации `{name, namespace, group, dependency, type, host, port, critical}` → представляют связи сервис→зависимость
 - **Свойства рёбер:**
   - **critical:** визуальная толщина (критичные зависимости отображаются толще) + распространение каскадных предупреждений (только рёбра с `critical=yes` распространяют предупреждения о сбоях вверх по графу)
   - **latency:** отображается как подпись на ребре

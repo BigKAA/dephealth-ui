@@ -228,3 +228,4 @@ Helm chart `dephealth-monitoring` включает 7 готовых Grafana-да
 - Для Gateway API: установлены CRD Gateway API
 - Для TLS: cert-manager (опционально, для автоматических сертификатов)
 - Для OIDC: провайдер OIDC (например, Dex, Keycloak)
+- Для группировки по group: topologymetrics SDK v0.5.0+ (добавляет метку `group` к метрикам)

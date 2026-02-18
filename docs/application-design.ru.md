@@ -119,7 +119,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 | **Backend** | Go (`net/http` + `chi`) | Единый binary; официальная библиотека Prometheus client; минимальный Docker-образ (~15-20MB); соответствует K8s-экосистеме |
 | **Frontend** | Vanilla JS + Vite | Компактное SPA; Cytoscape.js работает нативно; минимальный bundle; при росте — миграция на React |
 | **Визуализация графа** | Cytoscape.js + dagre + fcose | Нативные постоянные подписи на рёбрах; CSS-подобные стили; `cy.batch()` для эффективного обновления; богатая экосистема layout |
-| **Layout** | dagre (flat) / fcose (grouped) | dagre — оптимален для DAG-подобной топологии в плоском режиме; fcose — force-directed layout для группировки по namespace с compound nodes |
+| **Layout** | dagre (flat) / fcose (grouped) | dagre — оптимален для DAG-подобной топологии в плоском режиме; fcose — force-directed layout для группировки по измерению (namespace или group) с compound nodes |
 | **Сборка frontend** | Vite | Быстрый dev server, оптимальный build, HMR |
 | **Контейнеризация** | Docker (multi-stage) + Helm chart | Единый образ: Go binary со встроенными SPA static-файлами |
 
@@ -330,29 +330,40 @@ Frontend — тонкий слой визуализации. Вся трансф
 - **Stale-ноды:** серый фон (`#9e9e9e`), пунктирная рамка, скрытая latency; tooltip «Метрики пропали»
 - **Клик по узлу/ребру:** открывает боковую панель с деталями (состояние, namespace, инстансы, связи, алерты) и секцией ссылок на Grafana dashboards
 - **Контекстное меню (правый клик):** Открыть в Grafana, Копировать URL, Детали
-- **Layout:** dagre (плоский режим, LR/TB) или fcose (режим группировки по namespace)
+- **Layout:** dagre (плоский режим, LR/TB) или fcose (режим группировки по измерению)
 
 ![Контекстное меню на узле сервиса](./images/context-menu-grafana.png)
 
-### Группировка по namespace
+### Визуальная группировка (измерения)
 
-Группировка позволяет визуально объединить сервисы по Kubernetes namespace в составные узлы (compound nodes) Cytoscape.js.
+Группировка визуально объединяет сервисы в составные узлы (compound nodes) Cytoscape.js по выбранному **измерению**:
+- **Namespace** — Kubernetes namespace (по умолчанию, доступен для всех сервисов)
+- **Group** — логическая метка группы из SDK v0.5.0+ (метка `group` на метриках)
+
+Кнопка-переключатель на панели инструментов (**NS** / **ГРП**) переключает активное измерение. Выбор сохраняется в `localStorage` и отражается в URL (`?dimension=group` или `?dimension=namespace`).
+
+**Детали измерения Group:**
+- Узлы-сервисы отображают цветную полосу и метку `gr: <group>` в режиме группировки по группам
+- Узлы-зависимости (Redis, PostgreSQL и т.д.) не имеют метки `group` — в режиме группировки по группам полоса не отображается
+- Выпадающий фильтр переключается между значениями «Namespace» и «Группа» в зависимости от активного измерения
+- Легенда namespace/group обновляется для показа значений и цветов активного измерения
+- Если ни один узел в топологии не имеет поля `group`, переключатель скрывается и автоматически используется режим namespace
 
 **Режимы:**
 - **Flat mode (dagre):** все узлы отображаются на одном уровне, layout dagre
-- **Grouped mode (fcose):** узлы сгруппированы в namespace-контейнеры, layout fcose
+- **Grouped mode (fcose):** узлы сгруппированы в контейнеры по измерению, layout fcose
 
 **Collapse/Expand:**
-- Двойной клик по группе или кнопка «Развернуть namespace» в sidebar → сворачивание/разворачивание
-- Свёрнутый namespace показывает: наихудшее состояние детей, количество сервисов, суммарные алерты
-- Рёбра между свёрнутыми namespace автоматически агрегируются (показывают count `×N`)
+- Двойной клик по группе или кнопка «Развернуть» в sidebar → сворачивание/разворачивание
+- Свёрнутая группа показывает: наихудшее состояние детей, количество сервисов, суммарные алерты
+- Рёбра между свёрнутыми группами автоматически агрегируются (показывают count `×N`)
 - Состояние collapse/expand сохраняется в `localStorage`
-- При обновлении данных (auto-refresh) — свёрнутые namespace остаются свёрнутыми
+- При обновлении данных (auto-refresh) — свёрнутые группы остаются свёрнутыми
 
 **Click-to-expand навигация:**
-- В sidebar свёрнутого namespace — кликабельный список сервисов с цветными индикаторами состояния
-- Клик по сервису → namespace разворачивается → камера центрируется на выбранном сервисе → sidebar показывает детали сервиса
-- В sidebar ребра — клик по узлу из свёрнутого namespace также разворачивает и навигирует к оригинальному сервису
+- В sidebar свёрнутой группы — кликабельный список сервисов с цветными индикаторами состояния
+- Клик по сервису → группа разворачивается → камера центрируется на выбранном сервисе → sidebar показывает детали сервиса
+- В sidebar ребра — клик по узлу из свёрнутой группы также разворачивает и навигирует к оригинальному сервису
 
 ![Основной вид со свёрнутыми namespace](./images/dephealth-main-view.png)
 
@@ -363,7 +374,7 @@ Frontend — тонкий слой визуализации. Вся трансф
 Три типа боковых панелей:
 
 **1. Node Sidebar** — при клике по узлу-сервису:
-- Основная информация (state, type, namespace)
+- Основная информация (state, type, namespace, group)
 - Активные алерты (с severity)
 - Список инстансов (pod name, IP:port) — для service-узлов
 - Связанные рёбра (входящие/исходящие с latency и навигацией)
@@ -505,10 +516,10 @@ fetchTopology() → renderGraph() → computeCascadeWarnings(cy) → updateBadge
 
 ```promql
 # Все рёбра топологии (instant)
-group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)
 
 # Все рёбра за lookback-окно (для stale node retention)
-group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health[LOOKBACK]))
+group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health[LOOKBACK]))
 
 # Текущее состояние всех зависимостей
 app_dependency_health
@@ -524,6 +535,8 @@ histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 and
 (count by (name, namespace, dependency, type) (app_dependency_health == 1) > 0)
 ```
+
+> **Примечание:** Метка `group` является опциональной. При наличии (SDK v0.5.0+) она активирует переключатель измерения группировки в UI. При отсутствии система использует только группировку по namespace.
 
 ### Удержание stale-нод (lookback window)
 

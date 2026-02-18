@@ -118,7 +118,7 @@ Combined application: Go backend + JS frontend, shipped as a single Docker image
 | **Backend** | Go (`net/http` + `chi`) | Single binary; official Prometheus client library; minimal Docker image (~15-20MB); fits K8s ecosystem |
 | **Frontend** | Vanilla JS + Vite | Compact SPA; Cytoscape.js works natively; minimal bundle; can migrate to React if needed |
 | **Graph visualization** | Cytoscape.js + dagre + fcose | Native persistent edge labels; CSS-like styles; `cy.batch()` for efficient updates; rich layout ecosystem |
-| **Layout** | dagre (flat) / fcose (grouped) | dagre — optimal for DAG-like topology in flat mode; fcose — force-directed layout for namespace grouping with compound nodes |
+| **Layout** | dagre (flat) / fcose (grouped) | dagre — optimal for DAG-like topology in flat mode; fcose — force-directed layout for dimension grouping (namespace or group) with compound nodes |
 | **Frontend build** | Vite | Fast dev server, optimal builds, HMR |
 | **Containerization** | Docker (multi-stage) + Helm chart | Single image: Go binary with embedded SPA static files |
 
@@ -329,29 +329,40 @@ The frontend is a thin visualization layer. All data transformation happens on t
 - **Stale nodes:** gray background (`#9e9e9e`), dashed border, hidden latency; tooltip "Metrics disappeared"
 - **Click on node/edge:** opens sidebar with details (state, namespace, instances, edges, alerts) and Grafana dashboard links
 - **Context menu (right-click):** Open in Grafana, Copy Grafana URL, Show Details
-- **Layout:** dagre (flat mode, LR/TB) or fcose (namespace grouping mode)
+- **Layout:** dagre (flat mode, LR/TB) or fcose (dimension grouping mode)
 
 ![Context menu on a service node](./images/context-menu-grafana.png)
 
-### Namespace Grouping
+### Visual Grouping (Dimensions)
 
-Grouping visually combines services by Kubernetes namespace into Cytoscape.js compound nodes.
+Grouping visually combines services into Cytoscape.js compound nodes by a selected **dimension**:
+- **Namespace** — Kubernetes namespace (default, available for all services)
+- **Group** — logical group label from SDK v0.5.0+ (`group` label on metrics)
+
+A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The choice is persisted in `localStorage` and reflected in the URL (`?dimension=group` or `?dimension=namespace`).
+
+**Group dimension details:**
+- Service nodes display a colored stripe and `gr: <group>` label when in group mode
+- Dependency nodes (Redis, PostgreSQL, etc.) do not have a `group` label — they show no stripe in group mode
+- The filter dropdown switches between "Namespace" and "Group" values depending on the active dimension
+- The namespace/group legend panel updates to show the active dimension's values and colors
+- If no nodes in the topology have a `group` field, the toggle is hidden and namespace mode is used automatically
 
 **Modes:**
 - **Flat mode (dagre):** all nodes displayed at the same level, dagre layout
-- **Grouped mode (fcose):** nodes grouped in namespace containers, fcose layout
+- **Grouped mode (fcose):** nodes grouped in dimension containers, fcose layout
 
 **Collapse/Expand:**
-- Double-click on a group or "Expand namespace" button in sidebar → collapse/expand
-- Collapsed namespace shows: worst child state, service count, total alerts
-- Edges between collapsed namespaces are automatically aggregated (showing count `×N`)
+- Double-click on a group or "Expand" button in sidebar → collapse/expand
+- Collapsed group shows: worst child state, service count, total alerts
+- Edges between collapsed groups are automatically aggregated (showing count `×N`)
 - Collapse/expand state is persisted in `localStorage`
-- During data refresh (auto-refresh) — collapsed namespaces remain collapsed
+- During data refresh (auto-refresh) — collapsed groups remain collapsed
 
 **Click-to-expand navigation:**
-- In collapsed namespace sidebar — clickable service list with colored state indicators
-- Click on a service → namespace expands → camera centers on selected service → sidebar shows service details
-- In edge sidebar — click on a node from a collapsed namespace also expands and navigates to the original service
+- In collapsed group sidebar — clickable service list with colored state indicators
+- Click on a service → group expands → camera centers on selected service → sidebar shows service details
+- In edge sidebar — click on a node from a collapsed group also expands and navigates to the original service
 
 ![Main view with collapsed namespaces](./images/dephealth-main-view.png)
 
@@ -362,7 +373,7 @@ Grouping visually combines services by Kubernetes namespace into Cytoscape.js co
 Three types of sidebars:
 
 **1. Node Sidebar** — on clicking a service node:
-- Basic info (state, type, namespace)
+- Basic info (state, type, namespace, group)
 - Active alerts (with severity)
 - Instance list (pod name, IP:port) — for service nodes
 - Connected edges (incoming/outgoing with latency and navigation)
@@ -504,10 +515,10 @@ Browser                          Go Backend                    VictoriaMetrics
 
 ```promql
 # All topology edges (instant)
-group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)
 
 # All edges within lookback window (for stale node retention)
-group by (name, namespace, dependency, type, host, port, critical) (last_over_time(app_dependency_health[LOOKBACK]))
+group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health[LOOKBACK]))
 
 # Current state of all dependencies
 app_dependency_health
@@ -523,6 +534,8 @@ histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 and
 (count by (name, namespace, dependency, type) (app_dependency_health == 1) > 0)
 ```
+
+> **Note:** The `group` label is optional. When present (SDK v0.5.0+), it enables the group dimension toggle in the UI. When absent, the system falls back to namespace-only grouping.
 
 ### Stale Node Retention (lookback window)
 

@@ -234,3 +234,4 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 - For Gateway API: Gateway API CRDs installed
 - For TLS: cert-manager (optional, if using automatic certificates)
 - For OIDC: OIDC provider (e.g., Dex, Keycloak)
+- For group dimension: topologymetrics SDK v0.5.0+ (adds `group` label to metrics)
