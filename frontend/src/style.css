@@ -901,8 +901,29 @@ body {
   border: 1.5px solid rgba(255, 255, 255, 0.8);
 }
 
+/* Root node badge (entry point — no incoming edges) */
+.root-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #1976d2;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
 .legend-badge.critical {
   background: #f44336;
+}
+
+.legend-badge.legend-root-badge {
+  background: #1976d2;
+  border-radius: 50%;
+  font-size: 10px;
 }
 
 /* Context menu */

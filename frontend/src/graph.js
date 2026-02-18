@@ -246,15 +246,6 @@ const cytoscapeStyles = [
       cursor: 'pointer',
     },
   },
-  // Root nodes — entry point services (no incoming edges)
-  {
-    selector: 'node[?isRoot]',
-    style: {
-      'border-width': 3,
-      'border-color': '#1976d2',
-      'border-style': 'solid',
-    },
-  },
   // Edges
   {
     selector: 'edge',
@@ -398,6 +389,33 @@ function updateAlertBadges(cy, container) {
       z-index: 10;
     `;
     badge.textContent = `⚠ ${cascadeCount}`;
+    container.appendChild(badge);
+  });
+
+  // Render root node badges (entry points — no incoming edges)
+  cy.nodes('[?isRoot]').forEach((node) => {
+    if (!isElementVisible(node)) return;
+    // Skip compound (parent) nodes
+    if (node.isParent()) return;
+
+    const pos = node.renderedPosition();
+    const height = node.renderedHeight();
+
+    // Badge position: top-center of node
+    const badgeX = pos.x;
+    const badgeY = pos.y - height / 2;
+
+    const badge = document.createElement('div');
+    badge.className = 'root-badge';
+    badge.style.cssText = `
+      position: absolute;
+      left: ${badgeX}px;
+      top: ${badgeY}px;
+      transform: translate(-50%, -50%) scale(${badgeScale});
+      pointer-events: none;
+      z-index: 10;
+    `;
+    badge.textContent = '⬇';
     container.appendChild(badge);
   });
 

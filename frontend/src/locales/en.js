@@ -68,6 +68,7 @@ export default {
   'legend.criticalAlert': 'Critical alert',
   'legend.cascadeWarning': 'Cascade warning',
   'legend.thickerBorder': 'Thicker border',
+  'legend.entryPoint': 'Entry point',
   'legend.connectionStatuses': 'Connection Statuses',
   'legend.status.timeout': 'Timeout',
   'legend.status.connectionError': 'Connection Error',

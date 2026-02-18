@@ -68,6 +68,7 @@ export default {
   'legend.criticalAlert': 'Критический алерт',
   'legend.cascadeWarning': 'Каскадное предупреждение',
   'legend.thickerBorder': 'Утолщённая рамка',
+  'legend.entryPoint': 'Точка входа',
   'legend.connectionStatuses': 'Статусы соединений',
   'legend.status.timeout': 'Таймаут',
   'legend.status.connectionError': 'Ошибка соединения',
