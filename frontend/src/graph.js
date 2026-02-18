@@ -10,6 +10,21 @@ cytoscape.use(fcose);
 
 let layoutDirection = 'TB'; // Global layout direction: 'TB' or 'LR'
 
+/**
+ * Returns the dimension value and prefix for a node based on the active grouping dimension.
+ * Service nodes: use group or namespace depending on dimension.
+ * Dependency nodes: always use namespace (they don't have group).
+ * @returns {{ value: string, prefix: string }}
+ */
+function nodeDimension(ele) {
+  const dim = getGroupingDimension();
+  if (dim === 'group') {
+    // In group mode, only show group value; dependencies without group get no stripe
+    return { value: ele.data('group') || '', prefix: 'gr' };
+  }
+  return { value: ele.data('namespace') || '', prefix: 'ns' };
+}
+
 function isDarkTheme() {
   return document.documentElement.dataset.theme === 'dark';
 }
@@ -71,18 +86,19 @@ const cytoscapeStyles = [
       shape: 'round-rectangle',
       width: (ele) => {
         const label = ele.data('label') || '';
-        const ns = ele.data('namespace') || '';
-        const maxLen = Math.max(label.length, ns.length);
+        const { value, prefix } = nodeDimension(ele);
+        const secondLine = value ? `${prefix}: ${value}` : '';
+        const maxLen = Math.max(label.length, secondLine.length);
         const fontSize = 12;
         const charWidth = fontSize * 0.6;
         const padding = 48; // extra for left stripe
         return Math.max(110, maxLen * charWidth + padding);
       },
-      height: (ele) => (ele.data('namespace') ? 58 : 40),
+      height: (ele) => (nodeDimension(ele).value ? 58 : 40),
       label: (ele) => {
         const label = ele.data('label') || '';
-        const ns = ele.data('namespace');
-        return ns ? `${label}\n${ns}` : label;
+        const { value, prefix } = nodeDimension(ele);
+        return value ? `${label}\n${prefix}: ${value}` : label;
       },
       'text-valign': 'center',
       'text-halign': 'center',
@@ -94,11 +110,11 @@ const cytoscapeStyles = [
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
       'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      // Left namespace stripe via base64-encoded SVG
+      // Left dimension stripe via base64-encoded SVG
       'background-image': (ele) => {
-        const ns = ele.data('namespace');
-        if (!ns) return 'none';
-        return getStripeDataUri(getNamespaceColor(ns));
+        const { value } = nodeDimension(ele);
+        if (!value) return 'none';
+        return getStripeDataUri(getNamespaceColor(value));
       },
       'background-image-opacity': 1,
       'background-width': '12px',
@@ -116,18 +132,19 @@ const cytoscapeStyles = [
       shape: 'ellipse',
       width: (ele) => {
         const label = ele.data('label') || '';
-        const ns = ele.data('namespace') || '';
-        const maxLen = Math.max(label.length, ns.length);
+        const { value, prefix } = nodeDimension(ele);
+        const secondLine = value ? `${prefix}: ${value}` : '';
+        const maxLen = Math.max(label.length, secondLine.length);
         const fontSize = 11;
         const charWidth = fontSize * 0.6;
         const padding = 50;
         return Math.max(100, maxLen * charWidth + padding);
       },
-      height: (ele) => (ele.data('namespace') ? 56 : 40),
+      height: (ele) => (nodeDimension(ele).value ? 56 : 40),
       label: (ele) => {
         const label = ele.data('label') || '';
-        const ns = ele.data('namespace');
-        return ns ? `${label}\n${ns}` : label;
+        const { value, prefix } = nodeDimension(ele);
+        return value ? `${label}\n${prefix}: ${value}` : label;
       },
       'text-valign': 'center',
       'text-halign': 'center',
@@ -139,11 +156,11 @@ const cytoscapeStyles = [
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
       'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      // Left namespace stripe via base64-encoded SVG
+      // Left dimension stripe via base64-encoded SVG
       'background-image': (ele) => {
-        const ns = ele.data('namespace');
-        if (!ns) return 'none';
-        return getStripeDataUri(getNamespaceColor(ns));
+        const { value } = nodeDimension(ele);
+        if (!value) return 'none';
+        return getStripeDataUri(getNamespaceColor(value));
       },
       'background-image-opacity': 1,
       'background-width': '12px',
