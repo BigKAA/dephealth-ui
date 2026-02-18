@@ -336,6 +336,7 @@ npm test
 | **[METRICS.ru.md](./docs/METRICS.ru.md)** | **НАЧНИТЕ ОТСЮДА** — Формат метрик, обязательные метки, PromQL-запросы |
 | **[API.ru.md](./docs/API.ru.md)** | Справочник REST API со всеми endpoint'ами |
 | **[Helm Chart README](./deploy/helm/dephealth-ui/README.ru.md)** | Руководство по развёртыванию в Kubernetes |
+| **[Тестовая площадка](./deploy/README.ru.md)** | Настройка тестовой среды, топология, адаптация под своё окружение |
 | **[Application Design](./docs/application-design.ru.md)** | Обзор архитектуры и проектные решения |
 | **[English Documentation](./README.md)** | Полная документация на английском |
 
@@ -358,9 +359,11 @@ dephealth-ui/
 │   ├── public/               # Статические ресурсы
 │   └── index.html            # Точка входа SPA
 ├── deploy/                    # Манифесты развёртывания
+│   ├── docker/               # Docker Compose для bare metal
 │   └── helm/                 # Helm-чарты
 │       ├── dephealth-ui/     # Чарт приложения
 │       ├── dephealth-infra/  # Тестовая инфраструктура
+│       ├── dephealth-uniproxy/  # Тестовые прокси-экземпляры
 │       └── dephealth-monitoring/  # Стек мониторинга
 ├── docs/                      # Документация
 └── test/                      # Тестовые утилиты и фикстуры

@@ -338,6 +338,7 @@ npm test
 | **[METRICS.md](./docs/METRICS.md)** | Metrics format, required labels, PromQL queries |
 | **[API.md](./docs/API.md)** | REST API reference with all endpoints |
 | **[Helm Chart](./deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide |
+| **[Test Environment](./deploy/README.md)** | Test environment setup, topology, and adaptation guide |
 | **[Application Design](./docs/application-design.md)** | Architecture overview and design decisions |
 | **[Русская документация](./README.ru.md)** | Full Russian documentation |
 
@@ -360,9 +361,11 @@ dephealth-ui/
 │   ├── public/               # Static assets
 │   └── index.html            # SPA entry point
 ├── deploy/                    # Deployment manifests
+│   ├── docker/               # Bare metal Docker Compose
 │   └── helm/                 # Helm charts
 │       ├── dephealth-ui/     # Application chart
 │       ├── dephealth-infra/  # Test infrastructure
+│       ├── dephealth-uniproxy/  # Test proxy instances
 │       └── dephealth-monitoring/  # Monitoring stack
 ├── docs/                      # Documentation
 └── test/                      # Test helpers and fixtures
