@@ -270,6 +270,7 @@ function renderDetails(data) {
   const staleDetail = data.stale ? ` <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>` : '';
   const details = [
     { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>${staleDetail}` },
+    data.group && { label: t('sidebar.group'), value: data.group },
     data.namespace && { label: t('sidebar.namespace'), value: data.namespace },
     data.type && { label: t('sidebar.type'), value: data.type },
     data.host && { label: t('sidebar.host'), value: data.host },

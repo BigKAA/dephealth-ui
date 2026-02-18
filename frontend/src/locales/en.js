@@ -19,11 +19,13 @@ export default {
 
   // Filter panel
   'filter.namespace': 'Namespace',
+  'filter.group': 'Group',
   'filter.type': 'Type',
   'filter.state': 'State',
   'filter.service': 'Service',
   'filter.reset': 'Reset',
   'filter.allNamespaces': 'All namespaces',
+  'filter.allGroups': 'All groups',
   'filter.allTypes': 'All types',
   'filter.allServices': 'All services',
   'filter.allStatuses': 'All statuses',
@@ -42,6 +44,9 @@ export default {
   'graphToolbar.ungroupNs': 'Disable namespace grouping',
   'graphToolbar.collapseAll': 'Collapse all namespaces',
   'graphToolbar.expandAll': 'Expand all namespaces',
+  'graphToolbar.switchDimension': 'Switch grouping dimension',
+  'graphToolbar.dimNamespace': 'NS',
+  'graphToolbar.dimGroup': 'GRP',
   'graphToolbar.nsLegend': 'Toggle namespace legend',
   'graphToolbar.connLegend': 'Toggle connection legend',
 
@@ -108,6 +113,7 @@ export default {
   // Sidebar
   'sidebar.close': 'Close',
   'sidebar.state': 'State',
+  'sidebar.group': 'Group',
   'sidebar.namespace': 'Namespace',
   'sidebar.type': 'Type',
   'sidebar.host': 'Host',
@@ -161,6 +167,7 @@ export default {
   // Tooltip
   'tooltip.state': 'State:',
   'tooltip.type': 'Type:',
+  'tooltip.group': 'Group:',
   'tooltip.namespace': 'Namespace:',
   'tooltip.alerts': 'Alerts:',
   'tooltip.latency': 'Latency:',
@@ -186,6 +193,7 @@ export default {
 
   // Namespace legend
   'namespaceLegend.title': 'Namespaces',
+  'namespaceLegend.groupTitle': 'Groups',
   'namespaceLegend.close': 'Close',
   'namespaceLegend.toggle': 'Toggle namespace legend',
 

@@ -19,11 +19,13 @@ export default {
 
   // Filter panel
   'filter.namespace': 'Namespace',
+  'filter.group': 'Группа',
   'filter.type': 'Тип',
   'filter.state': 'Состояние',
   'filter.service': 'Сервис',
   'filter.reset': 'Сбросить',
   'filter.allNamespaces': 'Все namespace',
+  'filter.allGroups': 'Все группы',
   'filter.allTypes': 'Все типы',
   'filter.allServices': 'Все сервисы',
   'filter.allStatuses': 'Все статусы',
@@ -42,6 +44,9 @@ export default {
   'graphToolbar.ungroupNs': 'Отключить группировку',
   'graphToolbar.collapseAll': 'Свернуть все namespace',
   'graphToolbar.expandAll': 'Развернуть все namespace',
+  'graphToolbar.switchDimension': 'Переключить измерение группировки',
+  'graphToolbar.dimNamespace': 'NS',
+  'graphToolbar.dimGroup': 'ГРП',
   'graphToolbar.nsLegend': 'Легенда namespace',
   'graphToolbar.connLegend': 'Легенда соединений',
 
@@ -108,6 +113,7 @@ export default {
   // Sidebar
   'sidebar.close': 'Закрыть',
   'sidebar.state': 'Состояние',
+  'sidebar.group': 'Группа',
   'sidebar.namespace': 'Namespace',
   'sidebar.type': 'Тип',
   'sidebar.host': 'Хост',
@@ -161,6 +167,7 @@ export default {
   // Tooltip
   'tooltip.state': 'Состояние:',
   'tooltip.type': 'Тип:',
+  'tooltip.group': 'Группа:',
   'tooltip.namespace': 'Namespace:',
   'tooltip.alerts': 'Алерты:',
   'tooltip.latency': 'Задержка:',
@@ -186,6 +193,7 @@ export default {
 
   // Namespace legend
   'namespaceLegend.title': 'Namespace',
+  'namespaceLegend.groupTitle': 'Группы',
   'namespaceLegend.close': 'Закрыть',
   'namespaceLegend.toggle': 'Легенда namespace',
 

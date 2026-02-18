@@ -19,23 +19,26 @@ let lastTopologyData = null;
 
 /**
  * Fetch topology data from the backend API.
- * Supports ETag/If-None-Match for efficient polling (disabled for namespace-filtered
+ * Supports ETag/If-None-Match for efficient polling (disabled for filtered
  * and historical requests).
  * @param {string} [namespace] - optional namespace filter
  * @param {string} [time] - optional ISO8601 timestamp for historical queries
+ * @param {string} [group] - optional group filter
  * @returns {Promise<{nodes: Array, edges: Array, alerts: Array, meta: Object}>}
  */
-export async function fetchTopology(namespace, time) {
+export async function fetchTopology(namespace, time, group) {
   let url = '/api/v1/topology';
   const params = new URLSearchParams();
   if (namespace) params.set('namespace', namespace);
+  if (group) params.set('group', group);
   if (time) params.set('time', time);
   const qs = params.toString();
   if (qs) url += `?${qs}`;
 
+  const hasFilter = namespace || group;
   const headers = {};
   // ETag only for unfiltered live requests.
-  if (!namespace && !time && lastETag) {
+  if (!hasFilter && !time && lastETag) {
     headers['If-None-Match'] = lastETag;
   }
 
@@ -51,7 +54,7 @@ export async function fetchTopology(namespace, time) {
 
   const data = await resp.json();
   // Only track ETag for unfiltered live requests.
-  if (!namespace && !time) {
+  if (!hasFilter && !time) {
     const etag = resp.headers.get('ETag');
     if (etag) {
       lastETag = etag;

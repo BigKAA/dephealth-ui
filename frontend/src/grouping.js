@@ -4,6 +4,7 @@ import { extractNamespaceFromHost } from './namespace.js';
 
 const LS_GROUPING = 'dephealth-grouping';
 const LS_COLLAPSED = 'dephealth-collapsed-ns';
+const LS_DIMENSION = 'dephealth-grouping-dim';
 const NS_PREFIX = 'ns::';
 
 // State priority for worst-state computation (higher = worse)
@@ -35,6 +36,28 @@ export function setGroupingEnabled(enabled) {
 }
 
 /**
+ * Get the active grouping dimension.
+ * @returns {'namespace'|'group'}
+ */
+export function getGroupingDimension() {
+  return localStorage.getItem(LS_DIMENSION) === 'group' ? 'group' : 'namespace';
+}
+
+/**
+ * Set the active grouping dimension.
+ * Clears collapsed state when switching dimensions.
+ * @param {'namespace'|'group'} dim
+ */
+export function setGroupingDimension(dim) {
+  const prev = getGroupingDimension();
+  localStorage.setItem(LS_DIMENSION, dim);
+  if (prev !== dim) {
+    collapsedStore.clear();
+    localStorage.removeItem(LS_COLLAPSED);
+  }
+}
+
+/**
  * Get the set of currently collapsed namespace names.
  * @returns {Set<string>}
  */
@@ -59,28 +82,37 @@ export function setCollapsedNamespaces(nsSet) {
 // ─── Compound node construction ──────────────────────────────────────
 
 /**
- * Build compound parent elements for namespace grouping.
+ * Build compound parent elements for grouping.
+ * Uses the active dimension (namespace or group) to determine grouping.
  * @param {{nodes: Array}} data - Topology data from API
  * @returns {{ parents: Array, parentMap: Map<string, string> }}
  */
 export function buildCompoundElements(data) {
-  const namespaces = new Set();
+  const dim = getGroupingDimension();
+  const groups = new Set();
   const parentMap = new Map(); // nodeId -> parentId
 
   for (const node of data.nodes) {
-    const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
-    if (ns) {
-      namespaces.add(ns);
-      parentMap.set(node.id, NS_PREFIX + ns);
+    let val;
+    if (dim === 'group') {
+      // Only service nodes have group; deps without group are ungrouped
+      val = node.group || null;
+    } else {
+      // namespace dimension: existing behavior with FQDN fallback for deps
+      val = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
+    }
+    if (val) {
+      groups.add(val);
+      parentMap.set(node.id, NS_PREFIX + val);
     }
   }
 
-  const parents = [...namespaces].map((ns) => ({
+  const parents = [...groups].map((g) => ({
     group: 'nodes',
     data: {
-      id: NS_PREFIX + ns,
-      label: ns,
-      nsName: ns,
+      id: NS_PREFIX + g,
+      label: g,
+      nsName: g,
       isGroup: true,
     },
   }));

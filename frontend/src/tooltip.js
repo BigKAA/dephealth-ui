@@ -107,6 +107,14 @@ export function initTooltip(cy) {
       </div>`;
     }
 
+    // Group (if available in node data)
+    if (data.group) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.group')}</span>
+        <span class="tooltip-value">${data.group}</span>
+      </div>`;
+    }
+
     // Namespace (if available in node data)
     if (data.namespace) {
       html += `<div class="tooltip-row">

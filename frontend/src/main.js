@@ -25,6 +25,7 @@ import {
 } from './timeline.js';
 import {
   isGroupingEnabled, setGroupingEnabled,
+  getGroupingDimension, setGroupingDimension,
   collapseNamespace, expandNamespace, collapseAll, expandAll,
   hasExpandedGroups, reapplyCollapsedState, getCollapsedNamespaces,
   getNamespacePrefix,
@@ -35,8 +36,10 @@ let pollTimer = null;
 let autoRefresh = true;
 let pollInterval = 15000;
 let selectedNamespace = '';
+let selectedGroup = '';
 let appConfig = null; // Store full config including alerts severity levels
 let layoutDirection = 'TB'; // Current layout direction: 'TB' or 'LR'
+let dataHasGroups = false; // Whether current data has any nodes with group field
 
 // Connection state
 let isDisconnected = false;
@@ -205,9 +208,13 @@ function checkEmptyState(data) {
 async function refresh() {
   try {
     const histTime = getSelectedTime();
+    const dim = getGroupingDimension();
+    const nsParam = dim === 'namespace' ? (selectedNamespace || undefined) : undefined;
+    const grpParam = dim === 'group' ? (selectedGroup || undefined) : undefined;
     const data = await fetchTopology(
-      selectedNamespace || undefined,
+      nsParam,
       histTime ? histTime.toISOString() : undefined,
+      grpParam,
     );
     const structureChanged = renderGraph(cy, data, appConfig);
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
@@ -216,7 +223,9 @@ async function refresh() {
     computeCascadeWarnings(cy);
     updateStatus(data);
     checkEmptyState(data);
+    updateDimensionToggleVisibility(data);
     updateNamespaceOptions(data);
+    updateDimensionFilter(data);
     updateNamespaceLegend(data);
     updateFilters(data);
     applyFilters(cy);
@@ -305,8 +314,10 @@ function setupFilters() {
   $('#btn-reset-filters').addEventListener('click', () => {
     resetFilters();
     selectedNamespace = '';
+    selectedGroup = '';
     const url = new URL(window.location);
     url.searchParams.delete('namespace');
+    url.searchParams.delete('group');
     history.replaceState(null, '', url);
     applyFilters(cy);
     refresh();
@@ -317,12 +328,26 @@ function setupFilters() {
   });
 
   window.addEventListener('namespace-changed', (e) => {
-    selectedNamespace = e.detail;
+    const dim = getGroupingDimension();
     const url = new URL(window.location);
-    if (selectedNamespace) {
-      url.searchParams.set('namespace', selectedNamespace);
-    } else {
+    if (dim === 'group') {
+      selectedGroup = e.detail;
+      selectedNamespace = '';
       url.searchParams.delete('namespace');
+      if (selectedGroup) {
+        url.searchParams.set('group', selectedGroup);
+      } else {
+        url.searchParams.delete('group');
+      }
+    } else {
+      selectedNamespace = e.detail;
+      selectedGroup = '';
+      url.searchParams.delete('group');
+      if (selectedNamespace) {
+        url.searchParams.set('namespace', selectedNamespace);
+      } else {
+        url.searchParams.delete('namespace');
+      }
     }
     history.replaceState(null, '', url);
     refresh();
@@ -393,10 +418,12 @@ function setupGraphToolbar() {
   // Namespace grouping toggle button
   const btnGrouping = $('#btn-grouping');
   const btnCollapseAll = $('#btn-collapse-all');
+  const btnDimToggle = $('#btn-dimension-toggle');
   if (isGroupingEnabled()) {
     btnGrouping.classList.add('active');
     btnLayoutToggle.classList.add('hidden');
     btnCollapseAll.classList.remove('hidden');
+    // Dimension toggle visibility depends on data — updated after first fetch
   }
   btnGrouping.addEventListener('click', () => {
     const next = !isGroupingEnabled();
@@ -404,6 +431,25 @@ function setupGraphToolbar() {
     btnGrouping.classList.toggle('active', next);
     btnLayoutToggle.classList.toggle('hidden', next);
     btnCollapseAll.classList.toggle('hidden', !next);
+    btnDimToggle.classList.toggle('hidden', !next || !dataHasGroups);
+    refresh();
+  });
+
+  // Dimension toggle button (NS ↔ GRP)
+  updateDimensionLabel();
+  btnDimToggle.addEventListener('click', () => {
+    const current = getGroupingDimension();
+    const next = current === 'namespace' ? 'group' : 'namespace';
+    setGroupingDimension(next);
+    updateDimensionLabel();
+    // Clear dimension filter when switching
+    selectedNamespace = '';
+    selectedGroup = '';
+    const url = new URL(window.location);
+    url.searchParams.delete('namespace');
+    url.searchParams.delete('group');
+    history.replaceState(null, '', url);
+    updateDimensionFilter(null);
     refresh();
   });
 
@@ -451,6 +497,43 @@ function setupGraphToolbar() {
       icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-fullscreen';
     }
   });
+}
+
+/**
+ * Update the dimension toggle button label to reflect current dimension.
+ */
+function updateDimensionLabel() {
+  const label = $('#dimension-label');
+  if (!label) return;
+  const dim = getGroupingDimension();
+  label.textContent = dim === 'group' ? t('graphToolbar.dimGroup') : t('graphToolbar.dimNamespace');
+}
+
+/**
+ * Update dimension toggle visibility based on whether data has group values.
+ * @param {{nodes: Array}} data - Topology data
+ */
+function updateDimensionToggleVisibility(data) {
+  dataHasGroups = data.nodes ? data.nodes.some((n) => !!n.group) : false;
+  const btn = $('#btn-dimension-toggle');
+  if (!btn) return;
+  btn.classList.toggle('hidden', !isGroupingEnabled() || !dataHasGroups);
+
+  // Auto-select namespace if no group data available
+  if (!dataHasGroups && getGroupingDimension() === 'group') {
+    setGroupingDimension('namespace');
+    updateDimensionLabel();
+  }
+}
+
+/**
+ * Notify the filter dropdown to update for current dimension.
+ * @param {{nodes: Array}|null} data - Topology data (null to just reset value)
+ */
+function updateDimensionFilter(data) {
+  window.dispatchEvent(new CustomEvent('dimension-changed', {
+    detail: { dimension: getGroupingDimension(), data },
+  }));
 }
 
 function setupLegend() {
@@ -533,21 +616,33 @@ function updateNamespaceLegend(data) {
   const container = $('#ns-legend-items');
   if (!container) return;
 
-  const namespaces = new Set();
+  const dim = getGroupingDimension();
+  const values = new Set();
   if (data.nodes) {
     for (const node of data.nodes) {
-      const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
-      if (ns) namespaces.add(ns);
+      let val;
+      if (dim === 'group') {
+        val = node.group || null;
+      } else {
+        val = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
+      }
+      if (val) values.add(val);
     }
   }
 
-  const sorted = [...namespaces].sort();
+  // Update legend title
+  const titleEl = $('#namespace-legend .legend-title');
+  if (titleEl) {
+    titleEl.textContent = dim === 'group' ? t('namespaceLegend.groupTitle') : t('namespaceLegend.title');
+  }
+
+  const sorted = [...values].sort();
   container.innerHTML = sorted
     .map(
-      (ns) => `
+      (v) => `
     <div class="ns-legend-item">
-      <span class="ns-legend-swatch" style="background: ${getNamespaceColor(ns)};"></span>
-      <span class="ns-legend-name" title="${ns}">${ns}</span>
+      <span class="ns-legend-swatch" style="background: ${getNamespaceColor(v)};"></span>
+      <span class="ns-legend-name" title="${v}">${v}</span>
     </div>
   `
     )
@@ -714,9 +809,15 @@ async function init() {
       icon.className = layoutDirection === 'TB' ? 'bi bi-distribute-vertical' : 'bi bi-distribute-horizontal';
     }
 
-    // Read namespace from URL.
+    // Read namespace/group from URL.
     const params = new URLSearchParams(window.location.search);
     selectedNamespace = params.get('namespace') || '';
+    selectedGroup = params.get('group') || '';
+    // If URL has group param, auto-switch dimension to group
+    if (selectedGroup && getGroupingDimension() !== 'group') {
+      setGroupingDimension('group');
+      updateDimensionLabel();
+    }
 
     // Restore history mode from URL (?time=...) if present
     const restoredHistory = restoreFromURL();
@@ -725,9 +826,13 @@ async function init() {
     }
 
     const histTime = getSelectedTime();
+    const initDim = getGroupingDimension();
+    const initNs = initDim === 'namespace' ? (selectedNamespace || undefined) : undefined;
+    const initGrp = initDim === 'group' ? (selectedGroup || undefined) : undefined;
     const data = await withRetry(() => fetchTopology(
-      selectedNamespace || undefined,
+      initNs,
       histTime ? histTime.toISOString() : undefined,
+      initGrp,
     ));
     const structureChanged = renderGraph(cy, data, appConfig);
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
@@ -736,11 +841,16 @@ async function init() {
     computeCascadeWarnings(cy);
     updateStatus(data);
     checkEmptyState(data);
+    updateDimensionToggleVisibility(data);
     initFilters(data);
     updateNamespaceOptions(data);
+    updateDimensionFilter(data);
     updateNamespaceLegend(data);
     if (selectedNamespace) {
       setNamespaceValue(selectedNamespace);
+    }
+    if (selectedGroup) {
+      setNamespaceValue(selectedGroup);
     }
     applyFilters(cy);
     initSidebar(cy, data);

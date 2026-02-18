@@ -1,6 +1,6 @@
 import TomSelect from 'tom-select';
 import { t } from './i18n.js';
-import { isGroupingEnabled, getCollapsedChildren } from './grouping.js';
+import { isGroupingEnabled, getCollapsedChildren, getGroupingDimension } from './grouping.js';
 
 const STORAGE_KEY = 'dephealth-filters';
 const STATES = ['ok', 'degraded', 'down', 'warning'];
@@ -31,17 +31,27 @@ let tsNamespace = null;
 
 // --- Tom Select initialization ---
 
+function getDimensionPlaceholder() {
+  return getGroupingDimension() === 'group' ? t('filter.allGroups') : t('filter.allNamespaces');
+}
+
+function getDimensionLabel() {
+  return getGroupingDimension() === 'group' ? t('filter.group') : t('filter.namespace');
+}
+
 function initNamespaceSelect() {
   const el = $('#namespace-select');
   tsNamespace = new TomSelect(el, {
     create: false,
     sortField: { field: 'text', direction: 'asc' },
-    placeholder: t('filter.allNamespaces'),
+    placeholder: getDimensionPlaceholder(),
     allowEmptyOption: true,
     onChange(value) {
       window.dispatchEvent(new CustomEvent('namespace-changed', { detail: value }));
     },
   });
+  // Update filter label for current dimension
+  updateDimensionFilterLabel();
 }
 
 function initTypeSelect() {
@@ -94,8 +104,9 @@ function initJobSelect() {
  * Update Tom Select placeholders on language change.
  */
 function updateTomSelectPlaceholders() {
+  const nsKey = getGroupingDimension() === 'group' ? 'filter.allGroups' : 'filter.allNamespaces';
   const updates = [
-    { instance: tsNamespace, key: 'filter.allNamespaces' },
+    { instance: tsNamespace, key: nsKey },
     { instance: tsType, key: 'filter.allTypes' },
     { instance: tsStatus, key: 'filter.allStatuses' },
     { instance: tsJob, key: 'filter.allServices' },
@@ -106,6 +117,25 @@ function updateTomSelectPlaceholders() {
     instance.settings.placeholder = translated;
     const input = instance.control_input;
     if (input) input.setAttribute('placeholder', translated);
+  }
+}
+
+/**
+ * Update the filter label and placeholder for the namespace/group dropdown
+ * based on the active grouping dimension.
+ */
+function updateDimensionFilterLabel() {
+  const label = document.querySelector('#filter-namespace .filter-label');
+  if (label) {
+    label.textContent = getDimensionLabel();
+    // Update data-i18n attribute for language changes
+    label.setAttribute('data-i18n', getGroupingDimension() === 'group' ? 'filter.group' : 'filter.namespace');
+  }
+  if (tsNamespace) {
+    const placeholder = getDimensionPlaceholder();
+    tsNamespace.settings.placeholder = placeholder;
+    const input = tsNamespace.control_input;
+    if (input) input.setAttribute('placeholder', placeholder);
   }
 }
 
@@ -155,6 +185,20 @@ export function initFilters(data) {
   // Update placeholders on language change
   window.addEventListener('language-changed', () => {
     updateTomSelectPlaceholders();
+    updateDimensionFilterLabel();
+  });
+
+  // Update filter dropdown when grouping dimension changes
+  window.addEventListener('dimension-changed', (e) => {
+    updateDimensionFilterLabel();
+    const data = e.detail && e.detail.data;
+    if (data) {
+      updateNamespaceOptions(data);
+    }
+    // Reset selection when dimension changes
+    if (tsNamespace) {
+      tsNamespace.setValue('', true);
+    }
   });
 }
 
@@ -170,23 +214,26 @@ export function updateFilters(data) {
 }
 
 /**
- * Update namespace dropdown options from topology data.
+ * Update namespace/group dropdown options from topology data.
+ * Uses the active grouping dimension to determine which field to read.
  * Preserves the current selection.
  * @param {object} data - Topology response {nodes, edges}
  */
 export function updateNamespaceOptions(data) {
   if (!tsNamespace) return;
 
-  const namespaces = new Set();
+  const dim = getGroupingDimension();
+  const values = new Set();
   if (data.nodes) {
     for (const node of data.nodes) {
-      if (node.namespace) {
-        namespaces.add(node.namespace);
+      const val = dim === 'group' ? node.group : node.namespace;
+      if (val) {
+        values.add(val);
       }
     }
   }
 
-  const sorted = [...namespaces].sort();
+  const sorted = [...values].sort();
   const current = tsNamespace.getValue();
 
   // Rebuild only if the set changed.
@@ -195,10 +242,11 @@ export function updateNamespaceOptions(data) {
     return;
   }
 
+  const placeholder = getDimensionPlaceholder();
   tsNamespace.clearOptions();
-  tsNamespace.addOption({ value: '', text: t('filter.allNamespaces') });
-  for (const ns of sorted) {
-    tsNamespace.addOption({ value: ns, text: ns });
+  tsNamespace.addOption({ value: '', text: placeholder });
+  for (const val of sorted) {
+    tsNamespace.addOption({ value: val, text: val });
   }
   tsNamespace.setValue(current, true);
 }

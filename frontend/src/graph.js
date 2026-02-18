@@ -3,7 +3,7 @@ import dagre from 'cytoscape-dagre';
 import fcose from 'cytoscape-fcose';
 import { isElementVisible } from './search.js';
 import { getNamespaceColor, getContrastTextColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
-import { isGroupingEnabled, buildCompoundElements } from './grouping.js';
+import { isGroupingEnabled, buildCompoundElements, getGroupingDimension } from './grouping.js';
 
 cytoscape.use(dagre);
 cytoscape.use(fcose);
@@ -296,7 +296,8 @@ function computeSignature(data) {
   const nodeIds = data.nodes.map((n) => `${n.id}:${n.type}`).sort();
   const edgeKeys = data.edges.map((e) => `${e.source}->${e.target}`).sort();
   const groupFlag = isGroupingEnabled() ? 'G' : 'F';
-  return groupFlag + '|' + nodeIds.join(',') + '|' + edgeKeys.join(',');
+  const dim = getGroupingDimension();
+  return groupFlag + dim + '|' + nodeIds.join(',') + '|' + edgeKeys.join(',');
 }
 
 /**
@@ -544,6 +545,7 @@ export function renderGraph(cy, data, config) {
         stale: node.stale || false,
         type: node.type,
         namespace: ns || undefined,
+        group: node.group || undefined,
         alertCount: alertCounts[node.id] || 0,
         alertSeverity: node.alertSeverity || undefined,
         grafanaUrl: node.grafanaUrl || undefined,
