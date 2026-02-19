@@ -51,6 +51,15 @@ Follow **GitHub Flow + Semantic Versioning** (see [GIT-WORKFLOW.md](GIT-WORKFLOW
 - Releases via git tags `vX.Y.Z` on `master`
 - Quick fixes (typos, small fixes) can be committed directly to `master`
 
+### Release checklist
+
+Before creating a release tag, **always** perform these steps:
+
+1. Update `CHANGELOG.md` — add a new section following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format
+2. Update project documentation in `docs/` if any user-facing behavior changed
+3. Bump `appVersion` in `deploy/helm/dephealth-ui/Chart.yaml`
+4. Commit all release preparation changes before tagging
+
 ### Image tagging convention
 
 - **Development:** `vX.Y.Z-N` (e.g. `v0.11.4-1`, `v0.11.4-2`) — increment `-N` suffix for each build

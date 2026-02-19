@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2026-02-19
+
+### Added
+
+- **Root node detection** — detect and highlight entry point nodes (services with no incoming edges) in topology graph
+- **Root node badge** — visual badge on root nodes and corresponding legend entry
+- **Group label support** — SDK v0.5.0 `group` label in PromQL queries with `optFilter()` combining namespace+group
+- **Dependency namespace resolution** — `resolveDepNamespace()` extracts Kubernetes namespace from FQDN dependency hosts
+- **Dimension toggle** — group/namespace visual grouping switch in frontend toolbar
+- **Test environment** — bare metal uniproxy host (`uniproxy-pr1`), group label config for uniproxy test instances
+
+### Fixed
+
+- Improve text contrast on colored backgrounds — WCAG-compliant luminance threshold (0.179), dynamic text colors on node labels, sidebar badges and status pills
+- Fix node stripe colors and labels for dimension toggle
+- Update dimension dropdown text on namespace/group toggle
+
+### Documentation
+
+- Group label and dimension toggle documentation (EN + RU)
+- Test environment documentation
+
 ## [0.16.0] - 2026-02-17
 
 ### Added
@@ -186,6 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.16.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.14.1...v0.16.0
 [0.14.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.13.0...v0.14.1
 [0.13.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.12.0...v0.13.0
