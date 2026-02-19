@@ -2,6 +2,7 @@
 .tasks/
 
 # AI
+CLAUDE.md
 .serena/
 claudedocs/
 .playwright-mcp
