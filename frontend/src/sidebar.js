@@ -6,6 +6,7 @@
 import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
 import { STATUS_COLORS, STATUS_ABBREVIATIONS, STATUS_LABELS } from './graph.js';
+import { getContrastTextColor } from './namespace.js';
 import { getCollapsedChildren, expandNamespace, findConnectedChild } from './grouping.js';
 import { isHistoryMode, getSelectedTime } from './timeline.js';
 
@@ -663,9 +664,10 @@ export function openEdgeSidebar(edge, cy) {
  * @returns {string} HTML badge
  */
 function formatStatusBadge(status) {
-  const color = STATUS_COLORS[status] || '#999';
+  const color = STATUS_COLORS[status] || '#999999';
   const label = STATUS_LABELS[status] || status;
-  return `<span class="sidebar-status-badge" style="background-color:${color}">${label}</span>`;
+  const textColor = getContrastTextColor(color);
+  return `<span class="sidebar-status-badge" style="background-color:${color};color:${textColor}">${label}</span>`;
 }
 
 /**
@@ -691,9 +693,10 @@ function renderDependencyStatusSummary(node, cy) {
 
   const pills = Object.entries(counts)
     .map(([status, count]) => {
-      const color = STATUS_COLORS[status] || '#999';
+      const color = STATUS_COLORS[status] || '#999999';
       const label = STATUS_LABELS[status] || status;
-      return `<span class="sidebar-status-pill" style="background-color:${color}">${count} ${label}</span>`;
+      const textColor = getContrastTextColor(color);
+      return `<span class="sidebar-status-pill" style="background-color:${color};color:${textColor}">${count} ${label}</span>`;
     })
     .join(' ');
 

@@ -93,7 +93,7 @@ export function getContrastTextColor(hex) {
   const lg = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4;
   const lb = b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4;
   const luminance = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
-  return luminance > 0.35 ? '#1e1e1e' : '#fff';
+  return luminance > 0.179 ? '#1e1e1e' : '#fff';
 }
 
 // Cache for base64-encoded SVG stripe images (color -> data URI)

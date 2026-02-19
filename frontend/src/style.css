@@ -501,7 +501,7 @@ body {
 }
 
 .status-dot.disconnected {
-  background: #f44336;
+  background: #d32f2f;
 }
 
 .status-dot.partial {
@@ -917,7 +917,7 @@ body {
 }
 
 .legend-badge.critical {
-  background: #f44336;
+  background: #d32f2f;
 }
 
 .legend-badge.legend-root-badge {
@@ -1201,23 +1201,26 @@ body {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: #fff;
 }
 
 .sidebar-state-badge.ok {
   background: #4caf50;
+  color: #fff;
 }
 
 .sidebar-state-badge.degraded {
   background: #ff9800;
+  color: #1e1e1e;
 }
 
 .sidebar-state-badge.down {
-  background: #f44336;
+  background: #d32f2f;
+  color: #fff;
 }
 
 .sidebar-state-badge.unknown {
   background: #9e9e9e;
+  color: #1e1e1e;
 }
 
 .sidebar-stale-hint {
@@ -1252,7 +1255,7 @@ body {
 }
 
 .sidebar-alert-item.critical {
-  border-left-color: #f44336;
+  border-left-color: #d32f2f;
 }
 
 .sidebar-alert-item.warning {
@@ -1455,7 +1458,7 @@ body {
 
 .sidebar-state-dot.ok { background: #4caf50; }
 .sidebar-state-dot.degraded { background: #ff9800; }
-.sidebar-state-dot.down { background: #f44336; }
+.sidebar-state-dot.down { background: #d32f2f; }
 .sidebar-state-dot.unknown { background: #9e9e9e; }
 
 /* Responsive: tablet */
@@ -1712,7 +1715,7 @@ body {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: #f44336;
+  background: #d32f2f;
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -1749,7 +1752,7 @@ body {
 }
 
 .stat-down {
-  color: #f44336;
+  color: #d32f2f;
 }
 
 .stat-unknown {
@@ -1783,7 +1786,7 @@ body.fullscreen .alert-drawer {
 }
 
 .sidebar-instances-error {
-  color: #f44336;
+  color: #d32f2f;
 }
 
 .sidebar-instances-table {
@@ -1846,7 +1849,6 @@ body.fullscreen .alert-drawer {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: #fff;
 }
 
 /* Status pills (dependency status summary) */
@@ -1865,7 +1867,6 @@ body.fullscreen .alert-drawer {
   border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
-  color: #fff;
 }
 
 /* ==============================
@@ -2109,7 +2110,7 @@ body.fullscreen .alert-drawer {
 }
 
 .marker-degradation {
-  background: #f44336;
+  background: #d32f2f;
 }
 
 .marker-recovery {

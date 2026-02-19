@@ -32,14 +32,14 @@ function isDarkTheme() {
 const STATE_COLORS = {
   ok: '#4caf50',
   degraded: '#ff9800',
-  down: '#f44336',
+  down: '#d32f2f',
   unknown: '#9e9e9e',
 };
 
 const EDGE_STYLES = {
   ok: { lineStyle: 'solid', color: '#4caf50' },
   degraded: { lineStyle: 'dashed', color: '#ff9800' },
-  down: { lineStyle: 'dotted', color: '#f44336' },
+  down: { lineStyle: 'dotted', color: '#d32f2f' },
   unknown: { lineStyle: 'dashed', color: '#9e9e9e' },
 };
 
@@ -47,10 +47,10 @@ const EDGE_STYLES = {
 export const STATUS_COLORS = {
   ok: '#4caf50',
   timeout: '#ff9800',
-  connection_error: '#f44336',
-  error: '#f44336',
+  connection_error: '#d32f2f',
+  error: '#d32f2f',
   dns_error: '#9c27b0',
-  auth_error: '#ffeb3b',
+  auth_error: '#fdd835',
   tls_error: '#b71c1c',
   unhealthy: '#ff5722',
 };
@@ -105,7 +105,7 @@ const cytoscapeStyles = [
       'text-wrap': 'wrap',
       'text-max-width': 200,
       'font-size': 12,
-      color: '#fff',
+      color: (ele) => getContrastTextColor(STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown),
       'text-outline-width': 0,
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
@@ -151,7 +151,7 @@ const cytoscapeStyles = [
       'text-wrap': 'wrap',
       'text-max-width': 200,
       'font-size': 11,
-      color: '#fff',
+      color: (ele) => getContrastTextColor(STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown),
       'text-outline-width': 0,
       'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
       'border-width': 2,
