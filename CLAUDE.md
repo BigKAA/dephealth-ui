@@ -31,8 +31,15 @@ Available tools: `kubectl`, `helm`, `docker`
 - Test domains: `test1.kryukov.lan`, `test2.kryukov.lan` → DNS 192.168.218.9, Gateway IP: 192.168.218.180
 - Domain names used in development must be added to hosts file (ask user to do it manually)
 
-### Container Registry (Harbor)
-- `harbor.kryukov.lan/library` — local public images
+### Container Registries
+
+**Release registry (Yandex Container Registry):**
+- `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` — release images
+- Authentication via `yc` credential helper (configured in `~/.docker/config.json`)
+- Use for all documentation examples and Helm chart defaults
+
+**Development registry (Harbor):**
+- `harbor.kryukov.lan/library` — dev/test images (homelab only)
 - `harbor.kryukov.lan/docker` — Docker Hub proxy
 - `harbor.kryukov.lan/mcr` — Microsoft Container Registry proxy
 - Admin: `admin` / `password`
@@ -62,8 +69,8 @@ Before creating a release tag, **always** perform these steps:
 
 ### Image tagging convention
 
-- **Development:** `vX.Y.Z-N` (e.g. `v0.11.4-1`, `v0.11.4-2`) — increment `-N` suffix for each build
-- **Release:** `vX.Y.Z` (e.g. `v0.11.5`) — drop the suffix, bump patch version
+- **Development:** `vX.Y.Z-N` (e.g. `v0.11.4-1`, `v0.11.4-2`) — increment `-N` suffix for each build, push to Harbor
+- **Release:** `vX.Y.Z` (e.g. `v0.11.5`) — drop the suffix, bump patch version, push to Yandex CR
 - **Minor version** (second digit) — only bump with explicit user approval
 
 ## Project Structure

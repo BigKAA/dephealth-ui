@@ -228,12 +228,14 @@ make host-status        # Проверить контейнеры на bare meta
 
 ### 1. Реестр контейнеров
 
-**Текущий:** `harbor.kryukov.lan/library` (образы), `harbor.kryukov.lan/docker` (Docker Hub прокси)
+**Релизный:** `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` (Yandex Container Registry)
+
+**Для разработки:** `harbor.kryukov.lan/library` (образы), `harbor.kryukov.lan/docker` (Docker Hub прокси)
 
 **Варианты:**
 
 - Docker Hub напрямую: уберите переопределения `global.imageRegistry` из `values-homelab.yaml`
-- Свой реестр: замените `harbor.kryukov.lan` на URL вашего реестра
+- Свой реестр: укажите `global.pushRegistry` с URL вашего реестра
 - Для приватных реестров с самоподписанным CA: установите CA-сертификат на все узлы K8s и bare metal хосты
 
 ### 2. StorageClass

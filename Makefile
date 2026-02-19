@@ -5,8 +5,9 @@
        env-deploy env-undeploy env-status
 
 # --- Variables ---
-REGISTRY      ?= harbor.kryukov.lan/library
-DOCKER_PROXY  ?= harbor.kryukov.lan/docker
+REGISTRY         ?= harbor.kryukov.lan/library
+RELEASE_REGISTRY ?= container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst
+DOCKER_PROXY     ?= harbor.kryukov.lan/docker
 IMAGE_NAME    ?= dephealth-ui
 TAG           ?= latest
 PLATFORMS     ?= linux/amd64,linux/arm64
@@ -53,8 +54,15 @@ docker-build:
 		-t $(REGISTRY)/$(IMAGE_NAME):$(TAG) \
 		--push .
 
+docker-release:
+	docker buildx build \
+		--platform $(PLATFORMS) \
+		--build-arg REGISTRY=$(DOCKER_PROXY) \
+		-t $(RELEASE_REGISTRY)/$(IMAGE_NAME):$(TAG) \
+		--push .
+
 docker-push:
-	@echo "Image pushed during docker-build (--push flag)"
+	@echo "Image pushed during docker-build/docker-release (--push flag)"
 
 # --- Uniproxy ---
 

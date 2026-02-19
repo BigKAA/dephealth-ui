@@ -312,7 +312,7 @@ make docker-build TAG=v0.13.0
 # Или вручную
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t harbor.kryukov.lan/library/dephealth-ui:v0.13.0 \
+  -t container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui:v0.13.0 \
   --push .
 ```
 

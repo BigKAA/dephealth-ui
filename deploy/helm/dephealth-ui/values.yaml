@@ -1,7 +1,7 @@
 # dephealth-ui — default values
 
 global:
-  # Registry for the application image (e.g. "harbor.example.com/library")
+  # Registry for the application image (e.g. "container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst")
   pushRegistry: ""
   # Target namespace
   namespace: dephealth-ui

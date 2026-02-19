@@ -2,7 +2,7 @@
 # Use this when you already have a TLS certificate stored in a Kubernetes Secret
 
 global:
-  pushRegistry: "harbor.kryukov.lan/library"
+  pushRegistry: "container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst"
   namespace: dephealth-ui
 
 image:
@@ -37,7 +37,7 @@ config:
 # Use this when you want cert-manager to automatically provision certificates
 
 global:
-  pushRegistry: "harbor.kryukov.lan/library"
+  pushRegistry: "container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst"
   namespace: dephealth-ui
 
 image:

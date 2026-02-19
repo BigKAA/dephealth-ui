@@ -228,12 +228,14 @@ The `values-homelab.yaml` files contain environment-specific settings. To use yo
 
 ### 1. Container Registry
 
-**Current:** `harbor.kryukov.lan/library` (images), `harbor.kryukov.lan/docker` (Docker Hub proxy)
+**Release:** `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` (Yandex Container Registry)
+
+**Development:** `harbor.kryukov.lan/library` (images), `harbor.kryukov.lan/docker` (Docker Hub proxy)
 
 **Options:**
 
 - Use Docker Hub directly: remove `global.imageRegistry` overrides from `values-homelab.yaml`
-- Use your own registry: replace `harbor.kryukov.lan` with your registry URL
+- Use your own registry: set `global.pushRegistry` to your registry URL
 - For private registries with self-signed CA: install the CA certificate on all K8s nodes and bare metal hosts
 
 ### 2. Storage Class
