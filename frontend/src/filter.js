@@ -136,6 +136,10 @@ function updateDimensionFilterLabel() {
     tsNamespace.settings.placeholder = placeholder;
     const input = tsNamespace.control_input;
     if (input) input.setAttribute('placeholder', placeholder);
+    // Update the empty option text so the selected '' value shows correct label
+    if (tsNamespace.options['']) {
+      tsNamespace.updateOption('', { value: '', text: placeholder });
+    }
   }
 }
 
