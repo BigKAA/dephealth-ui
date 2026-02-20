@@ -37,7 +37,7 @@ export default {
   'graphToolbar.fit': 'Вписать в экран',
   'graphToolbar.search': 'Поиск',
   'graphToolbar.layout': 'Направление графа',
-  'graphToolbar.export': 'Экспорт PNG',
+  'graphToolbar.export': 'Экспорт',
   'graphToolbar.fullscreen': 'Полный экран',
   'graphToolbar.legend': 'Легенда',
   'graphToolbar.groupByNs': 'Группировка по namespace',
@@ -108,7 +108,8 @@ export default {
   'toast.connectionRestored': 'Соединение восстановлено',
   'toast.connectionLost': 'Соединение потеряно: {error}',
   'toast.dataSourceError': 'Ошибка источника данных: {error}',
-  'toast.exportedPNG': 'Граф экспортирован в PNG',
+  'toast.exported': 'Граф экспортирован в {format}',
+  'toast.exportFailed': 'Ошибка экспорта: {error}',
   'toast.close': 'Закрыть',
 
   // Sidebar
@@ -190,7 +191,7 @@ export default {
   'shortcuts.search': 'Открыть поиск',
   'shortcuts.searchAlt': 'Открыть поиск (альтернатива)',
   'shortcuts.layout': 'Направление графа (TB/LR)',
-  'shortcuts.export': 'Экспорт графа в PNG',
+  'shortcuts.export': 'Экспорт графа',
   'shortcuts.closeAll': 'Закрыть все панели',
   'shortcuts.help': 'Показать подсказки',
 
@@ -234,6 +235,22 @@ export default {
   'timeline.eventsError': 'Не удалось загрузить события',
   'timeline.copyUrl': 'Копировать URL',
   'timeline.urlCopied': 'URL скопирован в буфер обмена',
+
+  // Export modal
+  'export.title': 'Экспорт графа',
+  'export.formatLabel': 'Формат',
+  'export.scopeLabel': 'Область',
+  'export.scope.current': 'Текущий вид',
+  'export.scope.full': 'Полный граф',
+  'export.download': 'Скачать',
+  'export.downloading': 'Экспорт...',
+  'export.cancel': 'Отмена',
+  'export.hint.currentPng': 'Экспорт текущего вида в PNG через браузер (точное совпадение с экраном).',
+  'export.hint.currentSvg': 'Экспорт текущего вида в SVG через браузер (точное совпадение с экраном).',
+  'export.hint.currentData': 'Экспорт отфильтрованных данных с сервера для текущей области.',
+  'export.hint.fullPng': 'Рендеринг полного графа в PNG на сервере через Graphviz.',
+  'export.hint.fullSvg': 'Рендеринг полного графа в SVG на сервере через Graphviz.',
+  'export.hint.fullData': 'Экспорт всех данных топологии с сервера.',
 
   // Time ago
   'time.secondsAgo': '{value}с назад',

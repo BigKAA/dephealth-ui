@@ -560,6 +560,219 @@ body {
   background: var(--btn-primary-hover);
 }
 
+/* Export modal */
+#export-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-bg);
+  z-index: 1100;
+}
+
+#export-overlay.hidden {
+  display: none;
+}
+
+.export-modal {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.export-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.export-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.export-close:hover {
+  background: var(--btn-hover-bg);
+  color: var(--text-primary);
+}
+
+.export-body {
+  padding: 16px 20px;
+}
+
+.export-section {
+  margin-bottom: 16px;
+}
+
+.export-section:last-child {
+  margin-bottom: 0;
+}
+
+.export-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.export-formats {
+  display: flex;
+  gap: 4px;
+}
+
+.export-format-btn {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.export-format-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.export-format-btn.active {
+  background: var(--btn-active-bg);
+  border-color: var(--btn-active-border);
+  color: var(--btn-active-text);
+  font-weight: 600;
+}
+
+.export-scopes {
+  display: flex;
+  gap: 16px;
+}
+
+.export-scope-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.export-scope-option input[type="radio"] {
+  accent-color: var(--btn-primary-bg);
+  cursor: pointer;
+}
+
+.export-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.export-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.export-btn-cancel {
+  padding: 8px 20px;
+  font-size: 13px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.export-btn-cancel:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--border-hover);
+}
+
+.export-btn-download {
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  background: var(--btn-primary-bg);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-btn-download:hover {
+  background: var(--btn-primary-hover);
+}
+
+.export-btn-download:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: export-spin 0.6s linear infinite;
+}
+
+.export-spinner.hidden {
+  display: none;
+}
+
+@keyframes export-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Toast notifications */
 #toast-container {
   position: fixed;

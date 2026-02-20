@@ -70,7 +70,7 @@
       <button id="btn-grouping" data-i18n-title="graphToolbar.groupByNs" title="Group by namespace"><i class="bi bi-bounding-box"></i></button>
       <button id="btn-dimension-toggle" class="hidden" data-i18n-title="graphToolbar.switchDimension" title="Switch grouping dimension"><span id="dimension-label">NS</span></button>
       <button id="btn-collapse-all" class="hidden" data-i18n-title="graphToolbar.collapseAll" title="Collapse/expand all namespaces"><i class="bi bi-arrows-collapse"></i></button>
-      <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export as PNG"><i class="bi bi-download"></i></button>
+      <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export"><i class="bi bi-download"></i></button>
       <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
       <button id="btn-legend" data-i18n-title="graphToolbar.legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
       <button id="btn-ns-legend" data-i18n-title="graphToolbar.nsLegend" title="Toggle namespace legend"><i class="bi bi-palette"></i></button>
@@ -182,6 +182,48 @@
     <span id="status-info" data-i18n="status.loading">Loading...</span>
     <span id="status-stats"></span>
   </footer>
+
+  <div id="export-overlay" class="hidden">
+    <div class="export-modal" role="dialog" aria-labelledby="export-title" aria-modal="true">
+      <div class="export-header">
+        <h3 id="export-title" data-i18n="export.title">Export Graph</h3>
+        <button id="btn-export-close" class="export-close" data-i18n-title="export.cancel" title="Cancel">&times;</button>
+      </div>
+      <div class="export-body">
+        <div class="export-section">
+          <label class="export-label" data-i18n="export.formatLabel">Format</label>
+          <div id="export-formats" class="export-formats" role="radiogroup" aria-label="Export format">
+            <button class="export-format-btn active" data-format="png">PNG</button>
+            <button class="export-format-btn" data-format="svg">SVG</button>
+            <button class="export-format-btn" data-format="json">JSON</button>
+            <button class="export-format-btn" data-format="csv">CSV</button>
+            <button class="export-format-btn" data-format="dot">DOT</button>
+          </div>
+        </div>
+        <div class="export-section">
+          <label class="export-label" data-i18n="export.scopeLabel">Scope</label>
+          <div class="export-scopes">
+            <label class="export-scope-option">
+              <input type="radio" name="export-scope" value="current" checked />
+              <span data-i18n="export.scope.current">Current view</span>
+            </label>
+            <label class="export-scope-option">
+              <input type="radio" name="export-scope" value="full" />
+              <span data-i18n="export.scope.full">Full graph</span>
+            </label>
+          </div>
+        </div>
+        <div id="export-hint" class="export-hint" data-i18n="export.hint.currentPng">Exports current view as PNG using browser rendering (exact visual match).</div>
+      </div>
+      <div class="export-footer">
+        <button id="btn-export-cancel" class="export-btn-cancel" data-i18n="export.cancel">Cancel</button>
+        <button id="btn-export-download" class="export-btn-download">
+          <span id="export-download-text" data-i18n="export.download">Download</span>
+          <span id="export-spinner" class="export-spinner hidden"></span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <div id="error-overlay" class="hidden">
     <div class="error-modal">

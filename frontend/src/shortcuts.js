@@ -16,7 +16,7 @@ export function initShortcuts(actions) {
     '-': () => actions.zoomOut && actions.zoomOut(),
     '/': () => actions.openSearch && actions.openSearch(),
     'l': () => actions.toggleLayout && actions.toggleLayout(),
-    'e': () => actions.exportPNG && actions.exportPNG(),
+    'e': () => actions.openExport && actions.openExport(),
     'Escape': () => actions.closeAll && actions.closeAll(),
   };
 

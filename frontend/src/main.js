@@ -19,6 +19,7 @@ import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu, setContextMenuGrafanaConfig } from './contextmenu.js';
 import { makeDraggable, clampElement } from './draggable.js';
 import { computeCascadeWarnings } from './cascade.js';
+import { initExportModal, openExportModal } from './export.js';
 import {
   initTimeline, isHistoryMode, getSelectedTime,
   enterHistoryMode, exitHistoryMode, restoreFromURL,
@@ -467,16 +468,10 @@ function setupGraphToolbar() {
     }
   });
 
-  // Export PNG button
+  // Export button — opens export modal
   $('#btn-export').addEventListener('click', () => {
     if (!cy) return;
-    const bg = document.documentElement.dataset.theme === 'dark' ? '#1e1e1e' : '#ffffff';
-    const dataUrl = cy.png({ full: true, scale: 2, bg });
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `dephealth-topology-${Date.now()}.png`;
-    a.click();
-    showToast(t('toast.exportedPNG'), 'success');
+    openExportModal();
   });
 
   // Fullscreen button
@@ -738,6 +733,7 @@ async function init() {
     setupLegend();
     setupNamespaceLegend();
     setupConnectionLegend();
+    initExportModal(cy, () => ({ namespace: selectedNamespace, group: selectedGroup }));
 
     // Prevent clicks on floating panels inside #cy from reaching the Cytoscape canvas
     for (const sel of ['#graph-legend', '#namespace-legend', '#connection-legend', '#search-panel', '#context-menu', '#graph-toolbar']) {
@@ -784,7 +780,7 @@ async function init() {
         }
       },
       toggleLayout: () => $('#btn-layout-toggle').click(),
-      exportPNG: () => $('#btn-export').click(),
+      openExport: () => $('#btn-export').click(),
       closeAll: () => {
         // Close all panels
         const searchPanel = $('#search-panel');

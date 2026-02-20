@@ -37,7 +37,7 @@ export default {
   'graphToolbar.fit': 'Fit to screen',
   'graphToolbar.search': 'Search nodes',
   'graphToolbar.layout': 'Toggle layout direction',
-  'graphToolbar.export': 'Export as PNG',
+  'graphToolbar.export': 'Export',
   'graphToolbar.fullscreen': 'Toggle fullscreen',
   'graphToolbar.legend': 'Toggle legend',
   'graphToolbar.groupByNs': 'Group by namespace',
@@ -108,7 +108,8 @@ export default {
   'toast.connectionRestored': 'Connection restored',
   'toast.connectionLost': 'Connection lost: {error}',
   'toast.dataSourceError': 'Data source error: {error}',
-  'toast.exportedPNG': 'Graph exported as PNG',
+  'toast.exported': 'Graph exported as {format}',
+  'toast.exportFailed': 'Export failed: {error}',
   'toast.close': 'Close',
 
   // Sidebar
@@ -190,7 +191,7 @@ export default {
   'shortcuts.search': 'Open search',
   'shortcuts.searchAlt': 'Open search (alternative)',
   'shortcuts.layout': 'Toggle layout direction (TB/LR)',
-  'shortcuts.export': 'Export graph as PNG',
+  'shortcuts.export': 'Export graph',
   'shortcuts.closeAll': 'Close all panels',
   'shortcuts.help': 'Show this help',
 
@@ -234,6 +235,22 @@ export default {
   'timeline.eventsError': 'Failed to load timeline events',
   'timeline.copyUrl': 'Copy URL',
   'timeline.urlCopied': 'URL copied to clipboard',
+
+  // Export modal
+  'export.title': 'Export Graph',
+  'export.formatLabel': 'Format',
+  'export.scopeLabel': 'Scope',
+  'export.scope.current': 'Current view',
+  'export.scope.full': 'Full graph',
+  'export.download': 'Download',
+  'export.downloading': 'Exporting...',
+  'export.cancel': 'Cancel',
+  'export.hint.currentPng': 'Exports current view as PNG using browser rendering (exact visual match).',
+  'export.hint.currentSvg': 'Exports current view as SVG using browser rendering (exact visual match).',
+  'export.hint.currentData': 'Exports filtered data from the server for the current scope.',
+  'export.hint.fullPng': 'Renders full graph as PNG on the server using Graphviz.',
+  'export.hint.fullSvg': 'Renders full graph as SVG on the server using Graphviz.',
+  'export.hint.fullData': 'Exports all topology data from the server.',
 
   // Time ago
   'time.secondsAgo': '{value}s ago',
