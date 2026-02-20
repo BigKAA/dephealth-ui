@@ -1,12 +1,14 @@
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import fcose from 'cytoscape-fcose';
+import cytoscapeSvg from 'cytoscape-svg';
 import { isElementVisible } from './search.js';
 import { getNamespaceColor, getContrastTextColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
 import { isGroupingEnabled, buildCompoundElements, getGroupingDimension } from './grouping.js';
 
 cytoscape.use(dagre);
 cytoscape.use(fcose);
+cytoscape.use(cytoscapeSvg);
 
 let layoutDirection = 'TB'; // Global layout direction: 'TB' or 'LR'
 
