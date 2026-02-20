@@ -393,6 +393,111 @@ The query step is auto-calculated based on the range duration:
 
 ---
 
+### `GET /api/v1/export/{format}`
+
+Exports the topology graph in the specified format. Supports both data formats (JSON, CSV, DOT) and rendered images (PNG, SVG via Graphviz).
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `format` | string | Yes | Export format: `json`, `csv`, `dot`, `png`, `svg` |
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `scope` | string | No | `full` (default) — entire topology, `current` — filtered by namespace/group |
+| `namespace` | string | No | Filter by Kubernetes namespace (only when `scope=current`) |
+| `group` | string | No | Filter by logical group (only when `scope=current`) |
+| `time` | string | No | ISO8601/RFC3339 timestamp for historical export |
+| `scale` | int | No | PNG scale factor, 1–4 (default `2`). Higher values produce larger images |
+
+**Response Headers:**
+
+| Format | Content-Type | Content-Disposition |
+|--------|-------------|---------------------|
+| `json` | `application/json` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.json"` |
+| `csv` | `application/zip` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.zip"` |
+| `dot` | `text/vnd.graphviz` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.dot"` |
+| `png` | `image/png` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.png"` |
+| `svg` | `image/svg+xml` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.svg"` |
+
+**Response:** `200 OK` — binary file content
+
+**JSON export schema:**
+
+```json
+{
+  "version": "1.0",
+  "timestamp": "2026-02-20T12:00:00Z",
+  "scope": "full",
+  "filters": {},
+  "nodes": [
+    {
+      "id": "order-service",
+      "name": "order-service",
+      "namespace": "production",
+      "group": "payment-team",
+      "type": "service",
+      "state": "ok",
+      "alerts": 0
+    }
+  ],
+  "edges": [
+    {
+      "source": "order-service",
+      "target": "postgres-main",
+      "dependency": "postgres-main",
+      "type": "postgres",
+      "host": "pg-master.db.svc",
+      "port": "5432",
+      "critical": true,
+      "health": 1,
+      "status": "",
+      "detail": "",
+      "latency_ms": 0.0052
+    }
+  ]
+}
+```
+
+**CSV export:** Returns a ZIP archive containing two files:
+- `nodes.csv` — columns: `id`, `name`, `namespace`, `group`, `type`, `state`, `alerts`
+- `edges.csv` — columns: `source`, `target`, `dependency`, `type`, `host`, `port`, `critical`, `health`, `status`, `detail`, `latency_ms`
+
+Both CSV files include a UTF-8 BOM for automatic encoding detection in Excel.
+
+**DOT export:** Returns [Graphviz DOT](https://graphviz.org/doc/info/lang.html) format text with namespace/group subgraph clusters, status-colored nodes, and edge colors matching the UI connection legend.
+
+**PNG/SVG export:** Requires Graphviz installed on the server (included in the Docker image). Generates DOT internally and renders it via the `dot` layout engine. The `scale` parameter controls PNG resolution via DPI (scale=1 → 72dpi, scale=2 → 144dpi, scale=3 → 216dpi, scale=4 → 288dpi).
+
+**Examples:**
+
+```bash
+# Export full topology as JSON
+curl -o topology.json https://dephealth.example.com/api/v1/export/json
+
+# Export filtered topology as CSV
+curl -o topology.zip https://dephealth.example.com/api/v1/export/csv?scope=current&namespace=production
+
+# Export high-resolution PNG
+curl -o topology.png https://dephealth.example.com/api/v1/export/png?scale=3
+
+# Export historical topology as SVG
+curl -o topology.svg https://dephealth.example.com/api/v1/export/svg?time=2026-02-15T12:00:00Z
+```
+
+**Errors:**
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| 400 | Unsupported format, invalid scope, invalid time format, scale out of range (1–4) |
+| 502 | Prometheus/VictoriaMetrics unreachable |
+| 503 | Graphviz not installed (PNG/SVG only) |
+
+---
+
 ### `GET /api/v1/alerts`
 
 Returns all active alerts from AlertManager aggregated by service/dependency.

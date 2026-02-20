@@ -393,6 +393,111 @@ dephealth-ui предоставляет REST API для визуализации
 
 ---
 
+### `GET /api/v1/export/{format}`
+
+Экспортирует граф топологии в указанном формате. Поддерживает как форматы данных (JSON, CSV, DOT), так и отрендеренные изображения (PNG, SVG через Graphviz).
+
+**Path-параметры:**
+
+| Параметр | Тип | Обязателен | Описание |
+|----------|-----|:----------:|----------|
+| `format` | string | Да | Формат экспорта: `json`, `csv`, `dot`, `png`, `svg` |
+
+**Query-параметры:**
+
+| Параметр | Тип | Обязателен | Описание |
+|----------|-----|:----------:|----------|
+| `scope` | string | Нет | `full` (по умолчанию) — вся топология, `current` — с фильтрацией по namespace/group |
+| `namespace` | string | Нет | Фильтр по Kubernetes namespace (только при `scope=current`) |
+| `group` | string | Нет | Фильтр по логической группе (только при `scope=current`) |
+| `time` | string | Нет | ISO8601/RFC3339 метка времени для исторического экспорта |
+| `scale` | int | Нет | Масштаб PNG, 1–4 (по умолчанию `2`). Большие значения дают изображения выше разрешением |
+
+**Заголовки ответа:**
+
+| Формат | Content-Type | Content-Disposition |
+|--------|-------------|---------------------|
+| `json` | `application/json` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.json"` |
+| `csv` | `application/zip` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.zip"` |
+| `dot` | `text/vnd.graphviz` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.dot"` |
+| `png` | `image/png` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.png"` |
+| `svg` | `image/svg+xml` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.svg"` |
+
+**Ответ:** `200 OK` — бинарное содержимое файла
+
+**Схема JSON-экспорта:**
+
+```json
+{
+  "version": "1.0",
+  "timestamp": "2026-02-20T12:00:00Z",
+  "scope": "full",
+  "filters": {},
+  "nodes": [
+    {
+      "id": "order-service",
+      "name": "order-service",
+      "namespace": "production",
+      "group": "payment-team",
+      "type": "service",
+      "state": "ok",
+      "alerts": 0
+    }
+  ],
+  "edges": [
+    {
+      "source": "order-service",
+      "target": "postgres-main",
+      "dependency": "postgres-main",
+      "type": "postgres",
+      "host": "pg-master.db.svc",
+      "port": "5432",
+      "critical": true,
+      "health": 1,
+      "status": "",
+      "detail": "",
+      "latency_ms": 0.0052
+    }
+  ]
+}
+```
+
+**CSV-экспорт:** Возвращает ZIP-архив с двумя файлами:
+- `nodes.csv` — колонки: `id`, `name`, `namespace`, `group`, `type`, `state`, `alerts`
+- `edges.csv` — колонки: `source`, `target`, `dependency`, `type`, `host`, `port`, `critical`, `health`, `status`, `detail`, `latency_ms`
+
+Оба CSV-файла содержат UTF-8 BOM для автоматического определения кодировки в Excel.
+
+**DOT-экспорт:** Возвращает текст в формате [Graphviz DOT](https://graphviz.org/doc/info/lang.html) с подграфами-кластерами по namespace/group, узлами, окрашенными по состоянию, и цветами рёбер, соответствующими легенде подключений в UI.
+
+**PNG/SVG-экспорт:** Требует установленный Graphviz на сервере (включён в Docker-образ). Внутренне генерирует DOT и рендерит его через движок `dot`. Параметр `scale` управляет разрешением PNG через DPI (scale=1 → 72dpi, scale=2 → 144dpi, scale=3 → 216dpi, scale=4 → 288dpi).
+
+**Примеры:**
+
+```bash
+# Экспорт всей топологии в JSON
+curl -o topology.json https://dephealth.example.com/api/v1/export/json
+
+# Экспорт отфильтрованной топологии в CSV
+curl -o topology.zip https://dephealth.example.com/api/v1/export/csv?scope=current&namespace=production
+
+# Экспорт PNG высокого разрешения
+curl -o topology.png https://dephealth.example.com/api/v1/export/png?scale=3
+
+# Экспорт исторической топологии в SVG
+curl -o topology.svg https://dephealth.example.com/api/v1/export/svg?time=2026-02-15T12:00:00Z
+```
+
+**Ошибки:**
+
+| HTTP Status | Условие |
+|-------------|---------|
+| 400 | Неподдерживаемый формат, неверный scope, неверный формат time, scale вне диапазона (1–4) |
+| 502 | Prometheus/VictoriaMetrics недоступен |
+| 503 | Graphviz не установлен (только PNG/SVG) |
+
+---
+
 ### `GET /api/v1/alerts`
 
 Возвращает все активные алерты из AlertManager, агрегированные по сервису/зависимости.

@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-02-20
+
+### Added
+
+- **Graph export** — multi-format topology export via `GET /api/v1/export/{format}` endpoint
+- **Export formats** — JSON (structured data with metadata), CSV (ZIP with nodes.csv + edges.csv), DOT (Graphviz format with clusters and colors), PNG (Graphviz-rendered raster), SVG (Graphviz-rendered vector)
+- **Export modal** — frontend dialog with format selection (PNG/SVG/JSON/CSV/DOT), scope selection (current view / full graph), and download button
+- **Frontend export** — "current view" PNG/SVG via Cytoscape.js `cy.png()` and `cy.svg()` preserving exact visual layout
+- **Backend export** — "full graph" rendering via `internal/export` package with Graphviz integration
+- **Export parameters** — scope filtering (`?scope=current&namespace=X`), historical export (`?time=`), PNG scale control (`?scale=1-4`)
+- **Graphviz integration** — server-side DOT→PNG/SVG rendering via `dot` CLI (10s timeout, DPI-based scaling)
+- **Export keyboard shortcut** — `E` key opens export modal (previously exported PNG directly)
+- **cytoscape-svg** — added dependency for frontend SVG export support
+
+### Changed
+
+- Dockerfile runtime stage now includes Graphviz package (~55–65 MB addition to image size)
+- Export button tooltip changed from "Export as PNG" to generic "Export"
+
+### Documentation
+
+- Export endpoint (`/api/v1/export/{format}`) documented in API reference (EN + RU)
+- Graph export architecture section added to application design docs (EN + RU)
+- Backend responsibilities table updated with export entry (EN + RU)
+- Architecture diagram updated with export endpoint (EN + RU)
+- Docker image size updated in deployment section (EN + RU)
+
 ## [0.16.1] - 2026-02-19
 
 ### Added
@@ -208,6 +235,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.17.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.14.1...v0.16.0
 [0.14.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.13.0...v0.14.1

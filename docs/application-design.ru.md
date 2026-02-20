@@ -86,6 +86,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 │  │  GET /api/v1/topology → handler│ │  ← Готовый граф топологии
 │  │  GET /api/v1/alerts   → handler│ │  ← Агрегированные алерты
 │  │  GET /api/v1/config   → handler│ │  ← Конфигурация для фронтенда
+│  │  GET /api/v1/export/* → handler│ │  ← Экспорт графа (JSON/CSV/DOT/PNG/SVG)
 │  └────────────────────────────────┘ │
 │                                     │
 │  ┌─ Topology Service ─────────────┐ │
@@ -137,6 +138,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 | **Генерация Grafana URL** | Формирование URL dashboards с правильными query-параметрами из конфигурации |
 | **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation) |
 | **Раздача static-файлов** | SPA-ассеты встроены через Go `embed` package, раздаются по `/` |
+| **Экспорт графа** | Мультиформатный экспорт (JSON, CSV, DOT, PNG, SVG) через пакет `internal/export`; интеграция с Graphviz для рендеринга изображений |
 
 ---
 
@@ -562,6 +564,76 @@ and
 
 ---
 
+## Экспорт графа
+
+Функция экспорта позволяет скачивать граф топологии в различных форматах для внешнего анализа, документирования или передачи коллегам.
+
+### Поддерживаемые форматы
+
+| Формат | Тип | Описание |
+|--------|-----|----------|
+| **JSON** | Данные | Структурированный экспорт с узлами, рёбрами и метаданными (версия, timestamp, scope, фильтры) |
+| **CSV** | Данные | ZIP-архив с файлами `nodes.csv` + `edges.csv` с UTF-8 BOM |
+| **DOT** | Данные | Формат Graphviz DOT с подграфами-кластерами по namespace/group и цветами по состоянию |
+| **PNG** | Изображение | Растровое изображение через Graphviz с настраиваемым DPI (масштаб 1–4) |
+| **SVG** | Изображение | Векторное изображение через Graphviz |
+
+### Архитектура
+
+Экспорт использует двойной подход:
+
+- **«Текущий вид»** (фронтенд): `cy.png()` и `cy.svg()` — захватывает точное содержимое canvas Cytoscape.js как его видит пользователь, сохраняя layout, масштаб и свёрнутые группы
+- **«Полный граф»** (бэкенд): `GET /api/v1/export/{format}` — генерирует полное серверное представление топологии через пакет `internal/export` и Graphviz
+
+```
+┌────────────────────────────────────────┐
+│  Модальное окно экспорта (фронтенд)    │
+│                                        │
+│  Формат: [PNG] [SVG] [JSON] [CSV] [DOT]│
+│  Scope:  ○ Текущий вид  ○ Полный граф │
+│                                        │
+│  Текущий вид + PNG/SVG                 │
+│    → cy.png({full:true, scale:2})      │
+│    → cy.svg({full:true})               │
+│                                        │
+│  Полный граф + любой формат            │
+│    → fetch /api/v1/export/{format}     │
+│    → Blob → скачивание                 │
+└──────────────────┬─────────────────────┘
+                   │ (бэкенд-форматы)
+                   ▼
+┌────────────────────────────────────────┐
+│  Export Handler (Go бэкенд)            │
+│                                        │
+│  TopologyResponse                      │
+│    → ConvertTopology() → ExportData    │
+│    → ExportJSON / ExportCSV / ExportDOT│
+│    → RenderDOT (png/svg через Graphviz)│
+└──────────────────┬─────────────────────┘
+                   │ (только PNG/SVG)
+                   ▼
+┌────────────────────────────────────────┐
+│  Graphviz CLI (dot -Tpng/-Tsvg)       │
+│  Установлен в Docker-образе (Alpine)   │
+└────────────────────────────────────────┘
+```
+
+### Бэкенд-пакет экспорта (`internal/export/`)
+
+| Файл | Назначение |
+|------|-----------|
+| `model.go` | Структуры `ExportData`, `ExportNode`, `ExportEdge`; конвертер `ConvertTopology()` |
+| `json.go` | `ExportJSON()` — сериализация в форматированный JSON |
+| `csv.go` | `ExportCSV()` — ZIP-архив с `nodes.csv` + `edges.csv` |
+| `dot.go` | `ExportDOT()` — Graphviz DOT с кластерами, цветами, формами |
+| `render.go` | `RenderDOT()` — вызов CLI `dot` с таймаутом 10с; проверка `GraphvizAvailable()` |
+
+### Интеграция с Graphviz
+
+Docker-образ включает Alpine-пакет `graphviz` (~55–65 МБ) для серверного рендеринга. Для рендеринга всех графов используется движок `dot`. Если Graphviz не установлен, экспорт PNG/SVG возвращает HTTP 503; остальные форматы (JSON, CSV, DOT) работают без Graphviz.
+
+---
+
 ## Развёртывание
 
 ### Docker
@@ -569,9 +641,9 @@ and
 Multi-stage build:
 1. **Stage 1 (frontend):** Node.js + Vite → собирает SPA в `dist/`
 2. **Stage 2 (backend):** Go → компилирует binary со встроенными static-файлами из Stage 1
-3. **Stage 3 (runtime):** Минимальный образ (scratch / distroless) с единственным binary
+3. **Stage 3 (runtime):** Образ на базе Alpine с Graphviz для рендеринга экспорта графов
 
-Результат: Docker-образ ~15-20MB.
+Результат: Docker-образ ~80 МБ (Graphviz добавляет ~55–65 МБ к базовому образу).
 
 ### Helm Chart
 

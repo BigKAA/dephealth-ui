@@ -86,6 +86,7 @@ Combined application: Go backend + JS frontend, shipped as a single Docker image
 │  │  GET /api/v1/topology → handler│ │  ← Ready topology graph
 │  │  GET /api/v1/alerts   → handler│ │  ← Aggregated alerts
 │  │  GET /api/v1/config   → handler│ │  ← Frontend configuration
+│  │  GET /api/v1/export/* → handler│ │  ← Graph export (JSON/CSV/DOT/PNG/SVG)
 │  └────────────────────────────────┘ │
 │                                     │
 │  ┌─ Topology Service ─────────────┐ │
@@ -136,6 +137,7 @@ Combined application: Go backend + JS frontend, shipped as a single Docker image
 | **Grafana URL generation** | Dashboard URLs with correct query parameters from configuration |
 | **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation) |
 | **Static file serving** | SPA assets embedded via Go `embed` package, served at `/` |
+| **Graph export** | Multi-format export (JSON, CSV, DOT, PNG, SVG) via `internal/export` package; Graphviz integration for image rendering |
 
 ---
 
@@ -561,6 +563,76 @@ Compatible with both Prometheus and VictoriaMetrics (`last_over_time()` is suppo
 
 ---
 
+## Graph Export
+
+The export feature allows users to download the topology graph in multiple formats for external analysis, documentation, or sharing.
+
+### Supported Formats
+
+| Format | Type | Description |
+|--------|------|-------------|
+| **JSON** | Data | Structured export with nodes, edges, and metadata (version, timestamp, scope, filters) |
+| **CSV** | Data | ZIP archive containing `nodes.csv` + `edges.csv` with UTF-8 BOM |
+| **DOT** | Data | Graphviz DOT language with namespace/group subgraph clusters and status colors |
+| **PNG** | Image | Graphviz-rendered raster image with configurable DPI (scale 1–4) |
+| **SVG** | Image | Graphviz-rendered vector image |
+
+### Architecture
+
+Export uses a dual-path approach:
+
+- **"Current view"** (frontend): `cy.png()` and `cy.svg()` — captures the exact Cytoscape.js canvas as the user sees it, preserving layout, zoom, and collapsed groups
+- **"Full graph"** (backend): `GET /api/v1/export/{format}` — generates a complete, server-side representation of the topology via the `internal/export` package and Graphviz
+
+```
+┌────────────────────────────────────────┐
+│  Export Modal (frontend)               │
+│                                        │
+│  Format: [PNG] [SVG] [JSON] [CSV] [DOT]│
+│  Scope:  ○ Current view  ○ Full graph  │
+│                                        │
+│  Current view + PNG/SVG                │
+│    → cy.png({full:true, scale:2})      │
+│    → cy.svg({full:true})               │
+│                                        │
+│  Full graph + any format               │
+│    → fetch /api/v1/export/{format}     │
+│    → Blob → download                   │
+└──────────────────┬─────────────────────┘
+                   │ (backend formats)
+                   ▼
+┌────────────────────────────────────────┐
+│  Export Handler (Go backend)           │
+│                                        │
+│  TopologyResponse                      │
+│    → ConvertTopology() → ExportData    │
+│    → ExportJSON / ExportCSV / ExportDOT│
+│    → RenderDOT (png/svg via Graphviz)  │
+└──────────────────┬─────────────────────┘
+                   │ (PNG/SVG only)
+                   ▼
+┌────────────────────────────────────────┐
+│  Graphviz CLI (dot -Tpng/-Tsvg)       │
+│  Installed in Docker image (Alpine)    │
+└────────────────────────────────────────┘
+```
+
+### Backend Export Package (`internal/export/`)
+
+| File | Purpose |
+|------|---------|
+| `model.go` | `ExportData`, `ExportNode`, `ExportEdge` structs; `ConvertTopology()` converter |
+| `json.go` | `ExportJSON()` — indented JSON serialization |
+| `csv.go` | `ExportCSV()` — ZIP archive with `nodes.csv` + `edges.csv` |
+| `dot.go` | `ExportDOT()` — Graphviz DOT with clusters, colors, shapes |
+| `render.go` | `RenderDOT()` — invokes `dot` CLI with 10s timeout; `GraphvizAvailable()` check |
+
+### Graphviz Integration
+
+The Docker image includes the Alpine `graphviz` package (~55–65 MB) for server-side rendering. The `dot` layout engine is used for all graph rendering. If Graphviz is not installed, PNG/SVG exports return HTTP 503; other formats (JSON, CSV, DOT) work without Graphviz.
+
+---
+
 ## Deployment
 
 ### Docker
@@ -568,9 +640,9 @@ Compatible with both Prometheus and VictoriaMetrics (`last_over_time()` is suppo
 Multi-stage build:
 1. **Stage 1 (frontend):** Node.js + Vite → builds SPA into `dist/`
 2. **Stage 2 (backend):** Go → compiles binary with embedded static files from Stage 1
-3. **Stage 3 (runtime):** Minimal image (scratch / distroless) with a single binary
+3. **Stage 3 (runtime):** Alpine-based image with Graphviz for graph export rendering
 
-Result: Docker image ~15-20MB.
+Result: Docker image ~80 MB (Graphviz adds ~55–65 MB to the base image).
 
 ### Helm Chart
 
