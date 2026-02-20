@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /dephealth-ui ./cmd/dephealth-ui
 
 # Stage 3 — runtime
 FROM ${REGISTRY}/alpine:3.21
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates graphviz
 COPY --from=builder /dephealth-ui /dephealth-ui
 EXPOSE 8080
 ENTRYPOINT ["/dephealth-ui"]

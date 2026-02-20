@@ -122,6 +122,7 @@ func (s *Server) setupRoutes() {
 		r.Get("/cascade-analysis", s.handleCascadeAnalysis)
 		r.Get("/cascade-graph", s.handleCascadeGraph)
 		r.Get("/timeline/events", s.handleTimelineEvents)
+		r.Get("/export/{format}", s.handleExport)
 	})
 
 	// SPA static files (embedded via embed.FS)
