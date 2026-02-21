@@ -54,7 +54,7 @@ func newMockOIDCProvider(t *testing.T) *mockOIDCProvider {
 
 func (m *mockOIDCProvider) handleDiscovery(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"issuer":                 m.server.URL,
 		"authorization_endpoint": m.server.URL + "/authorize",
 		"token_endpoint":         m.server.URL + "/token",
@@ -74,11 +74,11 @@ func (m *mockOIDCProvider) handleJWKS(w http.ResponseWriter, _ *http.Request) {
 	}
 	jwks := jose.JSONWebKeySet{Keys: []jose.JSONWebKey{jwk}}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(jwks)
+	_ = json.NewEncoder(w).Encode(jwks)
 }
 
 func (m *mockOIDCProvider) handleToken(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	_ = r.ParseForm()
 
 	idToken, err := m.issueIDToken("test-user", "Test User", "test@example.com")
 	if err != nil {
@@ -87,7 +87,7 @@ func (m *mockOIDCProvider) handleToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"access_token": "mock-access-token",
 		"token_type":   "Bearer",
 		"id_token":     idToken,
@@ -399,7 +399,7 @@ func TestOIDC_MiddlewareValidSession(t *testing.T) {
 
 	handler := auth.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "ok")
+		_, _ = fmt.Fprint(w, "ok")
 	}))
 
 	req := httptest.NewRequest("GET", "/api/v1/topology", nil)

@@ -21,6 +21,26 @@ let highlightTimer = null; // Timer for highlight auto-clear
 const $ = (sel) => document.querySelector(sel);
 
 // ---------------------------------------------------------------------------
+// HTML escaping
+// ---------------------------------------------------------------------------
+
+/**
+ * Escape a string for safe insertion into HTML.
+ * Prevents XSS when rendering API data via innerHTML.
+ * @param {*} str - Value to escape (non-strings returned as-is)
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ---------------------------------------------------------------------------
 // Shared rendering helpers
 // ---------------------------------------------------------------------------
 
@@ -66,12 +86,12 @@ function renderAlertItems(alerts, contextId) {
   return alerts
     .map(
       (alert) => `
-      <div class="sidebar-alert-item ${alert.severity || 'info'}">
-        <div class="sidebar-alert-name">${alert.alertname || t('alerts.unknownAlert')}</div>
+      <div class="sidebar-alert-item ${escapeHtml(alert.severity || 'info')}">
+        <div class="sidebar-alert-name">${escapeHtml(alert.alertname || t('alerts.unknownAlert'))}</div>
         <div class="sidebar-alert-meta">
-          ${alert.severity ? `<strong>${alert.severity.toUpperCase()}</strong>` : ''}
-          ${contextId && alert.service !== contextId && alert.service ? ` &bull; ${t('alerts.service', { name: alert.service })}` : ''}
-          ${contextId && alert.dependency !== contextId && alert.dependency ? ` &bull; ${t('alerts.dependency', { name: alert.dependency })}` : ''}
+          ${alert.severity ? `<strong>${escapeHtml(alert.severity.toUpperCase())}</strong>` : ''}
+          ${contextId && alert.service !== contextId && alert.service ? ` &bull; ${t('alerts.service', { name: escapeHtml(alert.service) })}` : ''}
+          ${contextId && alert.dependency !== contextId && alert.dependency ? ` &bull; ${t('alerts.dependency', { name: escapeHtml(alert.dependency) })}` : ''}
         </div>
       </div>
     `
@@ -279,9 +299,9 @@ function openCollapsedSidebar(node, cy) {
     $('#sidebar-edges').innerHTML = `
       <div class="sidebar-section-title">${t('sidebar.collapsed.services', { count: children.length })}</div>
       ${sorted.map((child) => `
-        <div class="sidebar-node-link" data-child-id="${child.data.id}">
-          <span class="sidebar-state-dot ${child.data.state || 'unknown'}"></span>
-          <span class="sidebar-node-link-label">${child.data.label || child.data.id}</span>
+        <div class="sidebar-node-link" data-child-id="${escapeHtml(child.data.id)}">
+          <span class="sidebar-state-dot ${escapeHtml(child.data.state || 'unknown')}"></span>
+          <span class="sidebar-node-link-label">${escapeHtml(child.data.label || child.data.id)}</span>
           <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
         </div>
       `).join('')}
@@ -343,11 +363,11 @@ function closeSidebar() {
 function renderDetails(data) {
   const details = [
     { label: t('sidebar.state'), value: formatStateBadge(data.state, data.stale) },
-    data.group && { label: t('sidebar.group'), value: data.group },
-    data.namespace && { label: t('sidebar.namespace'), value: data.namespace },
-    data.type && { label: t('sidebar.type'), value: data.type },
-    data.host && { label: t('sidebar.host'), value: data.host },
-    data.port && { label: t('sidebar.port'), value: data.port },
+    data.group && { label: t('sidebar.group'), value: escapeHtml(data.group) },
+    data.namespace && { label: t('sidebar.namespace'), value: escapeHtml(data.namespace) },
+    data.type && { label: t('sidebar.type'), value: escapeHtml(data.type) },
+    data.host && { label: t('sidebar.host'), value: escapeHtml(data.host) },
+    data.port && { label: t('sidebar.port'), value: escapeHtml(data.port) },
     alertManagerEnabled && data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
     data.isRoot && { label: t('sidebar.role'), value: `<span class="sidebar-root-badge">${t('sidebar.entryPoint')}</span>` },
   ].filter(Boolean);
@@ -422,9 +442,9 @@ function renderEdges(node, cy) {
   });
 
   const renderItem = (info, arrow) => `
-    <div class="sidebar-edge-item${info.stale ? ' stale' : ''}" data-edge-id="${info.edgeId}">
-      <span class="sidebar-edge-label">${arrow} ${info.label}</span>
-      <span class="sidebar-edge-latency">${info.latency}</span>
+    <div class="sidebar-edge-item${info.stale ? ' stale' : ''}" data-edge-id="${escapeHtml(info.edgeId)}">
+      <span class="sidebar-edge-label">${arrow} ${escapeHtml(info.label)}</span>
+      <span class="sidebar-edge-latency">${escapeHtml(info.latency)}</span>
       <span class="sidebar-edge-action">${t('sidebar.edge.goToEdge')} →</span>
     </div>
   `;
@@ -742,9 +762,9 @@ function renderEdgeDetails(data) {
   const details = [
     { label: t('sidebar.state'), value: formatStateBadge(data.state, data.stale) },
     data.status && data.status !== 'ok' && { label: t('sidebar.edge.status'), value: formatStatusBadge(data.status) },
-    data.status && data.status !== 'ok' && data.detail && { label: t('sidebar.edge.detail'), value: `<code>${data.detail}</code>` },
-    data.type && { label: t('sidebar.edge.type'), value: data.type },
-    { label: t('sidebar.edge.latency'), value: data.stale ? '—' : (data.latency || '—') },
+    data.status && data.status !== 'ok' && data.detail && { label: t('sidebar.edge.detail'), value: `<code>${escapeHtml(data.detail)}</code>` },
+    data.type && { label: t('sidebar.edge.type'), value: escapeHtml(data.type) },
+    { label: t('sidebar.edge.latency'), value: escapeHtml(data.stale ? '—' : (data.latency || '—')) },
     { label: t('sidebar.edge.critical'), value: data.critical ? t('sidebar.edge.criticalYes') : t('sidebar.edge.criticalNo') },
     alertManagerEnabled && data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
   ].filter(Boolean);
@@ -796,19 +816,19 @@ function renderConnectedNodes(sourceNode, targetNode, cy) {
 
   section.innerHTML = `
     <div class="sidebar-section-title">${t('sidebar.edge.connectedNodes')}</div>
-    <div class="sidebar-node-link" data-node-id="${sourceNode.id()}" data-other-id="${targetNode.id()}">
-      <span class="sidebar-state-dot ${sourceState}"></span>
+    <div class="sidebar-node-link" data-node-id="${escapeHtml(sourceNode.id())}" data-other-id="${escapeHtml(targetNode.id())}">
+      <span class="sidebar-state-dot ${escapeHtml(sourceState)}"></span>
       <span class="sidebar-node-link-label">
         <span class="sidebar-node-link-role">${t('sidebar.edge.source')}:</span>
-        ${sourceLabel}
+        ${escapeHtml(sourceLabel)}
       </span>
       <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
     </div>
-    <div class="sidebar-node-link" data-node-id="${targetNode.id()}" data-other-id="${sourceNode.id()}">
-      <span class="sidebar-state-dot ${targetState}"></span>
+    <div class="sidebar-node-link" data-node-id="${escapeHtml(targetNode.id())}" data-other-id="${escapeHtml(sourceNode.id())}">
+      <span class="sidebar-state-dot ${escapeHtml(targetState)}"></span>
       <span class="sidebar-node-link-label">
         <span class="sidebar-node-link-role">${t('sidebar.edge.target')}:</span>
-        ${targetLabel}
+        ${escapeHtml(targetLabel)}
       </span>
       <span class="sidebar-node-link-action">${t('sidebar.edge.goToNode')} →</span>
     </div>
@@ -958,8 +978,8 @@ async function renderInstances(serviceId, serviceName) {
           <tbody>
             ${instances.map(inst => `
               <tr>
-                <td class="instance-cell" title="${inst.instance}">${inst.instance || '—'}</td>
-                <td class="pod-cell" title="${inst.pod || ''}">${inst.pod || '—'}</td>
+                <td class="instance-cell" title="${escapeHtml(inst.instance)}">${escapeHtml(inst.instance || '—')}</td>
+                <td class="pod-cell" title="${escapeHtml(inst.pod || '')}">${escapeHtml(inst.pod || '—')}</td>
               </tr>
             `).join('')}
           </tbody>

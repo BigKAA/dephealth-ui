@@ -68,9 +68,9 @@ const latencyResponse = `{
 }`
 
 func newTestPromServer(response string) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(response))
+		_, _ = w.Write([]byte(response))
 	}))
 }
 
@@ -158,7 +158,7 @@ func TestQueryBasicAuth(t *testing.T) {
 	var gotUser, gotPass string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotUser, gotPass, _ = r.BasicAuth()
-		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
 	}))
 	defer srv.Close()
 
@@ -179,7 +179,7 @@ func TestQueryWithNamespaceFilter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.Query().Get("query")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
 	}))
 	defer srv.Close()
 
@@ -213,7 +213,7 @@ func TestQueryTopologyEdgesLookback(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.Query().Get("query")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(topologyEdgesResponse))
+		_, _ = w.Write([]byte(topologyEdgesResponse))
 	}))
 	defer srv.Close()
 
@@ -295,7 +295,7 @@ const dependencyStatusDetailResponse = `{
 func TestQueryDependencyStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(dependencyStatusResponse))
+		_, _ = w.Write([]byte(dependencyStatusResponse))
 	}))
 	defer srv.Close()
 
@@ -323,7 +323,7 @@ func TestQueryDependencyStatus(t *testing.T) {
 func TestQueryDependencyStatusDetail(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(dependencyStatusDetailResponse))
+		_, _ = w.Write([]byte(dependencyStatusDetailResponse))
 	}))
 	defer srv.Close()
 
@@ -370,7 +370,7 @@ func TestQueryWithTimeParameter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedTime = r.URL.Query().Get("time")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
 	}))
 	defer srv.Close()
 
@@ -488,7 +488,7 @@ func TestQueryStatusRange(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(queryRangeResponse))
+		_, _ = w.Write([]byte(queryRangeResponse))
 	}))
 	defer srv.Close()
 
@@ -533,7 +533,7 @@ func TestQueryStatusRangeWithNamespace(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.Query().Get("query")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
 	}))
 	defer srv.Close()
 
@@ -555,7 +555,7 @@ func TestQueryStatusRangeWithNamespace(t *testing.T) {
 func TestQueryErrorStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("service unavailable"))
+		_, _ = w.Write([]byte("service unavailable"))
 	}))
 	defer srv.Close()
 
@@ -652,7 +652,7 @@ func TestQueryWithGroupFilter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.Query().Get("query")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
 	}))
 	defer srv.Close()
 

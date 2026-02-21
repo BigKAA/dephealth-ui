@@ -29,7 +29,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"error":"unsupported export format: %s"}`, format)
+		_, _ = fmt.Fprintf(w, `{"error":"unsupported export format: %s"}`, format)
 		return
 	}
 
@@ -41,7 +41,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if scope != "full" && scope != "current" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"scope must be 'full' or 'current'"}`)
+		_, _ = fmt.Fprint(w, `{"error":"scope must be 'full' or 'current'"}`)
 		return
 	}
 
@@ -59,7 +59,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			_, _ = fmt.Fprint(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
 			return
 		}
 		opts.Time = &t
@@ -72,7 +72,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		if err != nil || v < 1 || v > 4 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"error":"scale must be an integer between 1 and 4"}`)
+			_, _ = fmt.Fprint(w, `{"error":"scale must be an integer between 1 and 4"}`)
 			return
 		}
 		scale = v
@@ -92,7 +92,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 			s.logger.Error("failed to build topology for export", "error", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
 			return
 		}
 		resp = built
@@ -136,7 +136,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		if !export.GraphvizAvailable() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprint(w, `{"error":"Graphviz is not installed on the server"}`)
+			_, _ = fmt.Fprint(w, `{"error":"Graphviz is not installed on the server"}`)
 			return
 		}
 		dot, dotErr := export.ExportDOT(data, export.DOTOptions{RankDir: "TB"})
@@ -151,7 +151,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		if !export.GraphvizAvailable() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprint(w, `{"error":"Graphviz is not installed on the server"}`)
+			_, _ = fmt.Fprint(w, `{"error":"Graphviz is not installed on the server"}`)
 			return
 		}
 		dot, dotErr := export.ExportDOT(data, export.DOTOptions{RankDir: "TB"})
@@ -168,7 +168,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("export failed", "format", format, "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, `{"error":"export failed: %s"}`, err.Error())
+		_, _ = fmt.Fprintf(w, `{"error":"export failed: %s"}`, err.Error())
 		return
 	}
 
@@ -176,5 +176,5 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(output)))
-	w.Write(output)
+	_, _ = w.Write(output)
 }

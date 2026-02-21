@@ -56,6 +56,21 @@ const $ = (sel) => document.querySelector(sel);
 const RETRY_BASE = 5000;
 const RETRY_MAX = 30000;
 
+/**
+ * Escape a string for safe insertion into HTML.
+ * @param {*} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function updateStatus(data) {
   const { nodeCount, edgeCount } = data.meta;
   let text;
@@ -638,7 +653,7 @@ function updateNamespaceLegend(data) {
       (v) => `
     <div class="ns-legend-item">
       <span class="ns-legend-swatch" style="background: ${getNamespaceColor(v)};"></span>
-      <span class="ns-legend-name" title="${v}">${v}</span>
+      <span class="ns-legend-name" title="${escapeHtml(v)}">${escapeHtml(v)}</span>
     </div>
   `
     )
@@ -866,10 +881,12 @@ async function init() {
     showError(err.message);
   }
 
-  $('#btn-error-retry').addEventListener('click', () => {
-    hideError();
-    init();
-  });
 }
+
+// Register retry handler once (outside init to prevent listener stacking on retries).
+$('#btn-error-retry').addEventListener('click', () => {
+  hideError();
+  init();
+});
 
 init();

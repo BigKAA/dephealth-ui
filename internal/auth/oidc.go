@@ -254,13 +254,13 @@ func (a *oidcAuth) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sess.User)
+	_ = json.NewEncoder(w).Encode(sess.User)
 }
 
 func (a *oidcAuth) unauthorizedJSON(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	fmt.Fprint(w, `{"error":"unauthorized"}`)
+	_, _ = fmt.Fprint(w, `{"error":"unauthorized"}`)
 }
 
 func (a *oidcAuth) cleanupExpiredStates() {

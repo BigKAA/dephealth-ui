@@ -16,9 +16,9 @@ import (
 )
 
 func newTestPromServer() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[
 			{"metric":{"job":"svc-go","dependency":"postgres","type":"postgres","host":"pg","port":"5432"},"value":[1700000000,"1"]}
 		]}}`))
 	}))

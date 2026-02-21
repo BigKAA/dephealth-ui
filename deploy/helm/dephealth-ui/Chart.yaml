@@ -2,7 +2,7 @@ apiVersion: v2
 name: dephealth-ui
 description: Визуализация топологии и здоровья микросервисов (dephealth-ui)
 version: 0.10.0
-appVersion: "0.17.1"
+appVersion: "0.17.2"
 type: application
 keywords:
   - dephealth

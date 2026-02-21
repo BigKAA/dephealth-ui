@@ -17,7 +17,7 @@ func TestFetchAlerts(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`[
+		_, _ = w.Write([]byte(`[
 			{
 				"labels": {
 					"alertname": "DependencyDown",
@@ -109,7 +109,7 @@ func TestFetchAlertsBasicAuth(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer srv.Close()
 
@@ -123,7 +123,7 @@ func TestFetchAlertsBasicAuth(t *testing.T) {
 func TestFetchAlertsHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`error`))
+		_, _ = w.Write([]byte(`error`))
 	}))
 	defer srv.Close()
 

@@ -132,14 +132,14 @@ func (s *Server) setupRoutes() {
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `{"status":"ok"}`)
+	_, _ = fmt.Fprint(w, `{"status":"ok"}`)
 }
 
 func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 	// TODO: check datasource connectivity
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `{"status":"ok"}`)
+	_, _ = fmt.Fprint(w, `{"status":"ok"}`)
 }
 
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +153,7 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			_, _ = fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
 			return
 		}
 		opts.Time = &t
@@ -180,7 +180,7 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to build topology", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
 		return
 	}
 
@@ -213,7 +213,7 @@ type alertsMeta struct {
 func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	if s.am == nil {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"alerts":[],"meta":{"total":0,"critical":0,"warning":0,"fetchedAt":""}}`)
+		_, _ = fmt.Fprint(w, `{"alerts":[],"meta":{"total":0,"critical":0,"warning":0,"fetchedAt":""}}`)
 		return
 	}
 
@@ -222,7 +222,7 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to fetch alerts", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprintf(w, `{"error":"failed to fetch alerts: %s"}`, err.Error())
+		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch alerts: %s"}`, err.Error())
 		return
 	}
 
@@ -262,7 +262,7 @@ func (s *Server) handleInstances(w http.ResponseWriter, r *http.Request) {
 	if serviceName == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"missing required query parameter: service"}`)
+		_, _ = fmt.Fprint(w, `{"error":"missing required query parameter: service"}`)
 		return
 	}
 
@@ -271,7 +271,7 @@ func (s *Server) handleInstances(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to fetch instances", "error", err, "service", serviceName)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprintf(w, `{"error":"failed to fetch instances: %s"}`, err.Error())
+		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch instances: %s"}`, err.Error())
 		return
 	}
 
@@ -364,7 +364,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 		if _, err := fmt.Sscanf(d, "%d", &maxDepth); err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
+			_, _ = fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
 			return
 		}
 	}
@@ -376,7 +376,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			_, _ = fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
 			return
 		}
 		queryTime = &t
@@ -395,7 +395,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 			s.logger.Error("failed to build historical topology for cascade analysis", "error", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
 			return
 		}
 		nodes = resp.Nodes
@@ -409,7 +409,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 			s.logger.Error("failed to build topology for cascade analysis", "error", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
 			return
 		}
 		s.cache.Set(resp)
@@ -470,7 +470,7 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 		if _, err := fmt.Sscanf(d, "%d", &maxDepth); err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
+			_, _ = fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
 			return
 		}
 	}
@@ -488,7 +488,7 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 			s.logger.Error("failed to build topology for cascade graph", "error", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
 			return
 		}
 		s.cache.Set(resp)
@@ -623,7 +623,7 @@ func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 	if startStr == "" || endStr == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"missing required query parameters: start and end"}`)
+		_, _ = fmt.Fprint(w, `{"error":"missing required query parameters: start and end"}`)
 		return
 	}
 
@@ -631,7 +631,7 @@ func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"invalid start parameter: must be RFC3339 format"}`)
+		_, _ = fmt.Fprint(w, `{"error":"invalid start parameter: must be RFC3339 format"}`)
 		return
 	}
 
@@ -639,14 +639,14 @@ func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"invalid end parameter: must be RFC3339 format"}`)
+		_, _ = fmt.Fprint(w, `{"error":"invalid end parameter: must be RFC3339 format"}`)
 		return
 	}
 
 	if !start.Before(end) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"start must be before end"}`)
+		_, _ = fmt.Fprint(w, `{"error":"start must be before end"}`)
 		return
 	}
 
@@ -663,7 +663,7 @@ func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to query timeline events", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		fmt.Fprintf(w, `{"error":"failed to fetch timeline events: %s"}`, err.Error())
+		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch timeline events: %s"}`, err.Error())
 		return
 	}
 

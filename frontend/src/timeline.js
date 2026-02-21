@@ -7,6 +7,21 @@ import { t } from './i18n.js';
 import { fetchTimelineEvents } from './api.js';
 import { showToast } from './toast.js';
 
+/**
+ * Escape a string for safe insertion into HTML attributes.
+ * @param {*} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // --- Interaction states ---
 const INTERACTION = { IDLE: 0, THUMB_DRAG: 1, RANGE_SELECT: 2, MARKER_HOVER: 3 };
 
@@ -505,7 +520,7 @@ function renderMarkers(events) {
     const cls = ev.kind === 'degradation' ? 'marker-degradation'
       : ev.kind === 'recovery' ? 'marker-recovery'
         : 'marker-change';
-    const title = `${ev.service}: ${ev.fromState} \u2192 ${ev.toState}`;
+    const title = `${escapeHtml(ev.service)}: ${escapeHtml(ev.fromState)} \u2192 ${escapeHtml(ev.toState)}`;
     return `<div class="timeline-marker ${cls}" style="left:${pct}%" title="${title}" data-ts="${ts}"></div>`;
   }).join('');
 

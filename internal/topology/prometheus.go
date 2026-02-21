@@ -93,13 +93,22 @@ const (
 	queryHistoricalAlerts = `ALERTS{alertstate="firing"}`
 )
 
+// sanitizePromQLValue escapes special characters in a PromQL label matcher value
+// to prevent PromQL injection via user-supplied filter parameters.
+func sanitizePromQLValue(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	return s
+}
+
 // nsFilter returns a PromQL label filter for the given namespace.
 // Returns empty string if namespace is empty.
 func nsFilter(ns string) string {
 	if ns == "" {
 		return ""
 	}
-	return fmt.Sprintf(`{namespace="%s"}`, ns)
+	return fmt.Sprintf(`{namespace="%s"}`, sanitizePromQLValue(ns))
 }
 
 // optFilter returns a PromQL label filter combining namespace and group from QueryOptions.
@@ -109,10 +118,10 @@ func nsFilter(ns string) string {
 func optFilter(opts QueryOptions) string {
 	var parts []string
 	if opts.Namespace != "" {
-		parts = append(parts, fmt.Sprintf(`namespace="%s"`, opts.Namespace))
+		parts = append(parts, fmt.Sprintf(`namespace="%s"`, sanitizePromQLValue(opts.Namespace)))
 	}
 	if opts.Group != "" {
-		parts = append(parts, fmt.Sprintf(`group="%s"`, opts.Group))
+		parts = append(parts, fmt.Sprintf(`group="%s"`, sanitizePromQLValue(opts.Group)))
 	}
 	if len(parts) == 0 {
 		return ""
@@ -161,7 +170,7 @@ func (c *prometheusClient) query(ctx context.Context, promql string, at *time.Ti
 	if err != nil {
 		return nil, fmt.Errorf("querying prometheus: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -226,7 +235,7 @@ func (c *prometheusClient) queryRange(ctx context.Context, promql string, start,
 	if err != nil {
 		return nil, fmt.Errorf("querying prometheus range: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -403,7 +412,7 @@ func (c *prometheusClient) QueryP99Latency(ctx context.Context, opts QueryOption
 
 // QueryInstances returns all instances (pods/containers) for a given service.
 func (c *prometheusClient) QueryInstances(ctx context.Context, serviceName string) ([]Instance, error) {
-	results, err := c.query(ctx, fmt.Sprintf(queryInstances, serviceName), nil)
+	results, err := c.query(ctx, fmt.Sprintf(queryInstances, sanitizePromQLValue(serviceName)), nil)
 	if err != nil {
 		return nil, err
 	}

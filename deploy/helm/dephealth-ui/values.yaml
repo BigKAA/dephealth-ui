@@ -20,10 +20,34 @@ replicas: 1
 resources:
   requests:
     cpu: 50m
-    memory: 32Mi
+    memory: 64Mi
   limits:
     cpu: 200m
-    memory: 64Mi
+    memory: 128Mi
+
+# ServiceAccount configuration
+serviceAccount:
+  # Create a dedicated ServiceAccount for the application
+  create: true
+  # Name of the ServiceAccount (defaults to "dephealth-ui")
+  name: ""
+  # Additional annotations (e.g. for IAM role binding)
+  annotations: {}
+
+# Pod-level security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+# Container-level security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 probes:
   readinessDelay: 5

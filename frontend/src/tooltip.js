@@ -2,6 +2,21 @@ import { t } from './i18n.js';
 import { STATUS_COLORS, STATUS_LABELS } from './graph.js';
 
 /**
+ * Escape a string for safe insertion into HTML.
+ * @param {*} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str);
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Initialize tooltip functionality for the graph.
  * Shows tooltips on hover for nodes and edges.
  * @param {cytoscape.Core} cy - Cytoscape instance
@@ -91,19 +106,19 @@ export function initTooltip(cy) {
     const data = node.data();
     const renderedPos = evt.renderedPosition || evt.cyRenderedPosition;
 
-    let html = `<div class="tooltip-title">${data.label || data.id}</div>`;
+    let html = `<div class="tooltip-title">${escapeHtml(data.label || data.id)}</div>`;
 
     // State
     html += `<div class="tooltip-row">
       <span class="tooltip-label">${t('tooltip.state')}</span>
-      <span class="tooltip-value">${formatState(data.state)}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
+      <span class="tooltip-value">${escapeHtml(formatState(data.state))}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
     </div>`;
 
     // Type
     if (data.type) {
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.type')}</span>
-        <span class="tooltip-value">${data.type}</span>
+        <span class="tooltip-value">${escapeHtml(data.type)}</span>
       </div>`;
     }
 
@@ -111,7 +126,7 @@ export function initTooltip(cy) {
     if (data.group) {
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.group')}</span>
-        <span class="tooltip-value">${data.group}</span>
+        <span class="tooltip-value">${escapeHtml(data.group)}</span>
       </div>`;
     }
 
@@ -119,7 +134,7 @@ export function initTooltip(cy) {
     if (data.namespace) {
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.namespace')}</span>
-        <span class="tooltip-value">${data.namespace}</span>
+        <span class="tooltip-value">${escapeHtml(data.namespace)}</span>
       </div>`;
     }
 
@@ -141,7 +156,7 @@ export function initTooltip(cy) {
         const srcNode = cy.getElementById(src);
         const srcLabel = srcNode.length > 0 ? (srcNode.data('label') || srcNode.data('name') || src) : src;
         const srcState = srcNode.length > 0 ? formatState(srcNode.data('state')) : '';
-        const display = srcState ? `${srcLabel} (${srcState})` : srcLabel;
+        const display = srcState ? `${escapeHtml(srcLabel)} (${escapeHtml(srcState)})` : escapeHtml(srcLabel);
         html += `<div class="tooltip-row">
           <span class="tooltip-value">${t('tooltip.cascadeSource', { service: display })}</span>
         </div>`;
@@ -160,20 +175,20 @@ export function initTooltip(cy) {
     const sourceLabel = edge.source().data('label') || edge.source().id();
     const targetLabel = edge.target().data('label') || edge.target().id();
 
-    let html = `<div class="tooltip-title">${sourceLabel} → ${targetLabel}</div>`;
+    let html = `<div class="tooltip-title">${escapeHtml(sourceLabel)} → ${escapeHtml(targetLabel)}</div>`;
 
     // Latency (hide for stale edges)
     if (data.latency && !data.stale) {
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.latency')}</span>
-        <span class="tooltip-value">${data.latency}</span>
+        <span class="tooltip-value">${escapeHtml(data.latency)}</span>
       </div>`;
     }
 
     // State
     html += `<div class="tooltip-row">
       <span class="tooltip-label">${t('tooltip.state')}</span>
-      <span class="tooltip-value">${formatState(data.state)}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
+      <span class="tooltip-value">${escapeHtml(formatState(data.state))}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
     </div>`;
 
     // Status (SDK v0.4.1, non-ok only)
@@ -182,7 +197,7 @@ export function initTooltip(cy) {
       const label = STATUS_LABELS[data.status] || data.status;
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.status')}</span>
-        <span class="tooltip-value" style="color:${color};font-weight:bold">${label}</span>
+        <span class="tooltip-value" style="color:${escapeHtml(color)};font-weight:bold">${escapeHtml(label)}</span>
       </div>`;
     }
 
@@ -190,7 +205,7 @@ export function initTooltip(cy) {
     if (data.detail && data.status && data.status !== 'ok') {
       html += `<div class="tooltip-row">
         <span class="tooltip-label">${t('tooltip.detail')}</span>
-        <span class="tooltip-value"><code>${data.detail}</code></span>
+        <span class="tooltip-value"><code>${escapeHtml(data.detail)}</code></span>
       </div>`;
     }
 

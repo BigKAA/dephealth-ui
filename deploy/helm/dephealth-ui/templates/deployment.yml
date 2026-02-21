@@ -18,6 +18,12 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yml") . | sha256sum }}
     spec:
+      serviceAccountName: {{ include "dephealth-ui.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: dephealth-ui
           image: {{ include "dephealth-ui.image" . }}
@@ -51,6 +57,10 @@ spec:
                   key: {{ .Values.grafanaSecret.passwordKey }}
                   optional: true
             {{- end }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
             - containerPort: 8080

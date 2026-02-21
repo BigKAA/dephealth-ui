@@ -12,7 +12,7 @@ import (
 func TestGzipMiddleware_WithAcceptEncoding(t *testing.T) {
 	handler := gzipMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"nodes":[],"edges":[]}`))
+		_, _ = w.Write([]byte(`{"nodes":[],"edges":[]}`))
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -21,7 +21,7 @@ func TestGzipMiddleware_WithAcceptEncoding(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 	resp := rec.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.Header.Get("Content-Encoding") != "gzip" {
 		t.Errorf("Content-Encoding = %q, want %q", resp.Header.Get("Content-Encoding"), "gzip")
@@ -39,7 +39,7 @@ func TestGzipMiddleware_WithAcceptEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create gzip reader: %v", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	body, err := io.ReadAll(gz)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestGzipMiddleware_WithAcceptEncoding(t *testing.T) {
 func TestGzipMiddleware_WithoutAcceptEncoding(t *testing.T) {
 	handler := gzipMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -63,7 +63,7 @@ func TestGzipMiddleware_WithoutAcceptEncoding(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 	resp := rec.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.Header.Get("Content-Encoding") != "" {
 		t.Errorf("Content-Encoding should be empty, got %q", resp.Header.Get("Content-Encoding"))

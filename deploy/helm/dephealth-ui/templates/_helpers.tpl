@@ -34,3 +34,14 @@ Target namespace.
 {{- define "dephealth-ui.namespace" -}}
 {{ .Values.global.namespace | default "dephealth-ui" }}
 {{- end -}}
+
+{{/*
+ServiceAccount name.
+*/}}
+{{- define "dephealth-ui.serviceAccountName" -}}
+{{- if .Values.serviceAccount.name -}}
+{{ .Values.serviceAccount.name }}
+{{- else -}}
+dephealth-ui
+{{- end -}}
+{{- end -}}
