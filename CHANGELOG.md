@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-02-21
+
+### Security
+
+- **Fix PromQL injection** — sanitize user-supplied `namespace` and `group` parameters in Prometheus queries to prevent query manipulation
+- **Fix XSS vulnerabilities** — add `escapeHtml()` to all `innerHTML` insertions with API data in sidebar, tooltip, timeline, and main modules (4 frontend files)
+- **Non-root Docker image** — add dedicated user (UID 10001) to runtime container stage
+- **Kubernetes pod hardening** — add `securityContext` (runAsNonRoot, readOnlyRootFilesystem, drop ALL capabilities) and dedicated `ServiceAccount` with `automountServiceAccountToken: false`
+
+### Fixed
+
+- Fix 19 errcheck lint violations across 7 Go packages (unchecked error returns)
+- Fix event listener stacking bug in `main.js` — retry button handler was re-registered on each `init()` call
+
+### Changed
+
+- Increase default memory limit from 64Mi to 128Mi in Helm chart (adequate for Graphviz rendering)
+- Add `.dockerignore` to reduce Docker build context size
+
 ## [0.17.1] - 2026-02-21
 
 ### Added
@@ -249,6 +268,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.17.2]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.16.0...v0.16.1
