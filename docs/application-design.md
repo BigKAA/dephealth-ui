@@ -666,8 +666,17 @@ All YAML parameters can be overridden via environment variables:
 
 ---
 
+## Grafana Integration
+
+dephealth-ui generates direct links to Grafana dashboards from service nodes, dependency edges, and cascade analysis panels. At startup, the application validates dashboard availability via the Grafana API (`/api/health` and `/api/dashboards/uid/{uid}`) and hides links to dashboards that are not found.
+
+Authentication supports three methods with priority: **Service Account Token** > **Basic Auth** > **None**.
+
+For full details on dashboard variables, URL generation, authentication configuration, and security recommendations, see [Grafana Dashboard Integration](./grafana-dashboards.md).
+
 ## See Also
 
 - [REST API Reference](./API.md) — All endpoints and response formats
 - [Metrics Specification](./METRICS.md) — Required metrics and integration guide
+- [Grafana Dashboards](./grafana-dashboards.md) — Dashboard integration and availability checking
 - [Deployment Guide](../deploy/helm/dephealth-ui/README.md) — Kubernetes & Helm

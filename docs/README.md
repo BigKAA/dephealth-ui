@@ -15,6 +15,7 @@ This directory contains comprehensive documentation for **dephealth-ui** — a r
 | **[METRICS.md](./METRICS.md)** | **⭐ START HERE** — Metrics format specification, required labels, PromQL queries, integration guide | Developers, DevOps |
 | **[API.md](./API.md)** | REST API reference with all endpoints and response formats | Frontend developers, API consumers |
 | **[application-design.md](./application-design.md)** | Complete architecture overview, tech stack, design decisions | Architects, senior developers |
+| **[grafana-dashboards.md](./grafana-dashboards.md)** | Grafana dashboard integration, variables, auth, availability checking | DevOps, Operators |
 | **[DEPLOYMENT.md](../deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide using Helm | DevOps, SRE |
 | **[Test Environment](../deploy/README.md)** | Test environment setup, topology, and adaptation guide | DevOps, Contributors |
 

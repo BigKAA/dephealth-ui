@@ -36,6 +36,9 @@ auth:
   type: "basic"
 grafana:
   baseUrl: "https://grafana.example.com"
+  token: "glsa_test_token"
+  username: "grafana-user"
+  password: "grafana-pass"
   dashboards:
     serviceStatus: "svc-dash"
     linkStatus: "link-dash"
@@ -71,6 +74,15 @@ grafana:
 	}
 	if cfg.Grafana.BaseURL != "https://grafana.example.com" {
 		t.Errorf("Grafana.BaseURL = %q, want %q", cfg.Grafana.BaseURL, "https://grafana.example.com")
+	}
+	if cfg.Grafana.Token != "glsa_test_token" {
+		t.Errorf("Grafana.Token = %q, want %q", cfg.Grafana.Token, "glsa_test_token")
+	}
+	if cfg.Grafana.Username != "grafana-user" {
+		t.Errorf("Grafana.Username = %q, want %q", cfg.Grafana.Username, "grafana-user")
+	}
+	if cfg.Grafana.Password != "grafana-pass" {
+		t.Errorf("Grafana.Password = %q, want %q", cfg.Grafana.Password, "grafana-pass")
 	}
 	if cfg.Grafana.Dashboards.ServiceStatus != "svc-dash" {
 		t.Errorf("Dashboards.ServiceStatus = %q, want %q", cfg.Grafana.Dashboards.ServiceStatus, "svc-dash")
@@ -131,6 +143,27 @@ func TestLoadEnvOverrides(t *testing.T) {
 	}
 	if cfg.Grafana.BaseURL != "https://env-grafana.example.com" {
 		t.Errorf("Grafana.BaseURL = %q, want %q", cfg.Grafana.BaseURL, "https://env-grafana.example.com")
+	}
+}
+
+func TestGrafanaAuthEnvOverrides(t *testing.T) {
+	t.Setenv("DEPHEALTH_GRAFANA_TOKEN", "env-token")
+	t.Setenv("DEPHEALTH_GRAFANA_USERNAME", "env-user")
+	t.Setenv("DEPHEALTH_GRAFANA_PASSWORD", "env-pass")
+
+	cfg, err := Load("/nonexistent/config.yaml")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Grafana.Token != "env-token" {
+		t.Errorf("Grafana.Token = %q, want %q", cfg.Grafana.Token, "env-token")
+	}
+	if cfg.Grafana.Username != "env-user" {
+		t.Errorf("Grafana.Username = %q, want %q", cfg.Grafana.Username, "env-user")
+	}
+	if cfg.Grafana.Password != "env-pass" {
+		t.Errorf("Grafana.Password = %q, want %q", cfg.Grafana.Password, "env-pass")
 	}
 }
 

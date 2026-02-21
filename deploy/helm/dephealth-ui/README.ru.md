@@ -160,6 +160,31 @@ config:
 
 Если `grafana.baseUrl` пустой, ссылки на Grafana скрыты в UI.
 
+### Проверка доступности дашбордов Grafana
+
+При наличии настроенного `grafana.baseUrl` приложение проверяет доступность дашбордов при старте через Grafana API. Ненайденные дашборды автоматически скрываются из UI.
+
+Для аутентификации в Grafana API создайте Kubernetes Secret и укажите его:
+
+```bash
+kubectl create secret generic grafana-creds \
+  --from-literal=token="glsa_your_service_account_token" \
+  -n dephealth-ui
+```
+
+```yaml
+grafanaSecret:
+  enabled: true
+  secretName: grafana-creds
+  tokenKey: token        # Ключ с API-токеном (приоритет над basic auth)
+  usernameKey: username   # Ключ с именем пользователя (basic auth)
+  passwordKey: password   # Ключ с паролем (basic auth)
+```
+
+Приоритет аутентификации: **token** (Bearer) > **basic auth** (username/password) > **без аутентификации**.
+
+Если Grafana недоступна при старте, все ссылки на дашборды скрываются, в логе — предупреждение.
+
 ### Grafana-дашборды
 
 Helm chart `dephealth-monitoring` включает 7 готовых Grafana-дашбордов, разворачиваемых через ConfigMaps:
@@ -220,6 +245,11 @@ Helm chart `dephealth-monitoring` включает 7 готовых Grafana-да
 | `customCA.enabled` | Монтировать custom CA-сертификат | `false` |
 | `customCA.configMapName` | Имя ConfigMap с CA-сертификатом | `""` |
 | `customCA.key` | Ключ в ConfigMap с сертификатом | `ca.crt` |
+| `grafanaSecret.enabled` | Включить аутентификацию Grafana из Secret | `false` |
+| `grafanaSecret.secretName` | Имя K8s Secret | `""` |
+| `grafanaSecret.tokenKey` | Ключ в Secret для API-токена | `token` |
+| `grafanaSecret.usernameKey` | Ключ в Secret для имени пользователя | `username` |
+| `grafanaSecret.passwordKey` | Ключ в Secret для пароля | `password` |
 
 ## Требования
 

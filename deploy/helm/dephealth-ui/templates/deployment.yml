@@ -25,10 +25,32 @@ spec:
           args:
             - "-config"
             - "/etc/dephealth-ui/config.yaml"
-          {{- if .Values.customCA.enabled }}
+          {{- if or .Values.customCA.enabled .Values.grafanaSecret.enabled }}
           env:
+            {{- if .Values.customCA.enabled }}
             - name: SSL_CERT_FILE
               value: /etc/ssl/custom/{{ .Values.customCA.key }}
+            {{- end }}
+            {{- if .Values.grafanaSecret.enabled }}
+            - name: DEPHEALTH_GRAFANA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.grafanaSecret.secretName }}
+                  key: {{ .Values.grafanaSecret.tokenKey }}
+                  optional: true
+            - name: DEPHEALTH_GRAFANA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.grafanaSecret.secretName }}
+                  key: {{ .Values.grafanaSecret.usernameKey }}
+                  optional: true
+            - name: DEPHEALTH_GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.grafanaSecret.secretName }}
+                  key: {{ .Values.grafanaSecret.passwordKey }}
+                  optional: true
+            {{- end }}
           {{- end }}
           ports:
             - containerPort: 8080

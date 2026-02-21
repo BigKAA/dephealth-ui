@@ -106,6 +106,9 @@ type BasicUser struct {
 // GrafanaConfig holds Grafana integration settings.
 type GrafanaConfig struct {
 	BaseURL    string           `yaml:"baseUrl"`
+	Token      string           `yaml:"token"`    // API key or service account token
+	Username   string           `yaml:"username"` // Basic auth
+	Password   string           `yaml:"password"` // Basic auth
 	Dashboards DashboardsConfig `yaml:"dashboards"`
 }
 
@@ -287,6 +290,15 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("DEPHEALTH_GRAFANA_BASEURL"); v != "" {
 		cfg.Grafana.BaseURL = v
+	}
+	if v := os.Getenv("DEPHEALTH_GRAFANA_TOKEN"); v != "" {
+		cfg.Grafana.Token = v
+	}
+	if v := os.Getenv("DEPHEALTH_GRAFANA_USERNAME"); v != "" {
+		cfg.Grafana.Username = v
+	}
+	if v := os.Getenv("DEPHEALTH_GRAFANA_PASSWORD"); v != "" {
+		cfg.Grafana.Password = v
 	}
 	if v := os.Getenv("DEPHEALTH_ALERTS_SEVERITYLABEL"); v != "" {
 		cfg.Alerts.SeverityLabel = v

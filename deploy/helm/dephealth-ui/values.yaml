@@ -67,6 +67,15 @@ customCA:
   configMapName: ""
   key: "ca.crt"
 
+# Grafana authentication for dashboard availability checking at startup.
+# Credentials are injected via env vars from a Kubernetes Secret.
+grafanaSecret:
+  enabled: false
+  secretName: ""       # Name of existing K8s Secret
+  tokenKey: "token"
+  usernameKey: "username"
+  passwordKey: "password"
+
 # Application configuration (rendered as config.yaml in ConfigMap)
 config:
   server:

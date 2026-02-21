@@ -160,6 +160,31 @@ config:
 
 If `grafana.baseUrl` is empty, Grafana links are hidden in the UI.
 
+### Grafana Dashboard Availability Checking
+
+When `grafana.baseUrl` is configured, the application checks dashboard availability at startup via Grafana API. Dashboards that are not found are automatically hidden from the UI.
+
+To authenticate with Grafana API, create a Kubernetes Secret and reference it:
+
+```bash
+kubectl create secret generic grafana-creds \
+  --from-literal=token="glsa_your_service_account_token" \
+  -n dephealth-ui
+```
+
+```yaml
+grafanaSecret:
+  enabled: true
+  secretName: grafana-creds
+  tokenKey: token        # Key containing API token (priority over basic auth)
+  usernameKey: username   # Key containing basic auth username
+  passwordKey: password   # Key containing basic auth password
+```
+
+Authentication priority: **token** (Bearer) > **basic auth** (username/password) > **none**.
+
+If Grafana is unreachable at startup, all dashboard links are hidden and a warning is logged.
+
 ### Grafana Dashboards
 
 The `dephealth-monitoring` Helm chart includes 7 pre-built Grafana dashboards provisioned via ConfigMaps:
@@ -226,6 +251,11 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 | `customCA.enabled` | Mount custom CA certificate | `false` |
 | `customCA.configMapName` | ConfigMap name with CA cert | `""` |
 | `customCA.key` | Key in ConfigMap containing cert | `ca.crt` |
+| `grafanaSecret.enabled` | Enable Grafana auth from Secret | `false` |
+| `grafanaSecret.secretName` | Name of K8s Secret | `""` |
+| `grafanaSecret.tokenKey` | Secret key for API token | `token` |
+| `grafanaSecret.usernameKey` | Secret key for username | `username` |
+| `grafanaSecret.passwordKey` | Secret key for password | `password` |
 
 ## Requirements
 

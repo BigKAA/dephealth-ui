@@ -8,11 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/BigKAA/dephealth-ui/internal/alerts"
 	"github.com/BigKAA/dephealth-ui/internal/auth"
 	"github.com/BigKAA/dephealth-ui/internal/cache"
 	"github.com/BigKAA/dephealth-ui/internal/config"
+	"github.com/BigKAA/dephealth-ui/internal/grafana"
 	"github.com/BigKAA/dephealth-ui/internal/logging"
 	"github.com/BigKAA/dephealth-ui/internal/server"
 	"github.com/BigKAA/dephealth-ui/internal/topology"
@@ -44,6 +46,9 @@ func main() {
 		"prometheus", cfg.Datasources.Prometheus.URL,
 		"alertmanager", cfg.Datasources.Alertmanager.URL,
 	)
+
+	// Check Grafana dashboard availability at startup.
+	checkGrafanaDashboards(cfg, logger)
 
 	promClient := topology.NewPrometheusClient(topology.PrometheusConfig{
 		URL:      cfg.Datasources.Prometheus.URL,
@@ -84,5 +89,63 @@ func main() {
 	if err := srv.Run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// checkGrafanaDashboards validates configured Grafana dashboards at startup.
+// Unavailable dashboards are cleared from the config so downstream code
+// (which checks for empty UID) hides the corresponding links.
+func checkGrafanaDashboards(cfg *config.Config, logger *slog.Logger) {
+	if cfg.Grafana.BaseURL == "" {
+		return
+	}
+
+	checker := grafana.NewChecker(grafana.Config{
+		BaseURL:  cfg.Grafana.BaseURL,
+		Token:    cfg.Grafana.Token,
+		Username: cfg.Grafana.Username,
+		Password: cfg.Grafana.Password,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if !checker.Available(ctx) {
+		logger.Warn("grafana is unreachable, hiding all dashboard links",
+			"baseUrl", cfg.Grafana.BaseURL,
+		)
+		cfg.Grafana.Dashboards = config.DashboardsConfig{}
+		return
+	}
+
+	logger.Info("grafana is reachable", "baseUrl", cfg.Grafana.BaseURL)
+
+	// Check each configured dashboard UID.
+	dashboards := []struct {
+		name string
+		uid  *string
+	}{
+		{"serviceStatus", &cfg.Grafana.Dashboards.ServiceStatus},
+		{"linkStatus", &cfg.Grafana.Dashboards.LinkStatus},
+		{"serviceList", &cfg.Grafana.Dashboards.ServiceList},
+		{"servicesStatus", &cfg.Grafana.Dashboards.ServicesStatus},
+		{"linksStatus", &cfg.Grafana.Dashboards.LinksStatus},
+		{"cascadeOverview", &cfg.Grafana.Dashboards.CascadeOverview},
+		{"rootCause", &cfg.Grafana.Dashboards.RootCause},
+		{"connectionDiagnostics", &cfg.Grafana.Dashboards.ConnectionDiagnostics},
+	}
+
+	for _, d := range dashboards {
+		if *d.uid == "" {
+			continue
+		}
+		if checker.CheckDashboard(ctx, *d.uid) {
+			logger.Info("grafana dashboard available", "dashboard", d.name, "uid", *d.uid)
+		} else {
+			logger.Warn("grafana dashboard not found, hiding link",
+				"dashboard", d.name, "uid", *d.uid,
+			)
+			*d.uid = ""
+		}
 	}
 }
