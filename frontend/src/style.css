@@ -1776,6 +1776,12 @@ body {
   }
 }
 
+/* Disabled alerts button */
+#btn-alerts.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Alert Drawer */
 .alert-drawer {
   position: fixed;

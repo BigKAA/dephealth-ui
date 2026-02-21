@@ -12,7 +12,7 @@ import { initToolbar } from './toolbar.js';
 import { initTooltip } from './tooltip.js';
 import { initSidebar, updateSidebarData, setGrafanaConfig } from './sidebar.js';
 import { initSearch } from './search.js';
-import { initAlertDrawer, updateAlertDrawer } from './alerts.js';
+import { initAlertDrawer, updateAlertDrawer, setAlertManagerAvailable } from './alerts.js';
 import { initShortcuts } from './shortcuts.js';
 import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js';
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
@@ -67,7 +67,8 @@ function updateStatus(data) {
     text = t('status.updated', { time: now, nodes: nodeCount, edges: edgeCount });
   }
 
-  if (data.alerts && data.alerts.length > 0) {
+  const alertsEnabled = appConfig && appConfig.alerts && appConfig.alerts.enabled;
+  if (alertsEnabled && data.alerts && data.alerts.length > 0) {
     const critical = data.alerts.filter((a) => a.severity === 'critical').length;
     const warning = data.alerts.filter((a) => a.severity === 'warning').length;
     const parts = [];
@@ -108,8 +109,8 @@ function updateStatus(data) {
   // Update health stats
   updateHealthStats(data);
 
-  // Update alert drawer
-  if (appConfig && appConfig.alerts && appConfig.alerts.severityLevels) {
+  // Update alert drawer (skip when AlertManager is not configured)
+  if (alertsEnabled && appConfig.alerts.severityLevels) {
     updateAlertDrawer(data.alerts || [], appConfig.alerts.severityLevels);
   }
 }
@@ -717,6 +718,10 @@ async function init() {
     appConfig = config; // Store globally for graph rendering
     setGrafanaConfig(config);
     setContextMenuGrafanaConfig(config);
+
+    // Set AlertManager availability for UI elements
+    const amEnabled = !!(config.alerts && config.alerts.enabled);
+    setAlertManagerAvailable(amEnabled);
 
     if (config.cache && config.cache.ttl > 0) {
       pollInterval = config.cache.ttl * 1000;

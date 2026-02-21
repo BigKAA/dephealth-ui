@@ -167,6 +167,7 @@ export default {
   'alerts.unknownAlert': 'Unknown alert',
   'alerts.service': 'Service: {name}',
   'alerts.dependency': 'Dependency: {name}',
+  'alerts.unavailable': 'Connect AlertManager',
 
   // Tooltip
   'tooltip.state': 'State:',

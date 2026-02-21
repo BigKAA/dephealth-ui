@@ -2,12 +2,12 @@
 .tasks/
 
 # AI
-CLAUDE.md
+# CLAUDE.md
 .serena/
 claudedocs/
 .playwright-mcp
-.templates/
-plans/
+#.templates/
+# plans/
 
 # Go
 /dephealth-ui

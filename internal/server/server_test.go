@@ -136,6 +136,9 @@ func TestConfigReturnsGrafana(t *testing.T) {
 	if resp.Auth.Type != "none" {
 		t.Errorf("Auth.Type = %q, want %q", resp.Auth.Type, "none")
 	}
+	if resp.Alerts.Enabled {
+		t.Error("Alerts.Enabled = true, want false (no AlertManager URL configured)")
+	}
 	if len(resp.Alerts.SeverityLevels) != 3 {
 		t.Fatalf("Alerts.SeverityLevels = %d, want 3", len(resp.Alerts.SeverityLevels))
 	}
@@ -144,6 +147,45 @@ func TestConfigReturnsGrafana(t *testing.T) {
 	}
 	if resp.Alerts.SeverityLevels[0].Color != "#f44336" {
 		t.Errorf("SeverityLevels[0].Color = %q, want %q", resp.Alerts.SeverityLevels[0].Color, "#f44336")
+	}
+}
+
+func TestConfigAlertsEnabled(t *testing.T) {
+	promSrv := newTestPromServer()
+	cfg := &config.Config{
+		Server: config.ServerConfig{Listen: ":8080"},
+		Datasources: config.DatasourcesConfig{
+			Prometheus:   config.PrometheusConfig{URL: promSrv.URL},
+			Alertmanager: config.AlertmanagerConfig{URL: "http://am:9093"},
+		},
+		Cache: config.CacheConfig{TTL: 15 * time.Second},
+		Auth:  config.AuthConfig{Type: "none"},
+		Alerts: config.AlertsConfig{
+			SeverityLabel: "severity",
+			SeverityLevels: []config.SeverityLevel{
+				{Value: "critical", Color: "#f44336"},
+			},
+		},
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	promClient := topology.NewPrometheusClient(topology.PrometheusConfig{URL: promSrv.URL})
+	grafanaCfg := topology.GrafanaConfig{}
+	builder := topology.NewGraphBuilder(promClient, nil, grafanaCfg, cfg.Cache.TTL, 0, logger, cfg.Alerts.SeverityLevels)
+	topologyCache := cache.New(cfg.Cache.TTL)
+	authenticator, _ := auth.NewFromConfig(config.AuthConfig{Type: "none"})
+	srv := New(cfg, logger, builder, promClient, nil, topologyCache, authenticator)
+
+	req := httptest.NewRequest("GET", "/api/v1/config", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	var resp configResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if !resp.Alerts.Enabled {
+		t.Error("Alerts.Enabled = false, want true (AlertManager URL configured)")
 	}
 }
 

@@ -45,6 +45,92 @@ const EDGE_STYLES = {
   unknown: { lineStyle: 'dashed', color: '#9e9e9e' },
 };
 
+/**
+ * Get the state color for a Cytoscape element, falling back to unknown.
+ * @param {cytoscape.SingularElementReturnValue} ele
+ * @returns {string} CSS hex color
+ */
+function getStateColor(ele) {
+  return STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown;
+}
+
+/**
+ * Get the resolved edge color considering stale, status, and state fallback.
+ * Used for both line-color and target-arrow-color to avoid duplication.
+ * @param {cytoscape.SingularElementReturnValue} ele
+ * @returns {string} CSS hex color
+ */
+function getEdgeColor(ele) {
+  if (ele.data('stale')) return EDGE_STYLES.unknown.color;
+  const status = ele.data('status');
+  if (status && STATUS_COLORS[status]) return STATUS_COLORS[status];
+  return (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color;
+}
+
+/**
+ * Generate a multiline label with dimension prefix for a graph node.
+ * @param {cytoscape.SingularElementReturnValue} ele
+ * @returns {string}
+ */
+function nodeLabel(ele) {
+  const label = ele.data('label') || '';
+  const { value, prefix } = nodeDimension(ele);
+  return value ? `${label}\n${prefix}: ${value}` : label;
+}
+
+/**
+ * Get the stripe background image data URI for a node's dimension color.
+ * Returns 'none' when the node has no dimension value.
+ * @param {cytoscape.SingularElementReturnValue} ele
+ * @returns {string}
+ */
+function stripeImage(ele) {
+  const { value } = nodeDimension(ele);
+  if (!value) return 'none';
+  return getStripeDataUri(getNamespaceColor(value));
+}
+
+/**
+ * Build a complete Cytoscape node style object for a given node variant.
+ * Centralizes shared properties (label, stripe, colors) while allowing
+ * per-variant shape, font size, padding, and dimensions.
+ * @param {{ shape: string, fontSize: number, padding: number, minWidth: number, heightWithDim: number }} opts
+ * @returns {Object} Cytoscape style object
+ */
+function makeNodeStyle({ shape, fontSize, padding, minWidth, heightWithDim }) {
+  const charWidth = fontSize * 0.6;
+  return {
+    shape,
+    width: (ele) => {
+      const label = ele.data('label') || '';
+      const { value, prefix } = nodeDimension(ele);
+      const secondLine = value ? `${prefix}: ${value}` : '';
+      const maxLen = Math.max(label.length, secondLine.length);
+      return Math.max(minWidth, maxLen * charWidth + padding);
+    },
+    height: (ele) => (nodeDimension(ele).value ? heightWithDim : 40),
+    label: nodeLabel,
+    'text-valign': 'center',
+    'text-halign': 'center',
+    'text-wrap': 'wrap',
+    'text-max-width': 200,
+    'font-size': fontSize,
+    color: (ele) => getContrastTextColor(getStateColor(ele)),
+    'text-outline-width': 0,
+    'background-color': getStateColor,
+    'border-width': 2,
+    'border-color': getStateColor,
+    'background-image': stripeImage,
+    'background-image-opacity': 1,
+    'background-width': '12px',
+    'background-height': '100%',
+    'background-position-x': '0%',
+    'background-position-y': '50%',
+    'background-clip': 'node',
+    'background-image-containment': 'over',
+  };
+}
+
 // SDK v0.4.1: dependency status colors (used for edge coloring when status is available).
 export const STATUS_COLORS = {
   ok: '#4caf50',
@@ -84,94 +170,12 @@ const cytoscapeStyles = [
   // Service nodes
   {
     selector: 'node[type="service"]',
-    style: {
-      shape: 'round-rectangle',
-      width: (ele) => {
-        const label = ele.data('label') || '';
-        const { value, prefix } = nodeDimension(ele);
-        const secondLine = value ? `${prefix}: ${value}` : '';
-        const maxLen = Math.max(label.length, secondLine.length);
-        const fontSize = 12;
-        const charWidth = fontSize * 0.6;
-        const padding = 48; // extra for left stripe
-        return Math.max(110, maxLen * charWidth + padding);
-      },
-      height: (ele) => (nodeDimension(ele).value ? 58 : 40),
-      label: (ele) => {
-        const label = ele.data('label') || '';
-        const { value, prefix } = nodeDimension(ele);
-        return value ? `${label}\n${prefix}: ${value}` : label;
-      },
-      'text-valign': 'center',
-      'text-halign': 'center',
-      'text-wrap': 'wrap',
-      'text-max-width': 200,
-      'font-size': 12,
-      color: (ele) => getContrastTextColor(STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown),
-      'text-outline-width': 0,
-      'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      'border-width': 2,
-      'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      // Left dimension stripe via base64-encoded SVG
-      'background-image': (ele) => {
-        const { value } = nodeDimension(ele);
-        if (!value) return 'none';
-        return getStripeDataUri(getNamespaceColor(value));
-      },
-      'background-image-opacity': 1,
-      'background-width': '12px',
-      'background-height': '100%',
-      'background-position-x': '0%',
-      'background-position-y': '50%',
-      'background-clip': 'node',
-      'background-image-containment': 'over',
-    },
+    style: makeNodeStyle({ shape: 'round-rectangle', fontSize: 12, padding: 48, minWidth: 110, heightWithDim: 58 }),
   },
   // Dependency nodes
   {
     selector: 'node[type!="service"]',
-    style: {
-      shape: 'ellipse',
-      width: (ele) => {
-        const label = ele.data('label') || '';
-        const { value, prefix } = nodeDimension(ele);
-        const secondLine = value ? `${prefix}: ${value}` : '';
-        const maxLen = Math.max(label.length, secondLine.length);
-        const fontSize = 11;
-        const charWidth = fontSize * 0.6;
-        const padding = 50;
-        return Math.max(100, maxLen * charWidth + padding);
-      },
-      height: (ele) => (nodeDimension(ele).value ? 56 : 40),
-      label: (ele) => {
-        const label = ele.data('label') || '';
-        const { value, prefix } = nodeDimension(ele);
-        return value ? `${label}\n${prefix}: ${value}` : label;
-      },
-      'text-valign': 'center',
-      'text-halign': 'center',
-      'text-wrap': 'wrap',
-      'text-max-width': 200,
-      'font-size': 11,
-      color: (ele) => getContrastTextColor(STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown),
-      'text-outline-width': 0,
-      'background-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      'border-width': 2,
-      'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
-      // Left dimension stripe via base64-encoded SVG
-      'background-image': (ele) => {
-        const { value } = nodeDimension(ele);
-        if (!value) return 'none';
-        return getStripeDataUri(getNamespaceColor(value));
-      },
-      'background-image-opacity': 1,
-      'background-width': '12px',
-      'background-height': '100%',
-      'background-position-x': '0%',
-      'background-position-y': '50%',
-      'background-clip': 'node',
-      'background-image-containment': 'over',
-    },
+    style: makeNodeStyle({ shape: 'ellipse', fontSize: 11, padding: 50, minWidth: 100, heightWithDim: 56 }),
   },
   // Compound (parent) nodes — namespace groups
   {
@@ -212,7 +216,7 @@ const cytoscapeStyles = [
       'background-opacity': 1,
       'border-width': 4,
       'border-style': 'solid',
-      'border-color': (ele) => STATE_COLORS[ele.data('state')] || STATE_COLORS.unknown,
+      'border-color': getStateColor,
       label: 'data(label)',
       'text-valign': 'center',
       'text-halign': 'center',
@@ -255,26 +259,13 @@ const cytoscapeStyles = [
       width: (ele) => (ele.data('critical') ? 4 : 1.5),
       'curve-style': 'bezier',
       'target-arrow-shape': 'triangle',
-      'target-arrow-color': (ele) => {
-        if (ele.data('stale')) return EDGE_STYLES.unknown.color;
-        const status = ele.data('status');
-        if (status && STATUS_COLORS[status]) return STATUS_COLORS[status];
-        return (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color;
-      },
-      'line-color': (ele) => {
-        if (ele.data('stale')) return EDGE_STYLES.unknown.color;
-        const status = ele.data('status');
-        if (status && STATUS_COLORS[status]) return STATUS_COLORS[status];
-        return (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).color;
-      },
+      'target-arrow-color': getEdgeColor,
+      'line-color': getEdgeColor,
       'line-style': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).lineStyle,
       label: (ele) => {
-        const status = ele.data('status');
+        const abbr = STATUS_ABBREVIATIONS[ele.data('status')] || '';
         const latency = ele.data('latency') || '';
-        const abbr = status ? STATUS_ABBREVIATIONS[status] : null;
-        if (abbr && latency) return `${abbr} ${latency}`;
-        if (abbr) return abbr;
-        return latency;
+        return [abbr, latency].filter(Boolean).join(' ');
       },
       'font-size': 12,
       color: () => (isDarkTheme() ? '#aaa' : '#555'),
@@ -320,142 +311,148 @@ function computeSignature(data) {
 }
 
 /**
+ * Create a positioned badge DOM element for graph overlays.
+ * Centralizes the common positioning and scaling pattern shared by all badge types.
+ * @param {{ className: string, x: number, y: number, scale: number, text: string, extraStyle?: string }} opts
+ * @returns {HTMLElement}
+ */
+function createBadge({ className, x, y, scale, text, extraStyle = '' }) {
+  const badge = document.createElement('div');
+  badge.className = className;
+  badge.style.cssText = `
+    position: absolute;
+    left: ${x}px;
+    top: ${y}px;
+    transform: translate(-50%, -50%) scale(${scale});
+    pointer-events: none;
+    z-index: 10;
+    ${extraStyle}
+  `;
+  badge.textContent = text;
+  return badge;
+}
+
+/**
  * Update alert badge HTML overlays.
  * Renders badges as positioned div elements over the graph.
  * @param {cytoscape.Core} cy
  * @param {HTMLElement} container - parent container for badges
  */
 function updateAlertBadges(cy, container) {
-  // Clear existing badges
   container.innerHTML = '';
 
   const zoom = cy.zoom();
   const badgeScale = Math.max(0.5, Math.min(zoom, 1.5));
 
-  // Render node badges (only for visible nodes)
+  // Alert badges on nodes (top-right corner)
   cy.nodes('[alertCount > 0]').forEach((node) => {
-    // Skip if node is hidden by search filter
     if (!isElementVisible(node)) return;
     const alertCount = node.data('alertCount');
     const alertSeverity = node.data('alertSeverity');
     if (!alertCount || !alertSeverity) return;
 
-    const color = severityColorMap[alertSeverity] || '#999';
     const pos = node.renderedPosition();
-    const width = node.renderedWidth();
-    const height = node.renderedHeight();
+    const w = node.renderedWidth();
+    const h = node.renderedHeight();
 
-    // Badge position: top-right corner of node
-    const badgeX = pos.x + width / 2 - 10;
-    const badgeY = pos.y - height / 2 + 10;
-
-    // Create badge element
-    const badge = document.createElement('div');
-    badge.className = 'alert-badge';
-    badge.style.cssText = `
-      position: absolute;
-      left: ${badgeX}px;
-      top: ${badgeY}px;
-      background-color: ${color};
-      transform: translate(-50%, -50%) scale(${badgeScale});
-      pointer-events: none;
-      z-index: 10;
-    `;
-    badge.textContent = `! ${alertCount}`;
-    container.appendChild(badge);
+    container.appendChild(createBadge({
+      className: 'alert-badge',
+      x: pos.x + w / 2 - 10,
+      y: pos.y - h / 2 + 10,
+      scale: badgeScale,
+      text: `! ${alertCount}`,
+      extraStyle: `background-color: ${severityColorMap[alertSeverity] || '#999'};`,
+    }));
   });
 
-  // Render cascade warning badges (top-left corner, distinct from alert badges)
+  // Cascade warning badges (top-left corner, offset for namespace stripe)
   cy.nodes('[cascadeCount > 0]').forEach((node) => {
     if (!isElementVisible(node)) return;
-    // Skip Down nodes — they are the root cause, no warning badge needed.
     if (node.data('state') === 'down') return;
 
-    const cascadeCount = node.data('cascadeCount');
     const pos = node.renderedPosition();
-    const width = node.renderedWidth();
-    const height = node.renderedHeight();
+    const w = node.renderedWidth();
+    const h = node.renderedHeight();
 
-    // Badge position: top-left corner of node, offset right to clear namespace stripe
-    const badgeX = pos.x - width / 2 + 22;
-    const badgeY = pos.y - height / 2 + 10;
-
-    const badge = document.createElement('div');
-    badge.className = 'cascade-badge';
-    badge.style.cssText = `
-      position: absolute;
-      left: ${badgeX}px;
-      top: ${badgeY}px;
-      transform: translate(-50%, -50%) scale(${badgeScale});
-      pointer-events: none;
-      z-index: 10;
-    `;
-    badge.textContent = `⚠ ${cascadeCount}`;
-    container.appendChild(badge);
+    container.appendChild(createBadge({
+      className: 'cascade-badge',
+      x: pos.x - w / 2 + 22,
+      y: pos.y - h / 2 + 10,
+      scale: badgeScale,
+      text: `⚠ ${node.data('cascadeCount')}`,
+    }));
   });
 
-  // Render root node badges (entry points — no incoming edges)
+  // Root node badges (top-center, entry points with no incoming edges)
   cy.nodes('[?isRoot]').forEach((node) => {
     if (!isElementVisible(node)) return;
-    // Skip compound (parent) nodes
     if (node.isParent()) return;
 
     const pos = node.renderedPosition();
-    const height = node.renderedHeight();
+    const h = node.renderedHeight();
 
-    // Badge position: top-center of node
-    const badgeX = pos.x;
-    const badgeY = pos.y - height / 2;
-
-    const badge = document.createElement('div');
-    badge.className = 'root-badge';
-    badge.style.cssText = `
-      position: absolute;
-      left: ${badgeX}px;
-      top: ${badgeY}px;
-      transform: translate(-50%, -50%) scale(${badgeScale});
-      pointer-events: none;
-      z-index: 10;
-    `;
-    badge.textContent = '⬇';
-    container.appendChild(badge);
+    container.appendChild(createBadge({
+      className: 'root-badge',
+      x: pos.x,
+      y: pos.y - h / 2,
+      scale: badgeScale,
+      text: '⬇',
+    }));
   });
 
-  // Render edge alert markers (only for visible edges)
+  // Edge alert markers (20% along edge from source)
   cy.edges('[alertCount > 0]').forEach((edge) => {
-    // Skip if edge is hidden by search filter
     if (!isElementVisible(edge)) return;
-    
     const alertSeverity = edge.data('alertSeverity');
     if (!alertSeverity) return;
 
-    const color = severityColorMap[alertSeverity] || '#999';
     const sourcePos = edge.source().renderedPosition();
     const targetPos = edge.target().renderedPosition();
-
-    // Marker position: 20% along the edge from source
-    const markerX = sourcePos.x + (targetPos.x - sourcePos.x) * 0.2;
-    const markerY = sourcePos.y + (targetPos.y - sourcePos.y) * 0.2;
-
-    // Create marker element
     const markerSize = 12 * badgeScale;
-    const marker = document.createElement('div');
-    marker.className = 'alert-marker';
-    marker.style.cssText = `
-      position: absolute;
-      left: ${markerX}px;
-      top: ${markerY}px;
-      width: ${markerSize}px;
-      height: ${markerSize}px;
-      border-radius: 50%;
-      background-color: ${color};
-      border: 2px solid white;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 10;
-    `;
-    container.appendChild(marker);
+
+    container.appendChild(createBadge({
+      className: 'alert-marker',
+      x: sourcePos.x + (targetPos.x - sourcePos.x) * 0.2,
+      y: sourcePos.y + (targetPos.y - sourcePos.y) * 0.2,
+      scale: 1,
+      text: '',
+      extraStyle: `
+        width: ${markerSize}px;
+        height: ${markerSize}px;
+        border-radius: 50%;
+        background-color: ${severityColorMap[alertSeverity] || '#999'};
+        border: 2px solid white;
+      `,
+    }));
   });
+}
+
+/**
+ * Build a layout configuration object for the current grouping mode.
+ * Centralizes layout params shared between renderGraph and relayout.
+ * @param {{ animate?: boolean, animationDuration?: number }} [opts]
+ * @returns {Object} Cytoscape layout config
+ */
+function buildLayoutConfig({ animate = false, animationDuration } = {}) {
+  const animOpts = animate ? { animate: true, animationDuration } : { animate: false };
+  if (isGroupingEnabled()) {
+    return {
+      name: 'fcose',
+      ...animOpts,
+      quality: 'default',
+      nodeSeparation: 80,
+      idealEdgeLength: 120,
+      nodeRepulsion: 6000,
+      tile: true,
+    };
+  }
+  return {
+    name: 'dagre',
+    rankDir: layoutDirection,
+    nodeSep: 80,
+    rankSep: 120,
+    ...animOpts,
+  };
 }
 
 /**
@@ -523,9 +520,10 @@ export function renderGraph(cy, data, config) {
   const structureChanged = signature !== lastStructureSignature;
   lastStructureSignature = signature;
 
-  // Count alerts per node (service = source).
+  // Count alerts per node (service = source). Skip when AlertManager is disabled.
   const alertCounts = {};
-  if (data.alerts) {
+  const alertsEnabled = config && config.alerts && config.alerts.enabled;
+  if (alertsEnabled && data.alerts) {
     for (const a of data.alerts) {
       alertCounts[a.service] = (alertCounts[a.service] || 0) + 1;
     }
@@ -556,8 +554,8 @@ export function renderGraph(cy, data, config) {
           ele.data('critical', edge.critical);
           ele.data('status', edge.status || undefined);
           ele.data('detail', edge.detail || undefined);
-          ele.data('alertCount', edge.alertCount || 0);
-          ele.data('alertSeverity', edge.alertSeverity || undefined);
+          ele.data('alertCount', alertsEnabled ? (edge.alertCount || 0) : 0);
+          ele.data('alertSeverity', alertsEnabled ? (edge.alertSeverity || undefined) : undefined);
         }
       }
     });
@@ -592,8 +590,8 @@ export function renderGraph(cy, data, config) {
         type: node.type,
         namespace: ns || undefined,
         group: node.group || undefined,
-        alertCount: alertCounts[node.id] || 0,
-        alertSeverity: node.alertSeverity || undefined,
+        alertCount: alertsEnabled ? (alertCounts[node.id] || 0) : 0,
+        alertSeverity: alertsEnabled ? (node.alertSeverity || undefined) : undefined,
         grafanaUrl: node.grafanaUrl || undefined,
         isRoot: node.isRoot || false,
       };
@@ -620,33 +618,15 @@ export function renderGraph(cy, data, config) {
           critical: edge.critical,
           status: edge.status || undefined,
           detail: edge.detail || undefined,
-          alertCount: edge.alertCount || 0,
-          alertSeverity: edge.alertSeverity || undefined,
+          alertCount: alertsEnabled ? (edge.alertCount || 0) : 0,
+          alertSeverity: alertsEnabled ? (edge.alertSeverity || undefined) : undefined,
           grafanaUrl: edge.grafanaUrl || undefined,
         },
       });
     }
   });
 
-  if (grouping) {
-    cy.layout({
-      name: 'fcose',
-      animate: false,
-      quality: 'default',
-      nodeSeparation: 80,
-      idealEdgeLength: 120,
-      nodeRepulsion: 6000,
-      tile: true,
-    }).run();
-  } else {
-    cy.layout({
-      name: 'dagre',
-      rankDir: layoutDirection,
-      nodeSep: 80,
-      rankSep: 120,
-      animate: false,
-    }).run();
-  }
+  cy.layout(buildLayoutConfig()).run();
 
   if (isFirstRender) {
     cy.fit(50);
@@ -682,25 +662,5 @@ export function setLayoutDirection(direction) {
 export function relayout(cy, direction = 'TB') {
   if (!cy) return;
   layoutDirection = direction; // Update global direction
-  if (isGroupingEnabled()) {
-    cy.layout({
-      name: 'fcose',
-      animate: true,
-      animationDuration: 500,
-      quality: 'default',
-      nodeSeparation: 80,
-      idealEdgeLength: 120,
-      nodeRepulsion: 6000,
-      tile: true,
-    }).run();
-  } else {
-    cy.layout({
-      name: 'dagre',
-      rankDir: direction,
-      nodeSep: 80,
-      rankSep: 120,
-      animate: true,
-      animationDuration: 500,
-    }).run();
-  }
+  cy.layout(buildLayoutConfig({ animate: true, animationDuration: 500 })).run();
 }

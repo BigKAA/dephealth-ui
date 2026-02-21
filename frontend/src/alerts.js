@@ -6,6 +6,7 @@ import { t } from './i18n.js';
 let alertsData = [];
 let severityLevels = [];
 let cyInstance = null;
+let alertManagerEnabled = true;
 
 /**
  * Initialize alert drawer with Cytoscape instance
@@ -22,8 +23,9 @@ export function initAlertDrawer(cy) {
     return;
   }
 
-  // Toggle drawer (open/close)
+  // Toggle drawer (open/close), skip when AlertManager is disabled
   btnOpen.addEventListener('click', () => {
+    if (!alertManagerEnabled) return;
     drawer.classList.toggle('hidden');
   });
 
@@ -46,6 +48,13 @@ export function initAlertDrawer(cy) {
  * @param {Array} levels - Severity levels config from backend
  */
 export function updateAlertDrawer(alerts, levels) {
+  if (!alertManagerEnabled) {
+    alertsData = [];
+    severityLevels = [];
+    updateBadge();
+    return;
+  }
+
   alertsData = alerts || [];
   severityLevels = levels || [];
 
@@ -217,4 +226,30 @@ function formatTimeSince(timestamp) {
  */
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Enable or disable alert drawer based on AlertManager availability.
+ * When disabled: button gets 'disabled' class + tooltip, drawer won't open.
+ * @param {boolean} enabled - Whether AlertManager is configured
+ */
+export function setAlertManagerAvailable(enabled) {
+  alertManagerEnabled = enabled;
+
+  const btn = document.getElementById('btn-alerts');
+  if (!btn) return;
+
+  if (enabled) {
+    btn.classList.remove('disabled');
+    btn.title = t('toolbar.alerts');
+  } else {
+    btn.classList.add('disabled');
+    btn.title = t('alerts.unavailable');
+    // Close drawer if open
+    const drawer = document.getElementById('alert-drawer');
+    if (drawer) drawer.classList.add('hidden');
+    // Hide badge
+    const badge = document.getElementById('alert-badge');
+    if (badge) badge.classList.add('hidden');
+  }
 }

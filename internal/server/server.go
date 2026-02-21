@@ -294,6 +294,7 @@ type configResponse struct {
 }
 
 type configAlerts struct {
+	Enabled        bool                  `json:"enabled"`
 	SeverityLevels []config.SeverityLevel `json:"severityLevels"`
 }
 
@@ -343,6 +344,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 			Type: s.cfg.Auth.Type,
 		},
 		Alerts: configAlerts{
+			Enabled:        s.cfg.Datasources.Alertmanager.URL != "",
 			SeverityLevels: s.cfg.Alerts.SeverityLevels,
 		},
 	}

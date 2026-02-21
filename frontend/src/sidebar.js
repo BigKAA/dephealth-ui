@@ -5,7 +5,7 @@
 
 import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
-import { STATUS_COLORS, STATUS_ABBREVIATIONS, STATUS_LABELS } from './graph.js';
+import { STATUS_COLORS, STATUS_LABELS } from './graph.js';
 import { getContrastTextColor } from './namespace.js';
 import { getCollapsedChildren, expandNamespace, findConnectedChild } from './grouping.js';
 import { isHistoryMode, getSelectedTime } from './timeline.js';
@@ -14,10 +14,93 @@ let topologyDataCache = null;
 let currentNodeId = null; // Track currently opened node for toggle behavior
 let currentEdgeId = null; // Track currently opened edge for toggle behavior
 let grafanaConfig = null; // Grafana config from /api/v1/config
+let alertManagerEnabled = true; // Whether AlertManager is configured
 let highlightedElement = null; // Track currently highlighted element for cleanup
 let highlightTimer = null; // Timer for highlight auto-clear
 
 const $ = (sel) => document.querySelector(sel);
+
+// ---------------------------------------------------------------------------
+// Shared rendering helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a state badge with optional stale hint.
+ * @param {string} state - Node or edge state (ok, degraded, down, unknown)
+ * @param {boolean} stale - Whether the element is stale
+ * @returns {string} HTML for the state badge
+ */
+function formatStateBadge(state, stale) {
+  const resolved = state || 'unknown';
+  const badge = `<span class="sidebar-state-badge ${resolved}">${resolved}</span>`;
+  if (!stale) return badge;
+  return `${badge} <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>`;
+}
+
+/**
+ * Render an array of detail rows into HTML.
+ * Expects a pre-filtered array of { label, value } objects.
+ * @param {Array<{label: string, value: string|number}>} details
+ * @returns {string} HTML string
+ */
+function renderDetailRows(details) {
+  return details
+    .map(
+      (item) => `
+    <div class="sidebar-detail-row">
+      <span class="sidebar-detail-label">${item.label}:</span>
+      <span class="sidebar-detail-value">${item.value}</span>
+    </div>
+  `
+    )
+    .join('');
+}
+
+/**
+ * Render a list of alert items into HTML.
+ * @param {Array} alerts - Filtered alert objects
+ * @param {string|null} contextId - Node ID for context; when set, cross-references are shown
+ * @returns {string} HTML string for alert items (without section title)
+ */
+function renderAlertItems(alerts, contextId) {
+  return alerts
+    .map(
+      (alert) => `
+      <div class="sidebar-alert-item ${alert.severity || 'info'}">
+        <div class="sidebar-alert-name">${alert.alertname || t('alerts.unknownAlert')}</div>
+        <div class="sidebar-alert-meta">
+          ${alert.severity ? `<strong>${alert.severity.toUpperCase()}</strong>` : ''}
+          ${contextId && alert.service !== contextId && alert.service ? ` &bull; ${t('alerts.service', { name: alert.service })}` : ''}
+          ${contextId && alert.dependency !== contextId && alert.dependency ? ` &bull; ${t('alerts.dependency', { name: alert.dependency })}` : ''}
+        </div>
+      </div>
+    `
+    )
+    .join('');
+}
+
+/**
+ * Render Grafana dashboard links section HTML.
+ * @param {Array<{label: string, url: string}>} dashboards
+ * @returns {string} HTML string including section title, or empty string if no dashboards
+ */
+function renderDashboardLinksHtml(dashboards) {
+  if (dashboards.length === 0) return '';
+  return `
+    <div class="sidebar-section-title">${t('sidebar.grafanaDashboards')}</div>
+    ${dashboards
+      .map(
+        (d) => `
+      <a href="${appendHistoryTimeRange(d.url)}" target="_blank" rel="noopener" class="sidebar-grafana-link">
+        <i class="bi bi-graph-up"></i>
+        <span>${d.label}</span>
+        <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>
+      </a>
+    `
+      )
+      .join('')}
+  `;
+}
 
 /**
  * Initialize sidebar interactions.
@@ -102,6 +185,10 @@ export function setGrafanaConfig(config) {
   if (config && config.grafana) {
     grafanaConfig = config.grafana;
   }
+  // Also capture AlertManager availability
+  if (config && config.alerts) {
+    alertManagerEnabled = !!config.alerts.enabled;
+  }
 }
 
 /**
@@ -172,28 +259,17 @@ function openCollapsedSidebar(node, cy) {
   $('#sidebar-title').textContent = nsName;
 
   // Details: worst state, service count, total alerts
-  const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
   const details = [
-    { label: t('sidebar.collapsed.worstState'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>` },
+    { label: t('sidebar.collapsed.worstState'), value: formatStateBadge(data.state, false) },
     { label: t('sidebar.collapsed.services', { count: data.childCount || 0 }), value: data.childCount || 0 },
     data.alertCount > 0 && { label: t('sidebar.collapsed.totalAlerts'), value: data.alertCount },
   ].filter(Boolean);
 
-  $('#sidebar-details').innerHTML = details
-    .map((item) => `
-    <div class="sidebar-detail-row">
-      <span class="sidebar-detail-label">${item.label}:</span>
-      <span class="sidebar-detail-value">${item.value}</span>
-    </div>
-  `).join('');
+  $('#sidebar-details').innerHTML = renderDetailRows(details);
 
-  // Dependency status: empty for collapsed
+  // Clear sections not applicable to collapsed nodes
   $('#sidebar-dep-status').innerHTML = '';
-
-  // Alerts: empty
   $('#sidebar-alerts').innerHTML = '';
-
-  // Instances: empty
   $('#sidebar-instances').innerHTML = '';
 
   // Services list (from collapsedStore) — clickable to expand and navigate
@@ -265,31 +341,18 @@ function closeSidebar() {
  * @param {object} data - Node data
  */
 function renderDetails(data) {
-  const section = $('#sidebar-details');
-  const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
-
-  const staleDetail = data.stale ? ` <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>` : '';
   const details = [
-    { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>${staleDetail}` },
+    { label: t('sidebar.state'), value: formatStateBadge(data.state, data.stale) },
     data.group && { label: t('sidebar.group'), value: data.group },
     data.namespace && { label: t('sidebar.namespace'), value: data.namespace },
     data.type && { label: t('sidebar.type'), value: data.type },
     data.host && { label: t('sidebar.host'), value: data.host },
     data.port && { label: t('sidebar.port'), value: data.port },
-    data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
+    alertManagerEnabled && data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
     data.isRoot && { label: t('sidebar.role'), value: `<span class="sidebar-root-badge">${t('sidebar.entryPoint')}</span>` },
   ].filter(Boolean);
 
-  section.innerHTML = details
-    .map(
-      (item) => `
-    <div class="sidebar-detail-row">
-      <span class="sidebar-detail-label">${item.label}:</span>
-      <span class="sidebar-detail-value">${item.value}</span>
-    </div>
-  `
-    )
-    .join('');
+  $('#sidebar-details').innerHTML = renderDetailRows(details);
 }
 
 /**
@@ -298,7 +361,7 @@ function renderDetails(data) {
  */
 function renderAlerts(nodeId) {
   const section = $('#sidebar-alerts');
-  if (!topologyDataCache || !topologyDataCache.alerts) {
+  if (!alertManagerEnabled || !topologyDataCache || !topologyDataCache.alerts) {
     section.innerHTML = '';
     return;
   }
@@ -314,20 +377,7 @@ function renderAlerts(nodeId) {
 
   section.innerHTML = `
     <div class="sidebar-section-title">${t('sidebar.activeAlertsCount', { count: nodeAlerts.length })}</div>
-    ${nodeAlerts
-      .map(
-        (alert) => `
-      <div class="sidebar-alert-item ${alert.severity || 'info'}">
-        <div class="sidebar-alert-name">${alert.alertname || t('alerts.unknownAlert')}</div>
-        <div class="sidebar-alert-meta">
-          ${alert.severity ? `<strong>${alert.severity.toUpperCase()}</strong>` : ''}
-          ${alert.service !== nodeId && alert.service ? ` &bull; ${t('alerts.service', { name: alert.service })}` : ''}
-          ${alert.dependency !== nodeId && alert.dependency ? ` &bull; ${t('alerts.dependency', { name: alert.dependency })}` : ''}
-        </div>
-      </div>
-    `
-      )
-      .join('')}
+    ${renderAlertItems(nodeAlerts, nodeId)}
   `;
 }
 
@@ -586,25 +636,7 @@ function renderGrafanaDashboards(data) {
     });
   }
 
-  if (dashboards.length === 0) {
-    section.innerHTML = '';
-    return;
-  }
-
-  section.innerHTML = `
-    <div class="sidebar-section-title">${t('sidebar.grafanaDashboards')}</div>
-    ${dashboards
-      .map(
-        (d) => `
-      <a href="${appendHistoryTimeRange(d.url)}" target="_blank" rel="noopener" class="sidebar-grafana-link">
-        <i class="bi bi-graph-up"></i>
-        <span>${d.label}</span>
-        <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>
-      </a>
-    `
-      )
-      .join('')}
-  `;
+  section.innerHTML = renderDashboardLinksHtml(dashboards);
 }
 
 /**
@@ -655,10 +687,6 @@ export function openEdgeSidebar(edge, cy) {
 }
 
 /**
- * Render edge details section.
- * @param {object} data - Edge data
- */
-/**
  * Render a colored status badge for dependency status.
  * @param {string} status - Status value (timeout, dns_error, etc.)
  * @returns {string} HTML badge
@@ -706,31 +734,22 @@ function renderDependencyStatusSummary(node, cy) {
   `;
 }
 
+/**
+ * Render edge details section.
+ * @param {object} data - Edge data
+ */
 function renderEdgeDetails(data) {
-  const section = $('#sidebar-details');
-  const stateBadgeClass = `sidebar-state-badge ${data.state || 'unknown'}`;
-
-  const staleDetail = data.stale ? ` <span class="sidebar-stale-hint">${t('state.unknown.detail')}</span>` : '';
   const details = [
-    { label: t('sidebar.state'), value: `<span class="${stateBadgeClass}">${data.state || 'unknown'}</span>${staleDetail}` },
+    { label: t('sidebar.state'), value: formatStateBadge(data.state, data.stale) },
     data.status && data.status !== 'ok' && { label: t('sidebar.edge.status'), value: formatStatusBadge(data.status) },
     data.status && data.status !== 'ok' && data.detail && { label: t('sidebar.edge.detail'), value: `<code>${data.detail}</code>` },
     data.type && { label: t('sidebar.edge.type'), value: data.type },
     { label: t('sidebar.edge.latency'), value: data.stale ? '—' : (data.latency || '—') },
     { label: t('sidebar.edge.critical'), value: data.critical ? t('sidebar.edge.criticalYes') : t('sidebar.edge.criticalNo') },
-    data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
+    alertManagerEnabled && data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
   ].filter(Boolean);
 
-  section.innerHTML = details
-    .map(
-      (item) => `
-    <div class="sidebar-detail-row">
-      <span class="sidebar-detail-label">${item.label}:</span>
-      <span class="sidebar-detail-value">${item.value}</span>
-    </div>
-  `
-    )
-    .join('');
+  $('#sidebar-details').innerHTML = renderDetailRows(details);
 }
 
 /**
@@ -740,7 +759,7 @@ function renderEdgeDetails(data) {
  */
 function renderEdgeAlerts(source, target) {
   const section = $('#sidebar-alerts');
-  if (!topologyDataCache || !topologyDataCache.alerts) {
+  if (!alertManagerEnabled || !topologyDataCache || !topologyDataCache.alerts) {
     section.innerHTML = '';
     return;
   }
@@ -756,18 +775,7 @@ function renderEdgeAlerts(source, target) {
 
   section.innerHTML = `
     <div class="sidebar-section-title">${t('sidebar.activeAlertsCount', { count: edgeAlerts.length })}</div>
-    ${edgeAlerts
-      .map(
-        (alert) => `
-      <div class="sidebar-alert-item ${alert.severity || 'info'}">
-        <div class="sidebar-alert-name">${alert.alertname || t('alerts.unknownAlert')}</div>
-        <div class="sidebar-alert-meta">
-          ${alert.severity ? `<strong>${alert.severity.toUpperCase()}</strong>` : ''}
-        </div>
-      </div>
-    `
-      )
-      .join('')}
+    ${renderAlertItems(edgeAlerts, null)}
   `;
 }
 
@@ -908,25 +916,7 @@ function renderEdgeGrafanaDashboards(data, sourceLabel, targetLabel, sourceNames
     });
   }
 
-  if (dashboards.length === 0) {
-    section.innerHTML = '';
-    return;
-  }
-
-  section.innerHTML = `
-    <div class="sidebar-section-title">${t('sidebar.grafanaDashboards')}</div>
-    ${dashboards
-      .map(
-        (d) => `
-      <a href="${appendHistoryTimeRange(d.url)}" target="_blank" rel="noopener" class="sidebar-grafana-link">
-        <i class="bi bi-graph-up"></i>
-        <span>${d.label}</span>
-        <i class="bi bi-box-arrow-up-right sidebar-grafana-external"></i>
-      </a>
-    `
-      )
-      .join('')}
-  `;
+  section.innerHTML = renderDashboardLinksHtml(dashboards);
 }
 
 /**
