@@ -114,14 +114,14 @@ type GrafanaConfig struct {
 
 // DashboardsConfig holds Grafana dashboard UIDs.
 type DashboardsConfig struct {
-	ServiceStatus   string `yaml:"serviceStatus"`
-	LinkStatus      string `yaml:"linkStatus"`
-	ServiceList     string `yaml:"serviceList"`
-	ServicesStatus  string `yaml:"servicesStatus"`
-	LinksStatus     string `yaml:"linksStatus"`
-	CascadeOverview        string `yaml:"cascadeOverview"`
-	RootCause              string `yaml:"rootCause"`
-	ConnectionDiagnostics  string `yaml:"connectionDiagnostics"`
+	ServiceStatus         string `yaml:"serviceStatus"`
+	LinkStatus            string `yaml:"linkStatus"`
+	ServiceList           string `yaml:"serviceList"`
+	ServicesStatus        string `yaml:"servicesStatus"`
+	LinksStatus           string `yaml:"linksStatus"`
+	CascadeOverview       string `yaml:"cascadeOverview"`
+	RootCause             string `yaml:"rootCause"`
+	ConnectionDiagnostics string `yaml:"connectionDiagnostics"`
 }
 
 // Load reads a YAML config file and applies environment variable overrides.
@@ -266,11 +266,15 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("DEPHEALTH_CACHE_TTL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Cache.TTL = d
+		} else {
+			slog.Warn("ignoring invalid DEPHEALTH_CACHE_TTL", "value", v, "error", err)
 		}
 	}
 	if v := os.Getenv("DEPHEALTH_TOPOLOGY_LOOKBACK"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Topology.Lookback = d
+		} else {
+			slog.Warn("ignoring invalid DEPHEALTH_TOPOLOGY_LOOKBACK", "value", v, "error", err)
 		}
 	}
 	if v := os.Getenv("DEPHEALTH_AUTH_TYPE"); v != "" {
@@ -307,6 +311,8 @@ func applyEnvOverrides(cfg *Config) {
 		var levels []SeverityLevel
 		if err := json.Unmarshal([]byte(v), &levels); err == nil {
 			cfg.Alerts.SeverityLevels = levels
+		} else {
+			slog.Warn("ignoring invalid DEPHEALTH_ALERTS_SEVERITYLEVELS", "error", err)
 		}
 	}
 
