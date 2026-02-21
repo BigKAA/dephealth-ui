@@ -13,7 +13,7 @@ dephealth-ui is a web application for visualizing microservice topologies and mo
 The application consumes data from two sources:
 
 - **Prometheus / VictoriaMetrics** — metrics collected by the [topologymetrics](https://github.com/BigKAA/topologymetrics) project (dephealth SDK)
-- **AlertManager** — active dependency alerts
+- **AlertManager** — active dependency alerts (optional; if not configured, alert-related UI elements are hidden)
 
 ### topologymetrics Metrics
 
@@ -257,6 +257,7 @@ Returns configuration needed by the frontend (Grafana base URL, dashboard UIDs, 
   "cache": { "ttl": 15 },
   "auth": { "type": "oidc" },
   "alerts": {
+    "enabled": true,
     "severityLevels": [
       {"value": "critical", "color": "#f44336"},
       {"value": "warning", "color": "#ff9800"},
@@ -265,6 +266,8 @@ Returns configuration needed by the frontend (Grafana base URL, dashboard UIDs, 
   }
 }
 ```
+
+The `alerts.enabled` field indicates whether AlertManager is configured. When `false`, the frontend hides all alert-related UI elements (see [Optional AlertManager](#optional-alertmanager)).
 
 **Dashboards:**
 
@@ -291,7 +294,7 @@ datasources:
     # username: "reader"
     # password: "secret"
   alertmanager:
-    url: "http://alertmanager.monitoring.svc:9093"
+    url: "http://alertmanager.monitoring.svc:9093"  # optional; leave empty to disable alerts
 
 cache:
   ttl: 15s
@@ -399,6 +402,25 @@ Three types of sidebars:
 - Worst state, service count, total alerts
 - Clickable service list with colored state dots and "Go to node →" arrow
 - "Expand namespace" button
+
+### Optional AlertManager
+
+AlertManager is an optional data source. When `datasources.alertmanager.url` is empty (or not configured), the application operates without alert data.
+
+**Config API:** `GET /api/v1/config` returns `alerts.enabled: false` when AlertManager URL is not configured, and `alerts.enabled: true` when it is.
+
+**Frontend behavior when AlertManager is disabled (`alerts.enabled: false`):**
+
+- Alerts button in the toolbar is visually disabled (grayed out, `cursor: not-allowed`) with a tooltip "Connect AlertManager"
+- Clicking the disabled alerts button does not open the alert drawer
+- Alert badges are not displayed on graph nodes and edges
+- Alert sections are hidden in node and edge sidebars
+- Alert counters are hidden in the status bar
+- Alert data is not fetched from the server
+
+When AlertManager is configured (`alerts.enabled: true`), all alert features function normally as described throughout this document.
+
+> **Note:** Historical alerts (in History Mode) are retrieved from Prometheus via the `ALERTS` metric, not from AlertManager. History mode is not affected by this setting.
 
 ### Internationalization (i18n)
 

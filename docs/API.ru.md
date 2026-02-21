@@ -576,6 +576,7 @@ curl -o topology.svg https://dephealth.example.com/api/v1/export/svg?time=2026-0
     "type": "oidc"
   },
   "alerts": {
+    "enabled": true,
     "severityLevels": [
       {"value": "critical", "color": "#f44336"},
       {"value": "warning", "color": "#ff9800"},
@@ -584,6 +585,13 @@ curl -o topology.svg https://dephealth.example.com/api/v1/export/svg?time=2026-0
   }
 }
 ```
+
+**Конфигурация алертов:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `alerts.enabled` | bool | `true`, если AlertManager настроен (`datasources.alertmanager.url` не пуст), `false` в противном случае. При `false` фронтенд скрывает все алерт-элементы UI (кнопка алертов неактивна, нет бейджей алертов на узлах/рёбрах, нет секций алертов в сайдбарах, нет счётчиков алертов в статус-баре) |
+| `alerts.severityLevels` | array | Уровни severity алертов с цветами отображения |
 
 **UID дашбордов:**
 

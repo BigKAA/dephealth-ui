@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Optional AlertManager** — AlertManager is now an optional data source; when `datasources.alertmanager.url` is empty, alert-related UI elements are gracefully disabled
+- **`alerts.enabled` config field** — `GET /api/v1/config` returns `alerts.enabled` boolean indicating whether AlertManager is configured
+- **Disabled alerts UI** — when AlertManager is not configured: alerts button is visually disabled with tooltip, alert badges hidden on nodes/edges, alert sections hidden in sidebars, alert counters hidden in status bar
 - **Graph export** — multi-format topology export via `GET /api/v1/export/{format}` endpoint
 - **Export formats** — JSON (structured data with metadata), CSV (ZIP with nodes.csv + edges.csv), DOT (Graphviz format with clusters and colors), PNG (Graphviz-rendered raster), SVG (Graphviz-rendered vector)
 - **Export modal** — frontend dialog with format selection (PNG/SVG/JSON/CSV/DOT), scope selection (current view / full graph), and download button
@@ -26,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Optional AlertManager behavior documented in application design docs (EN + RU)
+- `alerts.enabled` field documented in API reference config endpoint (EN + RU)
 - Export endpoint (`/api/v1/export/{format}`) documented in API reference (EN + RU)
 - Graph export architecture section added to application design docs (EN + RU)
 - Backend responsibilities table updated with export entry (EN + RU)

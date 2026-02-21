@@ -576,6 +576,7 @@ Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, d
     "type": "oidc"
   },
   "alerts": {
+    "enabled": true,
     "severityLevels": [
       {"value": "critical", "color": "#f44336"},
       {"value": "warning", "color": "#ff9800"},
@@ -584,6 +585,13 @@ Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, d
   }
 }
 ```
+
+**Alert configuration:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `alerts.enabled` | bool | `true` if AlertManager is configured (`datasources.alertmanager.url` is not empty), `false` otherwise. When `false`, the frontend hides all alert-related UI elements (alert button disabled, no alert badges on nodes/edges, no alert sections in sidebars, no alert counters in status bar) |
+| `alerts.severityLevels` | array | Alert severity levels with display colors |
 
 **Dashboard UIDs:**
 
