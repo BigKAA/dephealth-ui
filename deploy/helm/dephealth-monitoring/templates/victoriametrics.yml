@@ -105,6 +105,63 @@ data:
             action: replace
             target_label: pod
 
+      # --- Annotation-based pod discovery (arbitrary namespaces) ---
+      {{- range .Values.victoriametrics.annotationScrape }}
+      - job_name: 'annotation-{{ . }}'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - '{{ . }}'
+        tls_config:
+          insecure_skip_verify: true
+
+        relabel_configs:
+          # 1. Only scrape pods with prometheus.io/scrape=true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+
+          # 2. Use scheme from annotation (default: http)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+
+          # 3. Use path from annotation (default: /metrics)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # 4. Use port from annotation
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+          # 5. Set namespace label from K8s metadata
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+
+          # 6. Set job label from app.kubernetes.io/name
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: job
+
+          # 7. Set service label (same as job)
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: service
+
+          # 8. Set pod label
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+      {{- end }}
+
       # --- VictoriaMetrics self-monitoring (static) ---
       - job_name: victoriametrics
         static_configs:

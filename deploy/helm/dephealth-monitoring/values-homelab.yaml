@@ -4,6 +4,8 @@ global:
   storageClass: nfs-client
 
 victoriametrics:
+  annotationScrape:
+    - artstore-test
   externalTargets:
     - jobName: uniproxy-pr1
       target: "192.168.218.168:8080"

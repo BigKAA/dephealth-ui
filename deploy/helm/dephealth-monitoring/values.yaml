@@ -26,6 +26,11 @@ victoriametrics:
     limits:
       cpu: 500m
       memory: 512Mi
+  # Annotation-based pod scraping for arbitrary namespaces.
+  # Each entry is a namespace name; pods with prometheus.io/scrape=true are auto-discovered.
+  annotationScrape: []
+  # - artstore-test
+  # - my-other-namespace
   # External targets for static scraping (bare metal hosts, VMs, etc.)
   # Each entry creates a separate scrape job.
   externalTargets: []
