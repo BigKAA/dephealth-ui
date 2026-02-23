@@ -47,3 +47,8 @@ instances:
         type: postgres
         url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
         critical: "yes"
+      - name: uniproxy-01
+        type: http
+        url: "http://uniproxy-01.dephealth-uniproxy.svc:8080"
+        critical: "yes"
+        healthPath: "/"
