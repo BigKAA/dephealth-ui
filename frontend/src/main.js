@@ -41,6 +41,7 @@ let selectedGroup = '';
 let appConfig = null; // Store full config including alerts severity levels
 let layoutDirection = 'TB'; // Current layout direction: 'TB' or 'LR'
 let dataHasGroups = false; // Whether current data has any nodes with group field
+let edgeLabelsEnabled = localStorage.getItem('dephealth-edge-labels') === 'true';
 
 // Connection state
 let isDisconnected = false;
@@ -50,6 +51,14 @@ let countdownTimer = null;
 
 // Partial data tracking
 let lastPartialErrors = [];
+
+/**
+ * Returns whether edge type labels are enabled.
+ * @returns {boolean}
+ */
+export function isEdgeLabelsEnabled() {
+  return edgeLabelsEnabled;
+}
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -416,10 +425,6 @@ function setupGraphToolbar() {
     if (cy) cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
   });
 
-  $('#btn-toolbar-fit').addEventListener('click', () => {
-    if (cy) cy.fit(50);
-  });
-
   // Layout toggle button
   const btnLayoutToggle = $('#btn-layout-toggle');
   btnLayoutToggle.addEventListener('click', () => {
@@ -499,6 +504,16 @@ function setupGraphToolbar() {
     }
   });
 
+  // Edge labels toggle button
+  const btnEdgeLabels = $('#btn-edge-labels');
+  if (edgeLabelsEnabled) btnEdgeLabels.classList.add('active');
+  btnEdgeLabels.addEventListener('click', () => {
+    edgeLabelsEnabled = !edgeLabelsEnabled;
+    btnEdgeLabels.classList.toggle('active', edgeLabelsEnabled);
+    localStorage.setItem('dephealth-edge-labels', edgeLabelsEnabled);
+    if (cy) cy.style().update();
+  });
+
   // Update fullscreen icon
   document.addEventListener('fullscreenchange', () => {
     const isFullscreen = !!document.fullscreenElement;
@@ -547,80 +562,84 @@ function updateDimensionFilter(data) {
   }));
 }
 
-function setupLegend() {
-  const legend = $('#graph-legend');
-  const btnToggle = $('#btn-legend');
-  const btnClose = $('#btn-legend-close');
+// Legend panels configuration: id → { panelSel, storageKey, defaultVisible }
+const LEGEND_PANELS = {
+  'graph-legend': { storageKey: 'dephealth-legend', defaultVisible: true, posKey: 'dephealth-legend-pos' },
+  'namespace-legend': { storageKey: 'dephealth-ns-legend', defaultVisible: true, posKey: 'dephealth-ns-legend-pos' },
+  'connection-legend': { storageKey: 'dephealth-conn-legend', defaultVisible: false, posKey: 'dephealth-conn-legend-pos' },
+};
 
-  // Restore legend visibility from localStorage
-  const legendVisible = localStorage.getItem('dephealth-legend') !== 'hidden';
-  if (legendVisible) {
-    legend.classList.remove('hidden');
+function setupLegends() {
+  const dropdown = $('#legends-dropdown');
+  const btnLegends = $('#btn-legends');
+
+  // Setup each legend panel: restore visibility, close button, draggable
+  for (const [panelId, cfg] of Object.entries(LEGEND_PANELS)) {
+    const panel = $(`#${panelId}`);
+    const closeBtn = panel.querySelector('.legend-close');
+
+    // Restore visibility
+    const stored = localStorage.getItem(cfg.storageKey);
+    const visible = stored !== null ? stored !== 'hidden' : cfg.defaultVisible;
+    if (visible) {
+      panel.classList.remove('hidden');
+    }
+
+    // Close button
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        panel.classList.add('hidden');
+        localStorage.setItem(cfg.storageKey, 'hidden');
+        updateDropdownChecks();
+      });
+    }
+
+    makeDraggable(panel, cfg.posKey, { dragHandle: '.legend-header', exclude: 'button' });
   }
 
-  // Toggle button
-  btnToggle.addEventListener('click', () => {
-    const isHidden = legend.classList.toggle('hidden');
-    localStorage.setItem('dephealth-legend', isHidden ? 'hidden' : 'visible');
-    if (!isHidden) clampElement(legend);
+  // Toggle dropdown on button click
+  btnLegends.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = dropdown.classList.toggle('hidden');
+    if (!isHidden) updateDropdownChecks();
   });
 
-  // Close button
-  btnClose.addEventListener('click', () => {
-    legend.classList.add('hidden');
-    localStorage.setItem('dephealth-legend', 'hidden');
+  // Handle dropdown item clicks
+  dropdown.addEventListener('click', (e) => {
+    const item = e.target.closest('.toolbar-dropdown-item');
+    if (!item) return;
+    e.stopPropagation();
+
+    const targetId = item.dataset.target;
+    const cfg = LEGEND_PANELS[targetId];
+    if (!cfg) return;
+
+    const panel = $(`#${targetId}`);
+    const isHidden = panel.classList.toggle('hidden');
+    localStorage.setItem(cfg.storageKey, isHidden ? 'hidden' : 'visible');
+    if (!isHidden) clampElement(panel);
+    updateDropdownChecks();
   });
 
-  makeDraggable(legend, 'dephealth-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
+  // Close dropdown on click outside
+  document.addEventListener('click', (e) => {
+    if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && e.target !== btnLegends) {
+      dropdown.classList.add('hidden');
+    }
+  });
 }
 
-function setupNamespaceLegend() {
-  const legend = $('#namespace-legend');
-  const btnToggle = $('#btn-ns-legend');
-  const btnClose = $('#btn-ns-legend-close');
-
-  // Restore visibility from localStorage
-  const visible = localStorage.getItem('dephealth-ns-legend') !== 'hidden';
-  if (visible) {
-    legend.classList.remove('hidden');
+function updateDropdownChecks() {
+  const dropdown = $('#legends-dropdown');
+  if (!dropdown) return;
+  for (const item of dropdown.querySelectorAll('.toolbar-dropdown-item')) {
+    const targetId = item.dataset.target;
+    const panel = $(`#${targetId}`);
+    const check = item.querySelector('.dropdown-check');
+    if (panel && check) {
+      check.classList.toggle('hidden', panel.classList.contains('hidden'));
+    }
   }
-
-  btnToggle.addEventListener('click', () => {
-    const isHidden = legend.classList.toggle('hidden');
-    localStorage.setItem('dephealth-ns-legend', isHidden ? 'hidden' : 'visible');
-    if (!isHidden) clampElement(legend);
-  });
-
-  btnClose.addEventListener('click', () => {
-    legend.classList.add('hidden');
-    localStorage.setItem('dephealth-ns-legend', 'hidden');
-  });
-
-  makeDraggable(legend, 'dephealth-ns-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
-}
-
-function setupConnectionLegend() {
-  const legend = $('#connection-legend');
-  const btnToggle = $('#btn-conn-legend');
-  const btnClose = $('#btn-conn-legend-close');
-
-  const visible = localStorage.getItem('dephealth-conn-legend') === 'visible';
-  if (visible) {
-    legend.classList.remove('hidden');
-  }
-
-  btnToggle.addEventListener('click', () => {
-    const isHidden = legend.classList.toggle('hidden');
-    localStorage.setItem('dephealth-conn-legend', isHidden ? 'hidden' : 'visible');
-    if (!isHidden) clampElement(legend);
-  });
-
-  btnClose.addEventListener('click', () => {
-    legend.classList.add('hidden');
-    localStorage.setItem('dephealth-conn-legend', 'hidden');
-  });
-
-  makeDraggable(legend, 'dephealth-conn-legend-pos', { dragHandle: '.legend-header', exclude: 'button' });
 }
 
 function updateNamespaceLegend(data) {
@@ -750,13 +769,11 @@ async function init() {
     setupToolbar();
     setupFilters();
     setupGraphToolbar();
-    setupLegend();
-    setupNamespaceLegend();
-    setupConnectionLegend();
+    setupLegends();
     initExportModal(cy, () => ({ namespace: selectedNamespace, group: selectedGroup }));
 
     // Prevent clicks on floating panels inside #cy from reaching the Cytoscape canvas
-    for (const sel of ['#graph-legend', '#namespace-legend', '#connection-legend', '#search-panel', '#context-menu', '#graph-toolbar']) {
+    for (const sel of ['#graph-legend', '#namespace-legend', '#connection-legend', '#context-menu', '#graph-toolbar']) {
       const el = $(sel);
       if (el) el.addEventListener('pointerdown', (e) => e.stopPropagation());
     }
@@ -801,6 +818,7 @@ async function init() {
       },
       toggleLayout: () => $('#btn-layout-toggle').click(),
       openExport: () => $('#btn-export').click(),
+      toggleEdgeLabels: () => $('#btn-edge-labels').click(),
       closeAll: () => {
         // Close all panels
         const searchPanel = $('#search-panel');

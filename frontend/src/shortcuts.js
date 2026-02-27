@@ -17,6 +17,7 @@ export function initShortcuts(actions) {
     '/': () => actions.openSearch && actions.openSearch(),
     'l': () => actions.toggleLayout && actions.toggleLayout(),
     'e': () => actions.openExport && actions.openExport(),
+    't': () => actions.toggleEdgeLabels && actions.toggleEdgeLabels(),
     'Escape': () => actions.closeAll && actions.closeAll(),
   };
 
@@ -68,6 +69,7 @@ function showShortcutsHelp() {
   console.log(`%cCtrl+K%c - ${t('shortcuts.searchAlt')}`, s, n);
   console.log(`%cl%c - ${t('shortcuts.layout')}`, s, n);
   console.log(`%ce%c - ${t('shortcuts.export')}`, s, n);
+  console.log(`%ct%c - ${t('shortcuts.edgeLabels')}`, s, n);
   console.log(`%cEsc%c - ${t('shortcuts.closeAll')}`, s, n);
   console.log(`%c?%c - ${t('shortcuts.help')}`, s, n);
   console.groupEnd();

@@ -14,6 +14,7 @@
         <span id="alert-badge" class="header-badge hidden">0</span>
       </button>
       <button id="btn-filter" data-i18n-title="toolbar.filter" title="Toggle filters"><i class="bi bi-funnel"></i></button>
+      <button id="btn-search" data-i18n-title="toolbar.search" title="Search nodes"><i class="bi bi-search"></i></button>
       <button id="btn-refresh" data-i18n-title="toolbar.refresh" title="Refresh now"><i class="bi bi-arrow-clockwise"></i></button>
       <button id="btn-auto-refresh" class="active" data-i18n-title="toolbar.autoRefresh" title="Toggle auto-refresh"><i class="bi bi-play-circle"></i></button>
       <button id="btn-fit" data-i18n-title="toolbar.fit" title="Fit graph to screen"><i class="bi bi-arrows-fullscreen"></i></button>
@@ -59,27 +60,51 @@
     </div>
   </div>
 
+  <div id="search-panel" class="search-panel hidden">
+    <input id="search-input" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search nodes..." autocomplete="off" />
+    <span id="search-count"></span>
+    <button id="btn-search-close" class="search-close" data-i18n-title="search.close" title="Close search">×</button>
+  </div>
+
   <div id="cy">
     <div id="graph-toolbar" class="graph-toolbar">
       <div class="toolbar-grip"></div>
+      <!-- Navigation group -->
       <button id="btn-zoom-in" data-i18n-title="graphToolbar.zoomIn" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
       <button id="btn-zoom-out" data-i18n-title="graphToolbar.zoomOut" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
-      <button id="btn-toolbar-fit" data-i18n-title="graphToolbar.fit" title="Fit to screen"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button id="btn-search" data-i18n-title="graphToolbar.search" title="Search nodes"><i class="bi bi-search"></i></button>
+      <div class="toolbar-separator"></div>
+      <!-- Structure group -->
       <button id="btn-layout-toggle" data-i18n-title="graphToolbar.layout" title="Toggle layout direction"><i class="bi bi-distribute-vertical"></i></button>
       <button id="btn-grouping" data-i18n-title="graphToolbar.groupByNs" title="Group by namespace"><i class="bi bi-bounding-box"></i></button>
       <button id="btn-dimension-toggle" class="hidden" data-i18n-title="graphToolbar.switchDimension" title="Switch grouping dimension"><span id="dimension-label">NS</span></button>
       <button id="btn-collapse-all" class="hidden" data-i18n-title="graphToolbar.collapseAll" title="Collapse/expand all namespaces"><i class="bi bi-arrows-collapse"></i></button>
+      <div class="toolbar-separator"></div>
+      <!-- Display group -->
+      <button id="btn-edge-labels" data-i18n-title="graphToolbar.edgeLabels" title="Toggle edge type labels"><i class="bi bi-tag"></i></button>
+      <div class="toolbar-separator"></div>
+      <!-- Utilities group -->
       <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export"><i class="bi bi-download"></i></button>
       <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
-      <button id="btn-legend" data-i18n-title="graphToolbar.legend" title="Toggle legend"><i class="bi bi-info-circle"></i></button>
-      <button id="btn-ns-legend" data-i18n-title="graphToolbar.nsLegend" title="Toggle namespace legend"><i class="bi bi-palette"></i></button>
-      <button id="btn-conn-legend" data-i18n-title="graphToolbar.connLegend" title="Toggle connection legend"><i class="bi bi-ethernet"></i></button>
-    </div>
-    <div id="search-panel" class="search-panel hidden">
-      <input id="search-input" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search nodes..." autocomplete="off" />
-      <span id="search-count"></span>
-      <button id="btn-search-close" class="search-close" data-i18n-title="search.close" title="Close search">×</button>
+      <div class="toolbar-dropdown-wrapper">
+        <button id="btn-legends" data-i18n-title="graphToolbar.legends" title="Legends"><i class="bi bi-info-circle"></i></button>
+        <div id="legends-dropdown" class="toolbar-dropdown hidden">
+          <button class="toolbar-dropdown-item" data-target="graph-legend">
+            <i class="bi bi-info-circle"></i>
+            <span data-i18n="graphToolbar.legend">Legend</span>
+            <i class="bi bi-check2 dropdown-check hidden"></i>
+          </button>
+          <button class="toolbar-dropdown-item" data-target="namespace-legend">
+            <i class="bi bi-palette"></i>
+            <span data-i18n="graphToolbar.nsLegend">Namespaces</span>
+            <i class="bi bi-check2 dropdown-check hidden"></i>
+          </button>
+          <button class="toolbar-dropdown-item" data-target="connection-legend">
+            <i class="bi bi-ethernet"></i>
+            <span data-i18n="connLegend.title">Connections</span>
+            <i class="bi bi-check2 dropdown-check hidden"></i>
+          </button>
+        </div>
+      </div>
     </div>
     <div id="graph-legend" class="graph-legend hidden">
       <div class="legend-header">

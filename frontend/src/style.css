@@ -435,6 +435,74 @@ body {
   border-color: var(--border-hover);
 }
 
+.graph-toolbar button.active {
+  background: var(--btn-active-bg);
+  border-color: var(--btn-active-border);
+  color: var(--btn-active-text);
+}
+
+/* Toolbar separator */
+.toolbar-separator {
+  width: 80%;
+  height: 1px;
+  margin: 2px auto;
+  background: var(--border-light);
+  flex-shrink: 0;
+}
+
+/* Toolbar dropdown */
+.toolbar-dropdown-wrapper {
+  position: relative;
+}
+
+.toolbar-dropdown {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  margin-right: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px var(--shadow);
+  z-index: 60;
+  min-width: 180px;
+}
+
+.toolbar-dropdown.hidden {
+  display: none;
+}
+
+.toolbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.toolbar-dropdown-item:hover {
+  background: var(--btn-hover-bg);
+}
+
+.toolbar-dropdown-item .dropdown-check {
+  margin-left: auto;
+  color: var(--btn-active-text);
+  font-size: 14px;
+}
+
+.toolbar-dropdown-item .dropdown-check.hidden {
+  visibility: hidden;
+}
+
 /* Empty state */
 #empty-state {
   position: absolute;
@@ -892,20 +960,14 @@ body {
 
 /* Search panel */
 .search-panel {
-  position: absolute;
-  top: 16px;
-  right: 70px;
-  z-index: 55;
   display: flex;
   align-items: center;
   gap: 8px;
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 6px 10px;
-  box-shadow: 0 2px 8px var(--shadow);
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px 16px;
   min-width: 280px;
-  transition: opacity 0.2s ease;
+  flex-shrink: 0;
 }
 
 .search-panel.hidden {

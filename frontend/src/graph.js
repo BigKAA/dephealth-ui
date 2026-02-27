@@ -3,6 +3,7 @@ import dagre from 'cytoscape-dagre';
 import fcose from 'cytoscape-fcose';
 import cytoscapeSvg from 'cytoscape-svg';
 import { isElementVisible } from './search.js';
+import { isEdgeLabelsEnabled } from './main.js';
 import { getNamespaceColor, getContrastTextColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
 import { isGroupingEnabled, buildCompoundElements, getGroupingDimension } from './grouping.js';
 
@@ -281,9 +282,16 @@ const cytoscapeStyles = [
       'line-color': getEdgeColor,
       'line-style': (ele) => (EDGE_STYLES[ele.data('state')] || EDGE_STYLES.ok).lineStyle,
       label: (ele) => {
+        const parts = [];
+        if (isEdgeLabelsEnabled()) {
+          const type = ele.data('type');
+          if (type) parts.push(type);
+        }
         const abbr = STATUS_ABBREVIATIONS[ele.data('status')] || '';
+        if (abbr) parts.push(abbr);
         const latency = ele.data('latency') || '';
-        return [abbr, latency].filter(Boolean).join(' ');
+        if (latency) parts.push(latency);
+        return parts.join(' ');
       },
       'font-size': 12,
       color: () => (isDarkTheme() ? '#aaa' : '#555'),

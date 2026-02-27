@@ -11,6 +11,7 @@ export default {
   'toolbar.fit': 'Вписать граф в экран',
   'toolbar.theme': 'Сменить тему',
   'toolbar.language': 'Язык',
+  'toolbar.search': 'Поиск',
   'toolbar.logout': 'Выйти',
 
   // Connection banner
@@ -47,6 +48,8 @@ export default {
   'graphToolbar.switchDimension': 'Переключить измерение группировки',
   'graphToolbar.dimNamespace': 'NS',
   'graphToolbar.dimGroup': 'ГРП',
+  'graphToolbar.edgeLabels': 'Метки типов связей',
+  'graphToolbar.legends': 'Легенды',
   'graphToolbar.nsLegend': 'Легенда namespace',
   'graphToolbar.connLegend': 'Легенда соединений',
 
@@ -193,6 +196,7 @@ export default {
   'shortcuts.searchAlt': 'Открыть поиск (альтернатива)',
   'shortcuts.layout': 'Направление графа (TB/LR)',
   'shortcuts.export': 'Экспорт графа',
+  'shortcuts.edgeLabels': 'Метки типов связей',
   'shortcuts.closeAll': 'Закрыть все панели',
   'shortcuts.help': 'Показать подсказки',
 

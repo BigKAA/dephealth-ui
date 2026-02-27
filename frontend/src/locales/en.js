@@ -11,6 +11,7 @@ export default {
   'toolbar.fit': 'Fit graph to screen',
   'toolbar.theme': 'Toggle dark/light theme',
   'toolbar.language': 'Language',
+  'toolbar.search': 'Search nodes',
   'toolbar.logout': 'Logout',
 
   // Connection banner
@@ -47,6 +48,8 @@ export default {
   'graphToolbar.switchDimension': 'Switch grouping dimension',
   'graphToolbar.dimNamespace': 'NS',
   'graphToolbar.dimGroup': 'GRP',
+  'graphToolbar.edgeLabels': 'Toggle edge type labels',
+  'graphToolbar.legends': 'Legends',
   'graphToolbar.nsLegend': 'Toggle namespace legend',
   'graphToolbar.connLegend': 'Toggle connection legend',
 
@@ -193,6 +196,7 @@ export default {
   'shortcuts.searchAlt': 'Open search (alternative)',
   'shortcuts.layout': 'Toggle layout direction (TB/LR)',
   'shortcuts.export': 'Export graph',
+  'shortcuts.edgeLabels': 'Toggle edge type labels',
   'shortcuts.closeAll': 'Close all panels',
   'shortcuts.help': 'Show this help',
 
