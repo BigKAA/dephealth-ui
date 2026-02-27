@@ -28,6 +28,16 @@ metadata:
     app.kubernetes.io/component: infrastructure
 {{- end }}
 ---
+{{- if .Values.ds389.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.ds389.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: infrastructure
+{{- end }}
+---
 {{- if .Values.stubs.grpcStub.enabled }}
 apiVersion: v1
 kind: Namespace

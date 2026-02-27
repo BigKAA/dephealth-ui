@@ -92,6 +92,23 @@ rabbitmq:
       cpu: 500m
       memory: 512Mi
 
+# --- 389 Directory Server (LDAP) ---
+ds389:
+  enabled: false
+  namespace: dephealth-389ds
+  image: 389ds/dirsrv
+  tag: "3.1"
+  dmPassword: "admin-password"
+  suffix: "dc=test,dc=local"
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 # --- Stubs ---
 stubs:
   httpStub:

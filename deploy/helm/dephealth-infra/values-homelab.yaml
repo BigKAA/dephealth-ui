@@ -4,6 +4,9 @@ global:
   pushRegistry: harbor.kryukov.lan/library
   storageClass: nfs-client
 
+ds389:
+  enabled: true
+
 dex:
   enabled: true
   issuer: "https://dex.kryukov.lan"

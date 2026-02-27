@@ -1,0 +1,93 @@
+{{- if .Values.ds389.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ds389-secret
+  namespace: {{ .Values.ds389.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  DS_DM_PASSWORD: {{ .Values.ds389.dmPassword | quote }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ds389
+  namespace: {{ .Values.ds389.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "ds389") | nindent 4 }}
+spec:
+  serviceName: ds389
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dephealth-infra.selectorLabels" (dict "name" "ds389") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dephealth-infra.selectorLabels" (dict "name" "ds389") | nindent 8 }}
+    spec:
+      containers:
+        - name: ds389
+          image: {{ include "dephealth-infra.image" (dict "registry" .Values.global.imageRegistry "image" .Values.ds389.image "tag" .Values.ds389.tag) }}
+          ports:
+            - containerPort: 3389
+              name: ldap
+            - containerPort: 3636
+              name: ldaps
+          env:
+            - name: DS_SUFFIX_NAME
+              value: {{ .Values.ds389.suffix | quote }}
+            - name: DS_DM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ds389-secret
+                  key: DS_DM_PASSWORD
+          readinessProbe:
+            tcpSocket:
+              port: ldap
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: ldap
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.ds389.resources | nindent 12 }}
+          volumeMounts:
+            - name: ds389-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: ds389-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.ds389.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 389ds
+  namespace: {{ .Values.ds389.namespace }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "ds389") | nindent 4 }}
+  ports:
+    - port: 3389
+      targetPort: ldap
+      name: ldap
+    - port: 3636
+      targetPort: ldaps
+      name: ldaps
+{{- end }}
