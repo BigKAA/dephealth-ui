@@ -53,13 +53,14 @@ Returns the complete service topology graph with pre-calculated node/edge states
       "type": "service",
       "namespace": "production",
       "group": "payment-team",
+      "isEntry": true,
       "dependencyCount": 3,
       "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
       "alertSeverity": ""
     },
     {
-      "id": "postgres-main",
+      "id": "order-service/postgres-main",
       "label": "postgres-main",
       "state": "unknown",
       "type": "postgres",
@@ -73,7 +74,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
   "edges": [
     {
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "order-service/postgres-main",
       "type": "postgres",
       "latency": "5.2ms",
       "latencyRaw": 0.0052,
@@ -113,12 +114,13 @@ Returns the complete service topology graph with pre-calculated node/edge states
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | Unique node identifier |
-| `label` | string | Display label |
+| `id` | string | Unique node identifier. Service nodes use the service name (e.g. `order-service`). Dependency nodes use `{source}/{dependency}` format (e.g. `order-service/postgres-main`). If a dependency name matches a known service, the service node is reused instead |
+| `label` | string | Display label. Service nodes use the service name. Dependency nodes use the logical dependency name (e.g. `postgres-main`) |
 | `state` | string | `ok`, `degraded`, `down`, `unknown` |
-| `type` | string | `service` (instrumented app) or dependency type (`postgres`, `redis`, `http`, etc.) |
+| `type` | string | `service` (instrumented app) or dependency type (`postgres`, `redis`, `http`, `ldap`, etc.) |
 | `namespace` | string | Kubernetes namespace |
 | `group` | string | Logical service group (SDK v0.5.0+, omitted if empty) |
+| `isEntry` | bool | `true` if the node is an entry point for external traffic (set via `isentry` label in dephealth SDK metrics). Omitted if `false` |
 | `host` | string | Endpoint hostname (omitted for service nodes) |
 | `port` | string | Endpoint port (omitted for service nodes) |
 | `dependencyCount` | int | Number of outgoing edges |

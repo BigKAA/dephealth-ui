@@ -34,6 +34,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 | `host` | yes | Endpoint address | `pg-master.db.svc.cluster.local` |
 | `port` | yes | Endpoint port | `5432` |
 | `critical` | yes | Dependency criticality | `yes`, `no` |
+| `isentry` | no | Marks the service as an entry point | `yes` |
 | `role` | no | Instance role | `primary`, `replica` |
 | `shard` | no | Shard identifier | `shard-01` |
 | `vhost` | no | AMQP virtual host | `/` |
@@ -44,6 +45,37 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 - **Edges** = combination `{name → dependency, type, host, port, critical}`
 - Each unique combination `{name, dependency, host, port}` = one directed edge
 - The `critical` flag determines edge visual thickness on the graph
+
+### Entry Points
+
+Entry points are the first services receiving external traffic in the topology (e.g., API gateways, frontend backends). They are marked with a blue badge (⬇) on the graph and labeled "Entry Point" in the sidebar.
+
+**How entry points work:**
+
+- Entry points are determined by an **explicit `isentry` label** on dephealth SDK metrics — there is no automatic detection
+- Set `isentry=yes` label in the dephealth SDK, or set `DEPHEALTH_ISENTRY=yes` environment variable in uniproxy
+- If no services have the `isentry` label, no nodes are marked as entry points
+- The `isentry` label is included in the PromQL `group by` clause to propagate through topology queries
+
+**Frontend display:**
+
+- Entry point nodes show a blue ⬇ badge in the bottom-right corner
+- The sidebar displays an "Entry Point" indicator for these nodes
+- The graph legend includes an entry point icon
+
+### Dependency Node Identification
+
+Dependency nodes (non-service targets like databases, caches, message brokers) use a composite ID format:
+
+- **Node ID:** `{source_name}/{dependency_name}` (e.g., `order-service/postgres-main`)
+- **Node label:** logical dependency name (e.g., `postgres-main`, `ldap`, `redis`)
+- **`host` and `port` fields:** contain the actual connection endpoint, displayed as a secondary line in the UI
+
+**Key behavior:**
+
+- Each `(source, dependency)` pair creates a **separate** dependency node — there is no deduplication by `host:port`
+- If two services depend on the same database (`host:port`), they produce separate graph nodes (e.g., `order-service/postgres-main` and `payment-api/postgres-main`)
+- If a dependency name matches a known service name, the dependency links to that service node instead (building a connected service-to-service graph)
 
 ### Alert Rules (from topologymetrics Helm chart)
 
@@ -199,20 +231,23 @@ Returns the full topology graph with pre-computed states:
       "label": "Order Service",
       "state": "ok",
       "type": "service",
+      "isEntry": true,
       "dependencyCount": 3,
       "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service"
     },
     {
-      "id": "postgres-main",
+      "id": "order-service/postgres-main",
       "label": "postgres-main",
       "state": "degraded",
-      "type": "postgres"
+      "type": "postgres",
+      "host": "pg-host",
+      "port": "5432"
     }
   ],
   "edges": [
     {
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "order-service/postgres-main",
       "latency": "5.2ms",
       "latencyRaw": 0.0052,
       "health": 1,
@@ -539,10 +574,10 @@ Browser                          Go Backend                    VictoriaMetrics
 
 ```promql
 # All topology edges (instant)
-group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
 
 # All edges within lookback window (for stale node retention)
-group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health[LOOKBACK]))
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (last_over_time(app_dependency_health[LOOKBACK]))
 
 # Current state of all dependencies
 app_dependency_health

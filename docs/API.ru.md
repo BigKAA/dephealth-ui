@@ -53,13 +53,14 @@ dephealth-ui предоставляет REST API для визуализации
       "type": "service",
       "namespace": "production",
       "group": "payment-team",
+      "isEntry": true,
       "dependencyCount": 3,
       "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
       "alertCount": 0,
       "alertSeverity": ""
     },
     {
-      "id": "postgres-main",
+      "id": "order-service/postgres-main",
       "label": "postgres-main",
       "state": "unknown",
       "type": "postgres",
@@ -73,7 +74,7 @@ dephealth-ui предоставляет REST API для визуализации
   "edges": [
     {
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "order-service/postgres-main",
       "type": "postgres",
       "latency": "5.2ms",
       "latencyRaw": 0.0052,
@@ -113,12 +114,13 @@ dephealth-ui предоставляет REST API для визуализации
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `id` | string | Уникальный идентификатор узла |
-| `label` | string | Отображаемое имя |
+| `id` | string | Уникальный идентификатор узла. Для сервис-узлов — имя сервиса (например, `order-service`). Для dependency-узлов — формат `{source}/{dependency}` (например, `order-service/postgres-main`). Если имя зависимости совпадает с известным сервисом, используется узел этого сервиса |
+| `label` | string | Отображаемое имя. Для сервис-узлов — имя сервиса. Для dependency-узлов — логическое имя зависимости (например, `postgres-main`) |
 | `state` | string | `ok`, `degraded`, `down`, `unknown` |
-| `type` | string | `service` (инструментированное приложение) или тип зависимости (`postgres`, `redis`, `http` и т.д.) |
+| `type` | string | `service` (инструментированное приложение) или тип зависимости (`postgres`, `redis`, `http`, `ldap` и т.д.) |
 | `namespace` | string | Kubernetes namespace |
 | `group` | string | Логическая группа сервиса (SDK v0.5.0+, пропускается если пуста) |
+| `isEntry` | bool | `true`, если узел является точкой входа для внешнего трафика (задаётся через метку `isentry` в метриках dephealth SDK). Пропускается, если `false` |
 | `host` | string | Hostname endpoint (пропускается для service-узлов) |
 | `port` | string | Порт endpoint (пропускается для service-узлов) |
 | `dependencyCount` | int | Количество исходящих рёбер |

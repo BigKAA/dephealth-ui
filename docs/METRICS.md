@@ -44,6 +44,7 @@ This document specifies:
 
 | Label | Description | Example Values |
 |-------|-------------|----------------|
+| `isentry` | Marks the service as an entry point for external traffic. When set to `yes`, the node is displayed with an entry point badge (⬇) in the UI. | `yes` |
 | `group` | Logical service group (SDK v0.5.0+). Enables group dimension toggle in the UI. When absent, namespace-only grouping is used. | `proxy-cluster-1`, `infra-host1`, `payment-team` |
 | `role` | Instance role (for replicated systems) | `primary`, `replica`, `standby` |
 | `shard` | Shard identifier (for sharded systems) | `shard-01`, `shard-02` |
@@ -94,9 +95,9 @@ The application executes the following queries against Prometheus/VictoriaMetric
 
 ### 1. **Topology Discovery** — extract all unique edges
 ```promql
-group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
 ```
-**Purpose:** Discover all service→dependency relationships in the system. The `group` label is included when available (SDK v0.5.0+).
+**Purpose:** Discover all service→dependency relationships in the system. The `group` and `isentry` labels are included when available.
 
 ### 2. **Health State** — current health value per edge
 ```promql
@@ -127,7 +128,7 @@ group by (instance, pod, job) (app_dependency_health{name="<service-name>"})
 ## Graph Model
 
 - **Nodes (Vertices):** Unique values of `name` label → represent services/applications
-- **Edges (Directed):** Unique combinations of `{name, namespace, group, dependency, type, host, port, critical}` → represent service→dependency connections
+- **Edges (Directed):** Unique combinations of `{name, namespace, group, dependency, type, host, port, critical, isentry}` → represent service→dependency connections
 - **Edge Properties:**
   - **critical:** visual thickness (critical dependencies are displayed thicker) + cascade warning propagation (only `critical=yes` edges propagate failure warnings upstream)
   - **latency:** displayed as label on edge
@@ -294,7 +295,7 @@ datasources:
 **Test Query:**
 ```promql
 # Should return your service topology
-group by (name, namespace, dependency, type, host, port, critical) (app_dependency_health)
+group by (name, namespace, dependency, type, host, port, critical, isentry) (app_dependency_health)
 ```
 
 ---

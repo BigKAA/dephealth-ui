@@ -17,10 +17,10 @@
 
 ## Current Status
 
-- **Active phase**: Phase 3
-- **Active item**: 3.1
+- **Active phase**: Complete
+- **Active item**: —
 - **Last updated**: 2026-02-27
-- **Note**: Phases 1-2 complete
+- **Note**: All phases complete
 
 ---
 
@@ -28,9 +28,9 @@
 
 - [x] [Phase 1: Backend — isentry label support](#phase-1-backend--isentry-label-support)
 - [x] [Phase 2: Frontend — IsRoot → IsEntry rename](#phase-2-frontend--isroot--isentry-rename)
-- [ ] [Phase 3: LDAP server in test infrastructure](#phase-3-ldap-server-in-test-infrastructure)
-- [ ] [Phase 4: Test environment — configuration and restart](#phase-4-test-environment--configuration-and-restart)
-- [ ] [Phase 5: Documentation](#phase-5-documentation)
+- [x] [Phase 3: LDAP server in test infrastructure](#phase-3-ldap-server-in-test-infrastructure)
+- [x] [Phase 4: Test environment — configuration and restart](#phase-4-test-environment--configuration-and-restart)
+- [x] [Phase 5: Documentation](#phase-5-documentation)
 
 ---
 
@@ -152,7 +152,7 @@ Update the frontend to use the new `isEntry` JSON field instead of `isRoot`. All
 ## Phase 3: LDAP server in test infrastructure
 
 **Dependencies**: None (independent of Phases 1-2)
-**Status**: Pending
+**Status**: Complete
 
 ### Description
 
@@ -162,7 +162,7 @@ single-replica deployment for testing purposes (no replication, no init job).
 
 ### Items
 
-- [ ] **3.1 Add 389ds template to dephealth-infra**
+- [x] **3.1 Add 389ds template to dephealth-infra**
   - **Dependencies**: None
   - **Description**:
     1. Create `deploy/helm/dephealth-infra/templates/389ds.yml` following the pattern from `redis.yml`:
@@ -181,7 +181,7 @@ single-replica deployment for testing purposes (no replication, no init job).
   - **Links**:
     - [artds kubernetes manifests](https://github.com/BigKAA/artds)
 
-- [ ] **3.2 Add 389ds values**
+- [x] **3.2 Add 389ds values**
   - **Dependencies**: 3.1
   - **Description**:
     1. In `deploy/helm/dephealth-infra/values.yaml`:
@@ -196,16 +196,16 @@ single-replica deployment for testing purposes (no replication, no init job).
 
 ### Completion Criteria Phase 3
 
-- [ ] All items completed (3.1, 3.2)
-- [ ] `helm template dephealth-infra deploy/helm/dephealth-infra/ -f deploy/helm/dephealth-infra/values-homelab.yaml` renders without errors
-- [ ] 389ds template follows the same pattern as redis.yml
+- [x] All items completed (3.1, 3.2)
+- [x] `helm template dephealth-infra deploy/helm/dephealth-infra/ -f deploy/helm/dephealth-infra/values-homelab.yaml` renders without errors
+- [x] 389ds template follows the same pattern as redis.yml
 
 ---
 
 ## Phase 4: Test environment — configuration and restart
 
 **Dependencies**: Phase 1, Phase 2, Phase 3
-**Status**: Pending
+**Status**: Complete
 
 ### Description
 
@@ -214,7 +214,7 @@ to uniproxy-03, build and deploy new version, restart test environment with clea
 
 ### Items
 
-- [ ] **4.1 Add isentry to uniproxy-01**
+- [x] **4.1 Add isentry to uniproxy-01**
   - **Dependencies**: None
   - **Description**:
     1. In `deploy/helm/dephealth-uniproxy/instances/ns1-homelab.yaml`:
@@ -225,7 +225,7 @@ to uniproxy-03, build and deploy new version, restart test environment with clea
     - `deploy/helm/dephealth-uniproxy/instances/ns1-homelab.yaml`
     - Potentially `deploy/helm/dephealth-uniproxy/templates/deployment.yml`
 
-- [ ] **4.2 Add LDAP connection to uniproxy-03**
+- [x] **4.2 Add LDAP connection to uniproxy-03**
   - **Dependencies**: None
   - **Description**:
     1. In `deploy/helm/dephealth-uniproxy/instances/ns1-homelab.yaml`:
@@ -242,7 +242,7 @@ to uniproxy-03, build and deploy new version, restart test environment with clea
   - **Modifies**:
     - `deploy/helm/dephealth-uniproxy/instances/ns1-homelab.yaml`
 
-- [ ] **4.3 Build and push new dephealth-ui image**
+- [x] **4.3 Build and push new dephealth-ui image**
   - **Dependencies**: Phase 1, Phase 2
   - **Description**:
     1. Build dev image: `make docker-dev TAG=<next-dev-tag>`
@@ -251,7 +251,7 @@ to uniproxy-03, build and deploy new version, restart test environment with clea
   - **Modifies**:
     - `deploy/helm/dephealth-ui/values-homelab.yaml` (image tag)
 
-- [ ] **4.4 Restart test environment**
+- [x] **4.4 Restart test environment**
   - **Dependencies**: 4.1, 4.2, 4.3
   - **Description**:
     1. `make env-undeploy`
@@ -267,18 +267,18 @@ to uniproxy-03, build and deploy new version, restart test environment with clea
 
 ### Completion Criteria Phase 4
 
-- [ ] All items completed (4.1, 4.2, 4.3, 4.4)
-- [ ] All pods Running (`make env-status`)
-- [ ] uniproxy-01 marked as entry point in UI
-- [ ] LDAP dependency visible from uniproxy-03
-- [ ] VictoriaMetrics database is clean (no stale data)
+- [x] All items completed (4.1, 4.2, 4.3, 4.4)
+- [x] All pods Running (`make env-status`)
+- [x] uniproxy-01 marked as entry point in UI
+- [x] LDAP dependency visible from uniproxy-03
+- [x] VictoriaMetrics database is clean (no stale data)
 
 ---
 
 ## Phase 5: Documentation
 
 **Dependencies**: Phase 1, Phase 2
-**Status**: Pending
+**Status**: Complete
 
 ### Description
 
@@ -286,7 +286,7 @@ Update project documentation to reflect the isentry change and describe how to u
 
 ### Items
 
-- [ ] **5.1 Update API.md**
+- [x] **5.1 Update API.md**
   - **Dependencies**: None
   - **Description**:
     1. In `docs/API.md`:
@@ -296,7 +296,7 @@ Update project documentation to reflect the isentry change and describe how to u
   - **Modifies**:
     - `docs/API.md`
 
-- [ ] **5.2 Update application-design.md**
+- [x] **5.2 Update application-design.md**
   - **Dependencies**: None
   - **Description**:
     1. In `docs/application-design.md`:
@@ -308,22 +308,45 @@ Update project documentation to reflect the isentry change and describe how to u
   - **Modifies**:
     - `docs/application-design.md`
 
-- [ ] **5.3 Update CHANGELOG.md**
-  - **Dependencies**: 5.1, 5.2
+- [x] **5.3 Document dependency node ID change (`source/dependency`)**
+  - **Dependencies**: None
+  - **Description**:
+    1. In `docs/API.md`:
+       - Update Node `id` field description: dependency nodes now use `{source_name}/{dependency_name}` format instead of `host:port`
+       - Update Node `label` field description: dependency nodes use logical dependency name (e.g., `ldap`, `postgres`) instead of hostname
+       - Note that `host` and `port` fields contain the actual connection endpoint
+       - Update example JSON response to show new ID format
+    2. In `docs/application-design.md`:
+       - Add a section about dependency node identification explaining:
+         - Node ID format: `source/dependency` (e.g., `uniproxy-03/ldap`)
+         - Each (source, dependency) pair creates a separate node — no deduplication by `host:port`
+         - Node label shows logical dependency name, `host:port` shown as secondary line in UI
+         - This means two services depending on the same `host:port` produce separate graph nodes
+  - **Modifies**:
+    - `docs/API.md`
+    - `docs/application-design.md`
+
+- [x] **5.4 Update CHANGELOG.md**
+  - **Dependencies**: 5.1, 5.2, 5.3
   - **Description**:
     1. Add new section to `CHANGELOG.md` with:
        - **Changed**: Entry points now use explicit `isentry` label from dephealth SDK instead of auto-detection
        - **Changed**: API field renamed `isRoot` → `isEntry` (breaking change)
+       - **Changed**: Dependency node ID changed from `host:port` to `source/dependency` (breaking change)
+       - **Changed**: Dependency node label shows logical name instead of hostname
        - **Added**: LDAP dependency type support in test environment
+       - **Added**: `host` and `port` fields shown as secondary line on dependency nodes in UI
        - **Removed**: Automatic entry point detection algorithm
+       - **Removed**: Dependency node deduplication by `host:port`
   - **Modifies**:
     - `CHANGELOG.md`
 
 ### Completion Criteria Phase 5
 
-- [ ] All items completed (5.1, 5.2, 5.3)
-- [ ] Documentation accurately reflects the new behavior
-- [ ] No references to `isRoot` in documentation (except changelog noting the rename)
+- [x] All items completed (5.1, 5.2, 5.3, 5.4)
+- [x] Documentation accurately reflects the new behavior
+- [x] No references to `isRoot` in documentation (except changelog noting the rename)
+- [x] Dependency node ID format (`source/dependency`) documented in API.md and application-design.md
 
 ---
 

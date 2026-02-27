@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-02-27
+
+### Added
+
+- **Explicit entry point marking** — services can be marked as entry points via `isentry=yes` label in dephealth SDK metrics (env: `DEPHEALTH_ISENTRY=yes` in uniproxy)
+- **`isEntry` API field** — topology API response includes `isEntry: true` on entry point nodes
+- **`isentry` metric label** — new optional label in PromQL `group by` clauses for topology discovery
+- **LDAP dependency type** — `ldap` connection type supported in test environment (389 Directory Server)
+- **389 Directory Server** — added 389ds (LDAP) to test infrastructure Helm chart (`dephealth-infra`)
+
+### Changed
+
+- **BREAKING: `isRoot` → `isEntry` rename** — API field `isRoot` renamed to `isEntry` in topology response nodes
+- **BREAKING: Dependency node ID format** — dependency nodes now use `{source}/{dependency}` format (e.g., `order-service/postgres-main`) instead of `host:port`
+- **Dependency node labels** — dependency nodes display logical dependency name (e.g., `postgres-main`, `ldap`) instead of hostname; `host:port` shown as secondary line in UI
+- **CSS class rename** — `.root-badge` → `.entry-badge`, `.sidebar-root-badge` → `.sidebar-entry-badge`
+
+### Removed
+
+- **Automatic entry point detection** — nodes are no longer auto-detected as entry points based on absence of incoming edges; explicit `isentry` label is required
+- **Dependency node deduplication** — dependency nodes are no longer deduplicated by `host:port`; each `(source, dependency)` pair creates a separate node
+
+### Documentation
+
+- Entry points section added to application design docs (EN + RU)
+- Dependency node identification section added to application design docs (EN + RU)
+- `isEntry` field documented in API reference node table (EN + RU)
+- Dependency node ID format (`source/dependency`) documented in API reference (EN + RU)
+- `isentry` label added to metrics specification (EN + RU)
+- PromQL topology discovery queries updated with `isentry` in `group by` clauses (EN + RU)
+
 ## [0.17.2] - 2026-02-21
 
 ### Security
@@ -268,6 +299,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.18.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.2...v0.18.0
 [0.17.2]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.16.1...v0.17.0
