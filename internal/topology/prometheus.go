@@ -79,13 +79,13 @@ func NewPrometheusClient(cfg PrometheusConfig) PrometheusClient {
 // PromQL query templates for topology construction.
 // When namespace is provided, a label filter is injected.
 const (
-	queryTopologyEdges = `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health%s)`
+	queryTopologyEdges = `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health%s)`
 	queryHealthState   = `app_dependency_health%s`
 	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
 	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
 	queryInstances     = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
 	// queryTopologyEdgesLookback uses last_over_time to include stale series.
-	queryTopologyEdgesLookback = `group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health%s[%s]))`
+	queryTopologyEdgesLookback = `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (last_over_time(app_dependency_health%s[%s]))`
 	// SDK v0.4.1: dependency status (enum pattern, exactly one series == 1 per endpoint).
 	queryDependencyStatus       = `app_dependency_status%s == 1`
 	queryDependencyStatusDetail = `app_dependency_status_detail%s == 1`
@@ -343,6 +343,7 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOpt
 			Host:       r.Metric["host"],
 			Port:       r.Metric["port"],
 			Critical:   r.Metric["critical"] == "yes",
+			IsEntry:    r.Metric["isentry"] == "yes",
 		})
 	}
 	return edges, nil
@@ -367,6 +368,7 @@ func (c *prometheusClient) QueryTopologyEdgesLookback(ctx context.Context, opts 
 			Host:       r.Metric["host"],
 			Port:       r.Metric["port"],
 			Critical:   r.Metric["critical"] == "yes",
+			IsEntry:    r.Metric["isentry"] == "yes",
 		})
 	}
 	return edges, nil

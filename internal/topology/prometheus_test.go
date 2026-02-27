@@ -187,13 +187,13 @@ func TestQueryWithNamespaceFilter(t *testing.T) {
 
 	// Without namespace — no filter injected.
 	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{})
-	if capturedQuery != `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health)` {
+	if capturedQuery != `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)` {
 		t.Errorf("unfiltered query = %q", capturedQuery)
 	}
 
 	// With namespace — filter injected.
 	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Namespace: "prod"})
-	want := `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health{namespace="prod"})`
+	want := `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health{namespace="prod"})`
 	if capturedQuery != want {
 		t.Errorf("filtered query = %q, want %q", capturedQuery, want)
 	}
@@ -227,14 +227,14 @@ func TestQueryTopologyEdgesLookback(t *testing.T) {
 	if len(edges) != 3 {
 		t.Fatalf("got %d edges, want 3", len(edges))
 	}
-	want := `group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health[1h]))`
+	want := `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (last_over_time(app_dependency_health[1h]))`
 	if capturedQuery != want {
 		t.Errorf("query = %q, want %q", capturedQuery, want)
 	}
 
 	// With namespace.
 	_, _ = client.QueryTopologyEdgesLookback(context.Background(), QueryOptions{Namespace: "prod"}, 30*time.Minute)
-	want = `group by (name, namespace, group, dependency, type, host, port, critical) (last_over_time(app_dependency_health{namespace="prod"}[30m]))`
+	want = `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (last_over_time(app_dependency_health{namespace="prod"}[30m]))`
 	if capturedQuery != want {
 		t.Errorf("filtered query = %q, want %q", capturedQuery, want)
 	}
@@ -660,14 +660,14 @@ func TestQueryWithGroupFilter(t *testing.T) {
 
 	// Group filter only.
 	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Group: "cluster-1"})
-	want := `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health{group="cluster-1"})`
+	want := `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health{group="cluster-1"})`
 	if capturedQuery != want {
 		t.Errorf("group filter query = %q, want %q", capturedQuery, want)
 	}
 
 	// Combined namespace + group.
 	_, _ = client.QueryTopologyEdges(context.Background(), QueryOptions{Namespace: "prod", Group: "cluster-1"})
-	want = `group by (name, namespace, group, dependency, type, host, port, critical) (app_dependency_health{namespace="prod",group="cluster-1"})`
+	want = `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health{namespace="prod",group="cluster-1"})`
 	if capturedQuery != want {
 		t.Errorf("combined filter query = %q, want %q", capturedQuery, want)
 	}

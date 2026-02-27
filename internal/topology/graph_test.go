@@ -1652,13 +1652,12 @@ func TestDepNamespaceResolution_MultiSourceConflict(t *testing.T) {
 	}
 }
 
-func TestRootNodeDetection(t *testing.T) {
-	// Topology: A→B→C, D→C
-	// Root nodes (no incoming edges): A, D
-	// Non-root: B (target of A), C (target of B and D)
+func TestIsEntryFromLabel(t *testing.T) {
+	// Topology: A→B→redis, D→redis
+	// Only svc-a has isentry=yes label on its edges.
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
-			{Name: "svc-a", Namespace: "ns1", Dependency: "svc-b", Type: "http", Host: "svc-b.ns1.svc", Port: "8080"},
+			{Name: "svc-a", Namespace: "ns1", Dependency: "svc-b", Type: "http", Host: "svc-b.ns1.svc", Port: "8080", IsEntry: true},
 			{Name: "svc-b", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
 			{Name: "svc-d", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
@@ -1681,37 +1680,37 @@ func TestRootNodeDetection(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	// svc-a: root (no incoming edges)
+	// svc-a: entry point (has isentry label)
 	if n, ok := nodeByID["svc-a"]; !ok {
 		t.Error("missing svc-a node")
-	} else if !n.IsRoot {
-		t.Error("svc-a.IsRoot = false, want true")
+	} else if !n.IsEntry {
+		t.Error("svc-a.IsEntry = false, want true")
 	}
 
-	// svc-d: root (no incoming edges)
-	if n, ok := nodeByID["svc-d"]; !ok {
-		t.Error("missing svc-d node")
-	} else if !n.IsRoot {
-		t.Error("svc-d.IsRoot = false, want true")
-	}
-
-	// svc-b: not root (target of svc-a via connected graph)
+	// svc-b: not entry (no isentry label)
 	if n, ok := nodeByID["svc-b"]; !ok {
 		t.Error("missing svc-b node")
-	} else if n.IsRoot {
-		t.Error("svc-b.IsRoot = true, want false")
+	} else if n.IsEntry {
+		t.Error("svc-b.IsEntry = true, want false")
 	}
 
-	// redis-host:6379: not root (target of svc-b and svc-d)
+	// svc-d: not entry (no isentry label, even though no incoming edges)
+	if n, ok := nodeByID["svc-d"]; !ok {
+		t.Error("missing svc-d node")
+	} else if n.IsEntry {
+		t.Error("svc-d.IsEntry = true, want false")
+	}
+
+	// redis-host:6379: not entry
 	if n, ok := nodeByID["redis-host:6379"]; !ok {
 		t.Error("missing redis-host:6379 node")
-	} else if n.IsRoot {
-		t.Error("redis-host:6379.IsRoot = true, want false")
+	} else if n.IsEntry {
+		t.Error("redis-host:6379.IsEntry = true, want false")
 	}
 }
 
-func TestRootNodeDetection_IsolatedService(t *testing.T) {
-	// A service with only outgoing edges is a root node.
+func TestIsEntry_NoLabels(t *testing.T) {
+	// When no edges have IsEntry=true, no nodes should be entry points.
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
 			{Name: "gateway", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
@@ -1728,22 +1727,9 @@ func TestRootNodeDetection_IsolatedService(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	nodeByID := make(map[string]Node)
 	for _, n := range resp.Nodes {
-		nodeByID[n.ID] = n
-	}
-
-	// gateway: root (only outgoing)
-	if n, ok := nodeByID["gateway"]; !ok {
-		t.Error("missing gateway node")
-	} else if !n.IsRoot {
-		t.Error("gateway.IsRoot = false, want true")
-	}
-
-	// pg:5432: not root (target of gateway)
-	if n, ok := nodeByID["pg:5432"]; !ok {
-		t.Error("missing pg:5432 node")
-	} else if n.IsRoot {
-		t.Error("pg:5432.IsRoot = true, want false")
+		if n.IsEntry {
+			t.Errorf("node %q.IsEntry = true, want false (no isentry labels in topology)", n.ID)
+		}
 	}
 }

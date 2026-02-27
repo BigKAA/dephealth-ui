@@ -180,6 +180,7 @@ func (b *GraphBuilder) buildGraph(
 		group     string
 		host      string
 		port      string
+		isEntry   bool
 		deps      map[string]bool // for services: set of dependency endpoint IDs
 	}
 	nodeMap := make(map[string]*nodeInfo)
@@ -221,6 +222,9 @@ func (b *GraphBuilder) buildGraph(
 				group:     e.Group,
 				deps:      make(map[string]bool),
 			}
+		}
+		if e.IsEntry {
+			nodeMap[e.Name].isEntry = true
 		}
 		nodeMap[e.Name].deps[depNodeID] = true
 
@@ -390,14 +394,10 @@ func (b *GraphBuilder) buildGraph(
 		nodes = append(nodes, node)
 	}
 
-	// Mark root nodes (no incoming edges).
-	targetNodes := make(map[string]bool, len(edges))
-	for _, e := range edges {
-		targetNodes[e.Target] = true
-	}
+	// Mark entry point nodes (from explicit isentry label).
 	for i := range nodes {
-		if !targetNodes[nodes[i].ID] {
-			nodes[i].IsRoot = true
+		if info, ok := nodeMap[nodes[i].ID]; ok && info.isEntry {
+			nodes[i].IsEntry = true
 		}
 	}
 
