@@ -383,8 +383,8 @@ function updateAlertBadges(cy, container) {
     }));
   });
 
-  // Root node badges (top-center, entry points with no incoming edges)
-  cy.nodes('[?isRoot]').forEach((node) => {
+  // Entry point badges (top-center, explicitly marked entry points)
+  cy.nodes('[?isEntry]').forEach((node) => {
     if (!isElementVisible(node)) return;
     if (node.isParent()) return;
 
@@ -392,7 +392,7 @@ function updateAlertBadges(cy, container) {
     const h = node.renderedHeight();
 
     container.appendChild(createBadge({
-      className: 'root-badge',
+      className: 'entry-badge',
       x: pos.x,
       y: pos.y - h / 2,
       scale: badgeScale,
@@ -593,7 +593,7 @@ export function renderGraph(cy, data, config) {
         alertCount: alertsEnabled ? (alertCounts[node.id] || 0) : 0,
         alertSeverity: alertsEnabled ? (node.alertSeverity || undefined) : undefined,
         grafanaUrl: node.grafanaUrl || undefined,
-        isRoot: node.isRoot || false,
+        isEntry: node.isEntry || false,
       };
       // Assign parent when grouping is enabled and node has a namespace
       if (grouping && parentMap && parentMap.has(node.id)) {

@@ -17,17 +17,17 @@
 
 ## Current Status
 
-- **Active phase**: Phase 2
-- **Active item**: 2.1
+- **Active phase**: Phase 3
+- **Active item**: 3.1
 - **Last updated**: 2026-02-27
-- **Note**: Phase 1 complete
+- **Note**: Phases 1-2 complete
 
 ---
 
 ## Table of Contents
 
 - [x] [Phase 1: Backend — isentry label support](#phase-1-backend--isentry-label-support)
-- [ ] [Phase 2: Frontend — IsRoot → IsEntry rename](#phase-2-frontend--isroot--isentry-rename)
+- [x] [Phase 2: Frontend — IsRoot → IsEntry rename](#phase-2-frontend--isroot--isentry-rename)
 - [ ] [Phase 3: LDAP server in test infrastructure](#phase-3-ldap-server-in-test-infrastructure)
 - [ ] [Phase 4: Test environment — configuration and restart](#phase-4-test-environment--configuration-and-restart)
 - [ ] [Phase 5: Documentation](#phase-5-documentation)
@@ -102,7 +102,7 @@ Go codebase. This is the core change — all other phases depend on it.
 ## Phase 2: Frontend — IsRoot → IsEntry rename
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Complete
 
 ### Description
 
@@ -111,7 +111,7 @@ Update the frontend to use the new `isEntry` JSON field instead of `isRoot`. All
 
 ### Items
 
-- [ ] **2.1 Update graph.js**
+- [x] **2.1 Update graph.js**
   - **Dependencies**: None
   - **Description**:
     1. In `frontend/src/graph.js`:
@@ -121,7 +121,7 @@ Update the frontend to use the new `isEntry` JSON field instead of `isRoot`. All
   - **Modifies**:
     - `frontend/src/graph.js`
 
-- [ ] **2.2 Update sidebar.js**
+- [x] **2.2 Update sidebar.js**
   - **Dependencies**: None
   - **Description**:
     1. In `frontend/src/sidebar.js`:
@@ -129,7 +129,7 @@ Update the frontend to use the new `isEntry` JSON field instead of `isRoot`. All
   - **Modifies**:
     - `frontend/src/sidebar.js`
 
-- [ ] **2.3 Update CSS class names**
+- [x] **2.3 Update CSS class names**
   - **Dependencies**: None
   - **Description**:
     1. In `frontend/src/style.css`:
@@ -143,9 +143,9 @@ Update the frontend to use the new `isEntry` JSON field instead of `isRoot`. All
 
 ### Completion Criteria Phase 2
 
-- [ ] All items completed (2.1, 2.2, 2.3)
-- [ ] No references to `isRoot` remain in frontend code
-- [ ] `make lint` passes (if frontend linting is configured)
+- [x] All items completed (2.1, 2.2, 2.3)
+- [x] No references to `isRoot` remain in frontend code
+- [x] `make lint` passes (if frontend linting is configured)
 
 ---
 

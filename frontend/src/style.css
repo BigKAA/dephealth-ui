@@ -1114,8 +1114,8 @@ body {
   border: 1.5px solid rgba(255, 255, 255, 0.8);
 }
 
-/* Root node badge (entry point — no incoming edges) */
-.root-badge {
+/* Entry point badge (explicitly marked via isentry label) */
+.entry-badge {
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -1133,7 +1133,7 @@ body {
   background: #d32f2f;
 }
 
-.legend-badge.legend-root-badge {
+.legend-badge.legend-entry-badge {
   background: #1976d2;
   border-radius: 50%;
   font-size: 10px;
@@ -1443,7 +1443,7 @@ body {
   margin-left: 6px;
 }
 
-.sidebar-root-badge {
+.sidebar-entry-badge {
   color: #1976d2;
   font-weight: 600;
 }

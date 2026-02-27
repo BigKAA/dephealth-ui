@@ -369,7 +369,7 @@ function renderDetails(data) {
     data.host && { label: t('sidebar.host'), value: escapeHtml(data.host) },
     data.port && { label: t('sidebar.port'), value: escapeHtml(data.port) },
     alertManagerEnabled && data.alertCount > 0 && { label: t('sidebar.activeAlerts'), value: data.alertCount },
-    data.isRoot && { label: t('sidebar.role'), value: `<span class="sidebar-root-badge">${t('sidebar.entryPoint')}</span>` },
+    data.isEntry && { label: t('sidebar.role'), value: `<span class="sidebar-entry-badge">${t('sidebar.entryPoint')}</span>` },
   ].filter(Boolean);
 
   $('#sidebar-details').innerHTML = renderDetailRows(details);
