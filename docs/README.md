@@ -16,6 +16,7 @@ This directory contains comprehensive documentation for **dephealth-ui** — a r
 | **[API.md](./API.md)** | REST API reference with all endpoints and response formats | Frontend developers, API consumers |
 | **[application-design.md](./application-design.md)** | Complete architecture overview, tech stack, design decisions | Architects, senior developers |
 | **[grafana-dashboards.md](./grafana-dashboards.md)** | Grafana dashboard integration, variables, auth, availability checking | DevOps, Operators |
+| **[graph-interactions.md](./graph-interactions.md)** | Graph mouse and keyboard interactions: selection, drag, camera controls | Users, Frontend developers |
 | **[DEPLOYMENT.md](../deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide using Helm | DevOps, SRE |
 | **[Test Environment](../deploy/README.md)** | Test environment setup, topology, and adaptation guide | DevOps, Contributors |
 

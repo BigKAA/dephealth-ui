@@ -16,6 +16,7 @@
 | **[API.ru.md](./API.ru.md)** | Справочник REST API со всеми endpoint'ами и форматами ответов | Frontend-разработчики, потребители API |
 | **[application-design.ru.md](./application-design.ru.md)** | Полный обзор архитектуры, стек технологий, проектные решения | Архитекторы, senior-разработчики |
 | **[grafana-dashboards.ru.md](./grafana-dashboards.ru.md)** | Интеграция с дашбордами Grafana, переменные, аутентификация, проверка доступности | DevOps, Операторы |
+| **[graph-interactions.ru.md](./graph-interactions.ru.md)** | Взаимодействие с графом: выделение, перетаскивание, управление камерой | Пользователи, Frontend-разработчики |
 | **[Развёртывание](../deploy/helm/dephealth-ui/README.ru.md)** | Руководство по развёртыванию в Kubernetes через Helm | DevOps, SRE |
 | **[Тестовая площадка](../deploy/README.ru.md)** | Настройка тестовой среды, топология, адаптация под своё окружение | DevOps, Контрибьюторы |
 

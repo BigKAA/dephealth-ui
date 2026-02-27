@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`isentry` metric label** — new optional label in PromQL `group by` clauses for topology discovery
 - **LDAP dependency type** — `ldap` connection type supported in test environment (389 Directory Server)
 - **389 Directory Server** — added 389ds (LDAP) to test infrastructure Helm chart (`dephealth-infra`)
+- **Multi-select nodes** — Ctrl+Click (Cmd+Click on Mac) toggles node selection with blue border/overlay highlight
+- **Box-select** — Ctrl+Drag on background draws a selection rectangle to select multiple nodes at once
+- **Group drag** — drag any selected node to move the entire selected group while preserving relative positions
+- **Downstream drag (1-level)** — Ctrl+Drag on a node moves it together with its direct downstream dependencies
+- **Downstream drag (full subgraph)** — Ctrl+Shift+Drag moves a node with its entire downstream dependency tree (BFS)
+- **Double-click to center** — double-click on background smoothly centers camera on the clicked point
+- **Edge type labels on graph** — edge labels display dependency connection type (http, grpc, postgres, etc.)
+- **Graph toolbar improvements** — optimized toolbar layout with legend dropdown alignment fix
 
 ### Changed
 
@@ -21,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING: Dependency node ID format** — dependency nodes now use `{source}/{dependency}` format (e.g., `order-service/postgres-main`) instead of `host:port`
 - **Dependency node labels** — dependency nodes display logical dependency name (e.g., `postgres-main`, `ldap`) instead of hostname; `host:port` shown as secondary line in UI
 - **CSS class rename** — `.root-badge` → `.entry-badge`, `.sidebar-root-badge` → `.sidebar-entry-badge`
+- **Escape key clears selection** — Escape now clears node selection in addition to closing sidebar and panels
+- **Ctrl+Click suppresses sidebar** — Ctrl+Click on a node toggles selection without opening the sidebar
 
 ### Removed
 
@@ -35,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency node ID format (`source/dependency`) documented in API reference (EN + RU)
 - `isentry` label added to metrics specification (EN + RU)
 - PromQL topology discovery queries updated with `isentry` in `group by` clauses (EN + RU)
+- Graph interactions reference guide added (EN + RU) — `docs/graph-interactions.md`
 
 ## [0.17.2] - 2026-02-21
 
