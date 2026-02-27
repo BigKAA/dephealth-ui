@@ -317,6 +317,18 @@ const cytoscapeStyles = [
       'border-style': 'double',
     },
   },
+  // Selected nodes — prominent blue highlight border + overlay
+  {
+    selector: 'node:selected',
+    style: {
+      'border-color': '#2196f3',
+      'border-width': 4,
+      'border-style': 'solid',
+      'overlay-color': '#2196f3',
+      'overlay-opacity': 0.25,
+      'overlay-padding': 8,
+    },
+  },
 ];
 
 let isFirstRender = true;
@@ -507,6 +519,7 @@ export function initGraph(container, config) {
     minZoom: 0.3,
     maxZoom: 3,
     wheelSensitivity: 0.3,
+    boxSelectionEnabled: false, // custom box-select in selection.js
   });
 
   // Create HTML overlay container for alert badges

@@ -18,6 +18,8 @@ import { initI18n, t, setLanguage, getLanguage, updateI18nDom } from './i18n.js'
 import { getNamespaceColor, extractNamespaceFromHost } from './namespace.js';
 import { initContextMenu, setContextMenuGrafanaConfig } from './contextmenu.js';
 import { makeDraggable, clampElement } from './draggable.js';
+import { initSelection, clearSelection } from './selection.js';
+import { initNodeDrag } from './node-drag.js';
 import { computeCascadeWarnings } from './cascade.js';
 import { initExportModal, openExportModal } from './export.js';
 import {
@@ -833,6 +835,8 @@ async function init() {
         if (drawer && !drawer.classList.contains('hidden')) {
           drawer.classList.add('hidden');
         }
+        // Clear node selection
+        if (cy) clearSelection(cy);
       },
     });
 
@@ -890,6 +894,28 @@ async function init() {
     initSidebar(cy, data);
     setupGroupingHandlers();
     initContextMenu(cy);
+    initSelection(cy);
+    initNodeDrag(cy);
+
+    // Double-tap on background: center camera on clicked point
+    cy.on('dbltap', (evt) => {
+      if (evt.target !== cy) return;
+      // Use rendered position and current zoom/pan to compute target pan
+      const rp = evt.renderedPosition || evt.position;
+      if (!rp) return;
+      const zoom = cy.zoom();
+      const w = cy.width();
+      const h = cy.height();
+      const pan = cy.pan();
+      // Model position from rendered position
+      const mx = (rp.x - pan.x) / zoom;
+      const my = (rp.y - pan.y) / zoom;
+      cy.animate({
+        pan: { x: w / 2 - mx * zoom, y: h / 2 - my * zoom },
+        duration: 300,
+      });
+    });
+
     updateSidebarData(data);
     if (!isHistoryMode()) {
       startPolling();

@@ -135,6 +135,10 @@ export function initSidebar(cy, topologyData) {
 
   // Single tap on node: toggle sidebar
   cy.on('tap', 'node', (evt) => {
+    // Skip Ctrl/Cmd+Click — used for multi-selection
+    const oe = evt.originalEvent;
+    if (oe && (oe.ctrlKey || oe.metaKey)) return;
+
     const node = evt.target;
     // Skip expanded (non-collapsed) group nodes — clicking the border does nothing
     if (node.data('isGroup') && !node.data('isCollapsed')) return;
