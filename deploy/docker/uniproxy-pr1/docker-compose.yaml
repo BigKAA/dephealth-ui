@@ -1,6 +1,6 @@
 services:
   uniproxy-pr1:
-    image: harbor.kryukov.lan/library/uniproxy:v0.6.0
+    image: harbor.kryukov.lan/library/uniproxy:v0.7.0
     container_name: uniproxy-pr1
     ports:
       - "8080:8080"
@@ -9,9 +9,10 @@ services:
       DEPHEALTH_GROUP: infra-host1
       LISTEN_ADDR: ":8080"
       DEPHEALTH_CHECK_INTERVAL: "10"
-      DEPHEALTH_DEPS: "postgresql:postgres,redis:redis"
-      DEPHEALTH_POSTGRESQL_URL: "postgres://dephealth:dephealth@postgresql:5432/dephealth?sslmode=disable"
-      DEPHEALTH_POSTGRESQL_CRITICAL: "yes"
+      DEPHEALTH_ISENTRY: "yes"
+      DEPHEALTH_DEPS: "postgre-pr:postgres,redis:redis"
+      DEPHEALTH_POSTGRE_PR_URL: "postgres://dephealth:dephealth@postgre-pr:5432/dephealth?sslmode=disable"
+      DEPHEALTH_POSTGRE_PR_CRITICAL: "yes"
       DEPHEALTH_REDIS_URL: "redis://redis:6379"
       DEPHEALTH_REDIS_CRITICAL: "no"
       LOG_FORMAT: json
@@ -19,13 +20,13 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      postgresql:
+      postgre-pr:
         condition: service_healthy
     restart: unless-stopped
 
-  postgresql:
+  postgre-pr:
     image: harbor.kryukov.lan/docker/library/postgres:17-alpine
-    container_name: postgresql
+    container_name: postgre-pr
     environment:
       POSTGRES_USER: dephealth
       POSTGRES_PASSWORD: dephealth

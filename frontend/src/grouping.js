@@ -99,7 +99,7 @@ export function buildCompoundElements(data) {
       val = node.group || null;
     } else {
       // namespace dimension: existing behavior with FQDN fallback for deps
-      val = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
+      val = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.host) : null);
     }
     if (val) {
       groups.add(val);

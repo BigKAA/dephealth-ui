@@ -3,6 +3,7 @@ instances:
     group: proxy-cluster-1
     replicas: 2
     nodePort: 30080
+    isentry: "yes"
     connections:
       - name: uniproxy-02
         type: http
@@ -47,6 +48,11 @@ instances:
         type: postgres
         url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
         critical: "yes"
+      - name: ldap
+        type: ldap
+        host: "ds389.dephealth-389ds.svc"
+        port: "3389"
+        critical: "no"
       - name: uniproxy-01
         type: http
         url: "http://uniproxy-01.dephealth-uniproxy.svc:8080"

@@ -75,7 +75,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: 389ds
+  name: ds389
   namespace: {{ .Values.ds389.namespace }}
   labels:
     {{- include "dephealth-infra.labels" . | nindent 4 }}

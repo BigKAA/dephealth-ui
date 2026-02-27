@@ -166,22 +166,23 @@ func (b *GraphBuilder) buildGraph(
 	currentEdgeKeys map[EdgeKey]bool,
 	depStatus map[EdgeKey]string,
 	depStatusDetail map[EdgeKey]string,
-) ([]Node, []Edge, map[depAlertKey]EdgeKey) {
+) ([]Node, []Edge, map[depAlertKey]string) {
 	// First pass: collect all known service names (sources that report metrics).
 	serviceNames := make(map[string]bool)
 	for _, e := range rawEdges {
 		serviceNames[e.Name] = true
 	}
 
-	// Collect unique nodes (services = names, dependencies = host:port).
+	// Collect unique nodes (services = names, dependencies = source/dependency).
 	type nodeInfo struct {
-		typ       string
-		namespace string
-		group     string
-		host      string
-		port      string
-		isEntry   bool
-		deps      map[string]bool // for services: set of dependency endpoint IDs
+		typ        string
+		namespace  string
+		group      string
+		host       string
+		port       string
+		dependency string // logical dependency name (used as label for dep nodes)
+		isEntry    bool
+		deps       map[string]bool // for services: set of dependency endpoint IDs
 	}
 	nodeMap := make(map[string]*nodeInfo)
 
@@ -192,12 +193,13 @@ func (b *GraphBuilder) buildGraph(
 	// Build unique edges keyed by {Name, Host, Port}.
 	edgeMap := make(map[EdgeKey]TopologyEdge)
 
-	// Reverse lookup: (name, dependency_name) → EdgeKey for alert matching.
-	depLookup := make(map[depAlertKey]EdgeKey)
+	// Reverse lookup: (name, dependency_name) → target node ID for alert matching.
+	depLookup := make(map[depAlertKey]string)
 
 	// resolveTarget returns the target node ID for a dependency edge.
 	// If the dependency name matches a known service, link to that service node
-	// to build a connected (through) graph. Otherwise, use host:port.
+	// to build a connected (through) graph. Otherwise, use host:port to
+	// deduplicate dependency nodes that represent the same physical endpoint.
 	resolveTarget := func(e TopologyEdge) string {
 		if serviceNames[e.Dependency] {
 			return e.Dependency
@@ -209,10 +211,10 @@ func (b *GraphBuilder) buildGraph(
 		key := EdgeKey{Name: e.Name, Host: e.Host, Port: e.Port}
 		edgeMap[key] = e
 
-		// Build reverse lookup for alerts.
-		depLookup[depAlertKey{Name: e.Name, Dependency: e.Dependency}] = key
-
 		depNodeID := resolveTarget(e)
+
+		// Build reverse lookup for alerts: maps (name, dependency) → target node ID.
+		depLookup[depAlertKey{Name: e.Name, Dependency: e.Dependency}] = depNodeID
 
 		// Register source node (service).
 		if _, ok := nodeMap[e.Name]; !ok {
@@ -232,10 +234,12 @@ func (b *GraphBuilder) buildGraph(
 		if !serviceNames[e.Dependency] {
 			if _, ok := nodeMap[depNodeID]; !ok {
 				nodeMap[depNodeID] = &nodeInfo{
-					typ:  e.Type,
-					host: e.Host,
-					port: e.Port,
-					deps: make(map[string]bool),
+					typ:        e.Type,
+					group:      e.Group,
+					host:       e.Host,
+					port:       e.Port,
+					dependency: e.Dependency,
+					deps:       make(map[string]bool),
 				}
 			}
 		}
@@ -247,7 +251,15 @@ func (b *GraphBuilder) buildGraph(
 	nodeStaleIncoming := make(map[string]int)
 	nodeTotalIncoming := make(map[string]int)
 
-	// Build edges.
+	// Build edges with deduplication by (Source, Target).
+	// When lookback is enabled, VictoriaMetrics may return stale series alongside
+	// current ones (e.g. after a host label change), producing multiple EdgeKey
+	// entries that resolve to the same Source→Target pair.  We keep only the best
+	// edge per pair: non-stale beats stale; among equals, worse health wins
+	// (conservative approach).
+	type edgeDedup struct{ source, target string }
+	edgeDedupMap := make(map[edgeDedup]int) // dedup key → index in edges slice
+
 	edges := make([]Edge, 0, len(edgeMap))
 	for key, raw := range edgeMap {
 		depNodeID := resolveTarget(raw)
@@ -255,8 +267,9 @@ func (b *GraphBuilder) buildGraph(
 		// Check if this edge is stale (lookback mode only).
 		stale := currentEdgeKeys != nil && !currentEdgeKeys[key]
 
+		var edge Edge
 		if stale {
-			edge := Edge{
+			edge = Edge{
 				Source:     raw.Name,
 				Target:     depNodeID,
 				Type:       raw.Type,
@@ -268,53 +281,68 @@ func (b *GraphBuilder) buildGraph(
 				Stale:      true,
 				GrafanaURL: b.linkGrafanaURL(raw.Dependency, raw.Host, raw.Port),
 			}
-			edges = append(edges, edge)
+		} else {
+			h := float64(1)
+			if v, ok := health[key]; ok {
+				h = v
+			}
 
-			nodeStaleOutgoing[raw.Name]++
-			nodeTotalOutgoing[raw.Name]++
-			nodeStaleIncoming[depNodeID]++
-			nodeTotalIncoming[depNodeID]++
+			lat := float64(0)
+			if v, ok := avgLatency[key]; ok && !math.IsNaN(v) && !math.IsInf(v, 0) {
+				lat = v
+			}
+
+			state := "ok"
+			if h == 0 {
+				state = "down"
+			}
+
+			edge = Edge{
+				Source:     raw.Name,
+				Target:     depNodeID,
+				Type:       raw.Type,
+				Latency:    formatLatency(lat),
+				LatencyRaw: lat,
+				Health:     h,
+				State:      state,
+				Critical:   raw.Critical,
+				GrafanaURL: b.linkGrafanaURL(raw.Dependency, raw.Host, raw.Port),
+			}
+			if s, ok := depStatus[key]; ok {
+				edge.Status = s
+			}
+			if d, ok := depStatusDetail[key]; ok {
+				edge.Detail = d
+			}
+		}
+
+		// Deduplicate by (Source, Target): when multiple EdgeKeys resolve to the
+		// same graph edge, keep the most representative one.
+		dk := edgeDedup{raw.Name, depNodeID}
+		if existIdx, exists := edgeDedupMap[dk]; exists {
+			existing := edges[existIdx]
+			if edgeBetter(edge, existing) {
+				edges[existIdx] = edge
+			}
 			continue
 		}
-
-		h := float64(1)
-		if v, ok := health[key]; ok {
-			h = v
-		}
-
-		lat := float64(0)
-		if v, ok := avgLatency[key]; ok && !math.IsNaN(v) && !math.IsInf(v, 0) {
-			lat = v
-		}
-
-		state := "ok"
-		if h == 0 {
-			state = "down"
-		}
-
-		edge := Edge{
-			Source:     raw.Name,
-			Target:     depNodeID,
-			Type:       raw.Type,
-			Latency:    formatLatency(lat),
-			LatencyRaw: lat,
-			Health:     h,
-			State:      state,
-			Critical:   raw.Critical,
-			GrafanaURL: b.linkGrafanaURL(raw.Dependency, raw.Host, raw.Port),
-		}
-		if s, ok := depStatus[key]; ok {
-			edge.Status = s
-		}
-		if d, ok := depStatusDetail[key]; ok {
-			edge.Detail = d
-		}
+		edgeDedupMap[dk] = len(edges)
 		edges = append(edges, edge)
+	}
 
-		nodeOutgoingHealth[raw.Name] = append(nodeOutgoingHealth[raw.Name], edgeHealthInfo{Health: h, Critical: raw.Critical})
-		nodeIncomingHealth[depNodeID] = append(nodeIncomingHealth[depNodeID], h)
-		nodeTotalOutgoing[raw.Name]++
-		nodeTotalIncoming[depNodeID]++
+	// Populate node health tracking from the deduplicated edge set.
+	for _, edge := range edges {
+		if edge.Stale {
+			nodeStaleOutgoing[edge.Source]++
+			nodeTotalOutgoing[edge.Source]++
+			nodeStaleIncoming[edge.Target]++
+			nodeTotalIncoming[edge.Target]++
+		} else {
+			nodeOutgoingHealth[edge.Source] = append(nodeOutgoingHealth[edge.Source], edgeHealthInfo{Health: edge.Health, Critical: edge.Critical})
+			nodeIncomingHealth[edge.Target] = append(nodeIncomingHealth[edge.Target], edge.Health)
+			nodeTotalOutgoing[edge.Source]++
+			nodeTotalIncoming[edge.Target]++
+		}
 	}
 
 	// Second pass: resolve namespace for dependency nodes that have no namespace.
@@ -386,9 +414,9 @@ func (b *GraphBuilder) buildGraph(
 			node.GrafanaURL = b.serviceGrafanaURL(id)
 		}
 
-		// For dependency nodes, use host as label (cleaner than host:port).
-		if info.typ != "service" && info.host != "" {
-			node.Label = info.host
+		// For dependency nodes, use logical dependency name as label.
+		if info.typ != "service" && info.dependency != "" {
+			node.Label = info.dependency
 		}
 
 		nodes = append(nodes, node)
@@ -408,6 +436,15 @@ func (b *GraphBuilder) buildGraph(
 type edgeHealthInfo struct {
 	Health   float64
 	Critical bool
+}
+
+// edgeBetter returns true if candidate should replace existing during deduplication.
+// Priority: non-stale over stale; among equal staleness, worse health wins (conservative).
+func edgeBetter(candidate, existing Edge) bool {
+	if candidate.Stale != existing.Stale {
+		return !candidate.Stale // non-stale wins
+	}
+	return candidate.Health < existing.Health // worse health is more conservative
 }
 
 // calcNodeState determines a dependency node's state from its incoming edge health values.
@@ -508,7 +545,7 @@ func (b *GraphBuilder) linkGrafanaURL(dependency, host, port string) string {
 // enrichWithAlerts applies alert-based state overrides to edges and nodes,
 // computes alertCount and alertSeverity for nodes and edges,
 // and returns the list of topology-mapped AlertInfo entries.
-func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []alerts.Alert, depLookup map[depAlertKey]EdgeKey) []AlertInfo {
+func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []alerts.Alert, depLookup map[depAlertKey]string) []AlertInfo {
 	if len(fetched) == 0 {
 		return []AlertInfo{}
 	}
@@ -558,21 +595,18 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 		}
 
 		// Translate alert labels (name, dependency_name) to edge via reverse lookup.
+		// depLookup maps (service, dependency) → target node ID (works for both
+		// dependency nodes and service-to-service edges).
 		alertKey := depAlertKey{Name: a.Service, Dependency: a.Dependency}
-		ek, ok := depLookup[alertKey]
+		targetNodeID, ok := depLookup[alertKey]
 		if !ok {
 			continue
 		}
 
-		// Try host:port target first, then dependency name (service-to-service edges).
-		ref := edgeRef{source: a.Service, target: ek.Host + ":" + ek.Port}
+		ref := edgeRef{source: a.Service, target: targetNodeID}
 		idx, ok := edgeIdx[ref]
 		if !ok {
-			ref = edgeRef{source: a.Service, target: a.Dependency}
-			idx, ok = edgeIdx[ref]
-			if !ok {
-				continue
-			}
+			continue
 		}
 
 		// Track edge alert count and worst severity.

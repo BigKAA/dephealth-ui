@@ -120,7 +120,7 @@ env-undeploy:
 	-$(MAKE) host-undeploy
 	-helm uninstall dephealth-infra
 	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
-		dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
+		dephealth-389ds dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
 		--ignore-not-found
 
 env-status:
@@ -132,6 +132,9 @@ env-status:
 	@echo ""
 	@echo "=== dephealth-grpc-stub ==="
 	@kubectl get pods -n dephealth-grpc-stub 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-389ds ==="
+	@kubectl get pods -n dephealth-389ds 2>/dev/null || echo "  namespace not found"
 	@echo ""
 	@echo "=== dephealth-uniproxy ==="
 	@kubectl get pods -n dephealth-uniproxy 2>/dev/null || echo "  namespace not found"

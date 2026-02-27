@@ -635,7 +635,7 @@ function updateNamespaceLegend(data) {
       if (dim === 'group') {
         val = node.group || null;
       } else {
-        val = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
+        val = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.host) : null);
       }
       if (val) values.add(val);
     }

@@ -9,7 +9,7 @@ global:
 
 image:
   name: dephealth-ui
-  tag: v0.17.0
+  tag: v0.17.2-5
   pullPolicy: Always
 
 route:

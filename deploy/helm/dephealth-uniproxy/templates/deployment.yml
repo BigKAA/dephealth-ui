@@ -38,6 +38,10 @@ spec:
             - name: DEPHEALTH_GROUP
               value: {{ .group | quote }}
             {{- end }}
+            {{- if .isentry }}
+            - name: DEPHEALTH_ISENTRY
+              value: {{ .isentry | quote }}
+            {{- end }}
             - name: LISTEN_ADDR
               value: ":8080"
             - name: DEPHEALTH_CHECK_INTERVAL

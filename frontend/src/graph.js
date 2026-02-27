@@ -74,6 +74,13 @@ function getEdgeColor(ele) {
  */
 function nodeLabel(ele) {
   const label = ele.data('label') || '';
+  const host = ele.data('host');
+  const port = ele.data('port');
+  // Dependency nodes: show label + host:port as second line
+  if (ele.data('type') !== 'service' && host) {
+    return `${label}\n${host}:${port}`;
+  }
+  // Service nodes: show label + dimension (namespace or group)
   const { value, prefix } = nodeDimension(ele);
   return value ? `${label}\n${prefix}: ${value}` : label;
 }
@@ -103,12 +110,23 @@ function makeNodeStyle({ shape, fontSize, padding, minWidth, heightWithDim }) {
     shape,
     width: (ele) => {
       const label = ele.data('label') || '';
-      const { value, prefix } = nodeDimension(ele);
-      const secondLine = value ? `${prefix}: ${value}` : '';
+      const host = ele.data('host');
+      const port = ele.data('port');
+      let secondLine = '';
+      if (ele.data('type') !== 'service' && host) {
+        secondLine = `${host}:${port}`;
+      } else {
+        const { value, prefix } = nodeDimension(ele);
+        secondLine = value ? `${prefix}: ${value}` : '';
+      }
       const maxLen = Math.max(label.length, secondLine.length);
       return Math.max(minWidth, maxLen * charWidth + padding);
     },
-    height: (ele) => (nodeDimension(ele).value ? heightWithDim : 40),
+    height: (ele) => {
+      const host = ele.data('host');
+      if (ele.data('type') !== 'service' && host) return heightWithDim;
+      return nodeDimension(ele).value ? heightWithDim : 40;
+    },
     label: nodeLabel,
     'text-valign': 'center',
     'text-halign': 'center',
@@ -581,7 +599,7 @@ export function renderGraph(cy, data, config) {
 
     for (const node of data.nodes) {
       // For dependency nodes without namespace, try to extract from host label
-      const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.label) : null);
+      const ns = node.namespace || (node.type !== 'service' ? extractNamespaceFromHost(node.host) : null);
       const nodeData = {
         id: node.id,
         label: node.label,
@@ -590,6 +608,8 @@ export function renderGraph(cy, data, config) {
         type: node.type,
         namespace: ns || undefined,
         group: node.group || undefined,
+        host: node.host || undefined,
+        port: node.port || undefined,
         alertCount: alertsEnabled ? (alertCounts[node.id] || 0) : 0,
         alertSeverity: alertsEnabled ? (node.alertSeverity || undefined) : undefined,
         grafanaUrl: node.grafanaUrl || undefined,
