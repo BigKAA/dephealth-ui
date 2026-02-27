@@ -72,6 +72,7 @@
       <!-- Navigation group -->
       <button id="btn-zoom-in" data-i18n-title="graphToolbar.zoomIn" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
       <button id="btn-zoom-out" data-i18n-title="graphToolbar.zoomOut" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
+      <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
       <div class="toolbar-separator"></div>
       <!-- Structure group -->
       <button id="btn-layout-toggle" data-i18n-title="graphToolbar.layout" title="Toggle layout direction"><i class="bi bi-distribute-vertical"></i></button>
@@ -84,25 +85,24 @@
       <div class="toolbar-separator"></div>
       <!-- Utilities group -->
       <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export"><i class="bi bi-download"></i></button>
-      <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
       <div class="toolbar-dropdown-wrapper">
         <button id="btn-legends" data-i18n-title="graphToolbar.legends" title="Legends"><i class="bi bi-info-circle"></i></button>
         <div id="legends-dropdown" class="toolbar-dropdown hidden">
-          <button class="toolbar-dropdown-item" data-target="graph-legend">
-            <i class="bi bi-info-circle"></i>
+          <div class="toolbar-dropdown-item" data-target="graph-legend">
+            <span class="dropdown-icon"><i class="bi bi-info-circle"></i></span>
             <span data-i18n="graphToolbar.legend">Legend</span>
             <i class="bi bi-check2 dropdown-check hidden"></i>
-          </button>
-          <button class="toolbar-dropdown-item" data-target="namespace-legend">
-            <i class="bi bi-palette"></i>
+          </div>
+          <div class="toolbar-dropdown-item" data-target="namespace-legend">
+            <span class="dropdown-icon"><i class="bi bi-palette"></i></span>
             <span data-i18n="graphToolbar.nsLegend">Namespaces</span>
             <i class="bi bi-check2 dropdown-check hidden"></i>
-          </button>
-          <button class="toolbar-dropdown-item" data-target="connection-legend">
-            <i class="bi bi-ethernet"></i>
+          </div>
+          <div class="toolbar-dropdown-item" data-target="connection-legend">
+            <span class="dropdown-icon"><i class="bi bi-ethernet"></i></span>
             <span data-i18n="connLegend.title">Connections</span>
             <i class="bi bi-check2 dropdown-check hidden"></i>
-          </button>
+          </div>
         </div>
       </div>
     </div>

@@ -477,16 +477,25 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
+  padding: 3px;
   border-radius: 6px;
-  background: transparent;
   color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
-  text-align: left;
+}
+
+.toolbar-dropdown-item .dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .toolbar-dropdown-item:hover {
