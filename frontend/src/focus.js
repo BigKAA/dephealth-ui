@@ -16,6 +16,7 @@ const FOCUS_CLASSES = ['focused', 'focus-neighbor', 'focus-edge-in',
 const ALL_CLASSES_STR = FOCUS_CLASSES.join(' ');
 
 let focusActive = false;
+let _suppressSelect = false;
 
 /**
  * Whether focus mode is currently active.
@@ -142,6 +143,11 @@ export function initFocusMode(cy) {
     // Skip parent/group nodes — Phase 4 handles collapsed namespace focus
     if (node.isParent()) return;
 
+    // Suppress the 'select' event that Cytoscape fires as default behavior
+    // on every plain click — without this, select handler clears focus immediately.
+    // The flag is consumed (reset) by the select handler itself, not here,
+    // because both tap and select fire synchronously in the same tick.
+    _suppressSelect = true;
     if (oe.shiftKey && oe.altKey) {
       applyUpstreamFocus(cy, node);
     } else if (oe.shiftKey) {
@@ -160,8 +166,15 @@ export function initFocusMode(cy) {
   });
 
   // Auto-clear focus when multi-select is activated (Ctrl+Click or box-select).
-  // Listens for Cytoscape's built-in 'select' event — no need to modify selection.js.
+  // _suppressSelect flag prevents clearing focus on plain click — Cytoscape fires
+  // 'select' as default behavior on every node click, not just Ctrl+Click.
+  // The flag is set by the tap handler and consumed (reset) here because both
+  // tap and select fire synchronously in the same tick.
   cy.on('select', 'node', () => {
+    if (_suppressSelect) {
+      _suppressSelect = false;
+      return;
+    }
     clearFocus(cy);
   });
 }
