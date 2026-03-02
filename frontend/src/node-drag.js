@@ -1,40 +1,6 @@
 // Node drag module: group drag for selected nodes, Ctrl+Drag downstream
 
-/**
- * Collect downstream nodes via BFS.
- * @param {cytoscape.NodeSingular} node - Starting node
- * @param {boolean} allLevels - If true, collect full downstream; otherwise 1 level only
- * @returns {cytoscape.Collection} Collection of downstream nodes (excluding the start node)
- */
-function getDownstreamNodes(node, allLevels) {
-  const cy = node.cy();
-  let collected = cy.collection();
-
-  if (!allLevels) {
-    // 1-level downstream only
-    collected = node.outgoers('node');
-    return collected;
-  }
-
-  // Full BFS downstream
-  const visited = new Set();
-  const queue = [node];
-  visited.add(node.id());
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    const neighbors = current.outgoers('node');
-    neighbors.forEach((n) => {
-      if (!visited.has(n.id())) {
-        visited.add(n.id());
-        collected = collected.union(n);
-        queue.push(n);
-      }
-    });
-  }
-
-  return collected;
-}
+import { getDownstreamNodes } from './graph-utils.js';
 
 /**
  * Initialize node drag behavior on the Cytoscape instance.

@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Focus mode (1-hop)** — click on any node to highlight it and its direct connections; incoming edges colored blue, outgoing edges purple, everything else dimmed
+- **Downstream focus** — Shift+Click highlights the full downstream chain (BFS traversal via outgoing edges) with state-colored edges
+- **Upstream focus** — Shift+Alt+Click highlights the full upstream chain (BFS traversal via incoming edges) with state-colored edges
+- **Graph traversal utilities** — shared `graph-utils.js` module with `getConnectedElements()`, `getDownstreamNodes()`, `getUpstreamNodes()` using Cytoscape builtins
+
+### Changed
+
+- Focus and multi-select are mutually exclusive — activating one clears the other
+- Focus persists across data polls (only clears on graph structure change)
+- Double-click collapse/expand clears focus before restructuring
+- Shift+Click no longer toggles sidebar (reserved for downstream focus)
+
+### Documentation
+
+- Focus mode section added to graph interactions reference guide (EN + RU)
+- Event matrix updated with focus mode interactions and Alt modifier column (EN + RU)
+
 ## [0.18.0] - 2026-02-27
 
 ### Added

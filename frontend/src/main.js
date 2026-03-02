@@ -20,6 +20,7 @@ import { initContextMenu, setContextMenuGrafanaConfig } from './contextmenu.js';
 import { makeDraggable, clampElement } from './draggable.js';
 import { initSelection, clearSelection } from './selection.js';
 import { initNodeDrag } from './node-drag.js';
+import { initFocusMode, clearFocus } from './focus.js';
 import { computeCascadeWarnings } from './cascade.js';
 import { initExportModal, openExportModal } from './export.js';
 import {
@@ -247,6 +248,9 @@ async function refresh() {
     const structureChanged = renderGraph(cy, data, appConfig);
     if (structureChanged && isGroupingEnabled() && getCollapsedNamespaces().size > 0) {
       reapplyCollapsedState(cy);
+    }
+    if (structureChanged) {
+      clearFocus(cy); // Reset focusActive flag; removeClass is no-op on new elements
     }
     computeCascadeWarnings(cy);
     updateStatus(data);
@@ -725,6 +729,7 @@ function setupGroupingHandlers() {
   // Double-tap on expanded namespace group → collapse
   cy.on('dbltap', 'node[?isGroup]', (evt) => {
     if (!isGroupingEnabled()) return;
+    clearFocus(cy); // Clear focus before collapse/expand to avoid visual inconsistency
     const node = evt.target;
     if (node.data('isCollapsed')) {
       // Expand collapsed node
@@ -896,6 +901,7 @@ async function init() {
     initContextMenu(cy);
     initSelection(cy);
     initNodeDrag(cy);
+    initFocusMode(cy);
 
     // Double-tap on background: center camera on clicked point
     cy.on('dbltap', (evt) => {

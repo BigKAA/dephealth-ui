@@ -329,6 +329,85 @@ const cytoscapeStyles = [
       'overlay-padding': 8,
     },
   },
+  // --- Focus mode styles ---
+  // Dimmed elements (everything not in focus).
+  // Uses opacity 0.2 (not 0.15) to visually distinguish from search-hidden (0.15).
+  {
+    selector: '.dimmed',
+    style: {
+      'opacity': 0.2,
+      'text-opacity': 0.2,
+    },
+  },
+  // Dimmed edges: also hide labels
+  {
+    selector: 'edge.dimmed',
+    style: {
+      'opacity': 0.12,
+      'text-opacity': 0,
+    },
+  },
+  // The focused (clicked) node — prominent highlight.
+  // opacity/text-opacity: 1 required to fully override .dimmed if both classes present.
+  {
+    selector: '.focused',
+    style: {
+      'opacity': 1,
+      'text-opacity': 1,
+      'border-width': 5,
+      'border-color': '#2196f3',
+      'overlay-color': '#2196f3',
+      'overlay-opacity': 0.12,
+      'overlay-padding': 6,
+      'z-index': 10,
+    },
+  },
+  // Neighbor nodes visible at full opacity (undoes any dimming)
+  {
+    selector: '.focus-neighbor',
+    style: {
+      'opacity': 1,
+      'text-opacity': 1,
+      'z-index': 9,
+    },
+  },
+  // Incoming edges (who calls me) — blue.
+  // text-opacity: 1 is required to override edge.dimmed text-opacity: 0.
+  {
+    selector: '.focus-edge-in',
+    style: {
+      'line-color': '#42a5f5',
+      'target-arrow-color': '#42a5f5',
+      'opacity': 1,
+      'text-opacity': 1,
+      'width': 2.5,
+      'z-index': 10,
+    },
+  },
+  // Outgoing edges (who I depend on) — purple.
+  // text-opacity: 1 is required to override edge.dimmed text-opacity: 0.
+  {
+    selector: '.focus-edge-out',
+    style: {
+      'line-color': '#ab47bc',
+      'target-arrow-color': '#ab47bc',
+      'opacity': 1,
+      'text-opacity': 1,
+      'width': 2.5,
+      'z-index': 10,
+    },
+  },
+  // Downstream/upstream traversal edges — keep state colors, just ensure visibility.
+  // text-opacity: 1 is required to override edge.dimmed text-opacity: 0.
+  {
+    selector: '.focus-traversal',
+    style: {
+      'opacity': 1,
+      'text-opacity': 1,
+      'width': 2.5,
+      'z-index': 10,
+    },
+  },
 ];
 
 let isFirstRender = true;

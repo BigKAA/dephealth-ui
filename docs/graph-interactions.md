@@ -19,21 +19,61 @@ Throughout this document, "Ctrl" refers to `Ctrl` on Windows/Linux and `Cmd (⌘
 
 ## Event Matrix
 
-| Action | Target | Ctrl | Shift | Result |
-|--------|--------|------|-------|--------|
-| Click | Node | — | — | Toggle sidebar details |
-| Click | Node | + | — | Toggle node selection |
-| Click | Background | — | — | Clear selection, close sidebar |
-| Drag | Node | — | — | Move single node |
-| Drag | Selected node (group) | — | — | Move entire selected group |
-| Drag | Node | + | — | Move node + 1-level downstream |
-| Drag | Node | + | + | Move node + full downstream subgraph |
-| Drag | Background | — | — | Pan camera |
-| Drag | Background | + | — | Box-select (rectangular area) |
-| Double-click | Background | — | — | Center camera on click point |
-| Double-click | Node with Grafana URL | — | — | Open Grafana dashboard |
-| Double-click | Collapsed namespace | — | — | Expand namespace |
-| Escape | — | — | — | Close sidebar, clear selection |
+| Action | Target | Ctrl | Shift | Alt | Result |
+|--------|--------|------|-------|-----|--------|
+| Click | Node | — | — | — | Focus mode (1-hop) + sidebar |
+| Click | Node | + | — | — | Toggle node selection |
+| Click | Node | — | + | — | Focus downstream (full chain) |
+| Click | Node | — | + | + | Focus upstream (full chain) |
+| Click | Background | — | — | — | Clear focus, clear selection |
+| Drag | Node | — | — | — | Move single node |
+| Drag | Selected node (group) | — | — | — | Move entire selected group |
+| Drag | Node | + | — | — | Move node + 1-level downstream |
+| Drag | Node | + | + | — | Move node + full downstream subgraph |
+| Drag | Background | — | — | — | Pan camera |
+| Drag | Background | + | — | — | Box-select (rectangular area) |
+| Double-click | Background | — | — | — | Center camera on click point |
+| Double-click | Node with Grafana URL | — | — | — | Open Grafana dashboard |
+| Double-click | Collapsed namespace | — | — | — | Expand namespace |
+| Escape | — | — | — | — | Close sidebar, clear selection |
+
+## Focus Mode
+
+Focus mode highlights a node and its connections while dimming everything else. This helps visually trace dependencies in complex topologies.
+
+### Click (1-Hop Focus)
+
+Click on any node (without modifier keys) to activate focus mode:
+
+- The clicked node gets a **blue highlight border**
+- **Incoming edges** are colored **blue** (who calls this service)
+- **Outgoing edges** are colored **purple** (what this service depends on)
+- **Neighbor nodes** (sources and targets) remain at full opacity
+- All other elements are **dimmed** (low opacity)
+
+Click another node to switch focus. Focus and sidebar open simultaneously — the sidebar shows node details while focus highlights connections.
+
+### Shift+Click (Downstream Focus)
+
+Hold **Shift** and click on a node to highlight its **entire downstream chain** — all services that transitively depend on it, following outgoing edges via BFS traversal.
+
+- Edges between downstream nodes keep their **state colors** (green/orange/red) instead of direction coloring
+- Correctly handles circular dependencies (no infinite loops)
+
+### Shift+Alt+Click (Upstream Focus)
+
+Hold **Shift+Alt** and click on a node to highlight its **entire upstream chain** — all services it transitively depends on, following incoming edges via BFS traversal.
+
+### Clear Focus
+
+- **Click on background** (without Ctrl): clears focus mode and returns all elements to normal
+- Focus is automatically cleared when **multi-select** is activated (Ctrl+Click or box-select)
+- Focus is automatically cleared on **graph structure changes** (nodes/edges added or removed)
+- Focus persists across data polls when only data attributes change (state, latency)
+
+### Collapsed Namespaces
+
+Collapsed namespace nodes work with focus mode — clicking a collapsed namespace highlights its aggregated external connections. Shift+Click shows the downstream namespace-level view.
 
 ## Selection
 
