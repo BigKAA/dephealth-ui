@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-03-03
+
 ### Added
 
+- **ELK layout engine** — replace Dagre (flat) + fCoSE (grouped) with single ELK `layered` algorithm for both flat and compound graph modes; hierarchical top-down layout with entry points pinned to first layer
+- **Position persistence** — node positions saved to localStorage and restored on page reload and data polling; manually dragged positions survive automatic layout recalculations
+- **Incremental layout** — new nodes auto-positioned by ELK without disturbing existing node positions
+- **Reset layout button** — toolbar button (`bi-arrow-counterclockwise`) clears all saved positions and recalculates fresh ELK layout with animation
 - **Focus mode (1-hop)** — click on any node to highlight it and its direct connections; incoming edges colored blue, outgoing edges purple, everything else dimmed
 - **Downstream focus** — Shift+Click highlights the full downstream chain (BFS traversal via outgoing edges) with state-colored edges
 - **Upstream focus** — Shift+Alt+Click highlights the full upstream chain (BFS traversal via incoming edges) with state-colored edges
@@ -16,13 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Layout engine replaced** — Dagre and fCoSE removed, ELK `layered` algorithm used for all graph modes (flat and grouped)
+- **Direction toggle always visible** — TB/LR direction toggle available in both flat and grouped modes (previously hidden in grouped mode)
+- **Position behavior** — dragged node positions are persistent (saved to localStorage) instead of temporary; direction change (TB↔LR) recalculates all positions
 - Focus and multi-select are mutually exclusive — activating one clears the other
 - Focus persists across data polls (only clears on graph structure change)
 - Double-click collapse/expand clears focus before restructuring
 - Shift+Click no longer toggles sidebar (reserved for downstream focus)
 
+### Removed
+
+- `cytoscape-dagre` and `cytoscape-fcose` dependencies — replaced by `cytoscape-elk` + `elkjs`
+
 ### Documentation
 
+- Graph interactions guide updated with ELK layout, position persistence, and reset layout button (EN + RU)
 - Focus mode section added to graph interactions reference guide (EN + RU)
 - Event matrix updated with focus mode interactions and Alt modifier column (EN + RU)
 
@@ -331,6 +345,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.19.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.2...v0.18.0
 [0.17.2]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.0...v0.17.1
