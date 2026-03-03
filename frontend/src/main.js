@@ -1,7 +1,7 @@
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
-import { initGraph, renderGraph, updateGraphTheme, relayout, setLayoutDirection } from './graph.js';
+import { initGraph, renderGraph, updateGraphTheme, relayout, resetLayout, setLayoutDirection } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 import { showToast } from './toast.js';
 import {
@@ -443,13 +443,17 @@ function setupGraphToolbar() {
     relayout(cy, layoutDirection);
   });
 
+  // Reset layout button
+  $('#btn-reset-layout').addEventListener('click', () => {
+    if (cy) resetLayout(cy);
+  });
+
   // Namespace grouping toggle button
   const btnGrouping = $('#btn-grouping');
   const btnCollapseAll = $('#btn-collapse-all');
   const btnDimToggle = $('#btn-dimension-toggle');
   if (isGroupingEnabled()) {
     btnGrouping.classList.add('active');
-    btnLayoutToggle.classList.add('hidden');
     btnCollapseAll.classList.remove('hidden');
     // Dimension toggle visibility depends on data — updated after first fetch
   }
@@ -457,7 +461,6 @@ function setupGraphToolbar() {
     const next = !isGroupingEnabled();
     setGroupingEnabled(next);
     btnGrouping.classList.toggle('active', next);
-    btnLayoutToggle.classList.toggle('hidden', next);
     btnCollapseAll.classList.toggle('hidden', !next);
     btnDimToggle.classList.toggle('hidden', !next || !dataHasGroups);
     refresh();

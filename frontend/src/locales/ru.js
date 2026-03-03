@@ -48,6 +48,7 @@ export default {
   'graphToolbar.switchDimension': 'Переключить измерение группировки',
   'graphToolbar.dimNamespace': 'NS',
   'graphToolbar.dimGroup': 'ГРП',
+  'graphToolbar.resetLayout': 'Сбросить раскладку',
   'graphToolbar.edgeLabels': 'Метки типов связей',
   'graphToolbar.legends': 'Легенды',
   'graphToolbar.nsLegend': 'Легенда namespace',

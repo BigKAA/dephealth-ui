@@ -6,7 +6,7 @@
 
 ## Overview
 
-The topology graph supports mouse and keyboard interactions for navigating, selecting, and rearranging nodes. All interactions work with both **dagre** and **fcose** layouts.
+The topology graph supports mouse and keyboard interactions for navigating, selecting, and rearranging nodes. The graph uses the **ELK layered** layout algorithm for both flat and grouped (compound) modes.
 
 ## Modifier Keys
 
@@ -147,12 +147,20 @@ Collapsed namespace nodes (compound parents) behave like regular nodes for selec
 
 Parent nodes (namespaces) are excluded from box-select hit testing. Only leaf (non-parent) nodes are selected via box-select or used for the `isOnNode` background detection.
 
-### Temporary Positions
+### Position Persistence
 
-All position changes from drag operations are **temporary** — they are reset when:
-- Data is refreshed from the server
-- Layout is recalculated (layout button or layout change)
-- Page is reloaded (F5)
+Node positions are **saved to localStorage** and restored automatically:
+
+- **Drag a node** → position saved as "manual" → survives data polling and page reload
+- **Group drag / downstream drag** → all moved nodes saved as "manual"
+- **New node appears** → ELK positions it incrementally without moving existing nodes
+- **Node removed** → its saved position is pruned from storage
+- **Direction change (TB↔LR)** → all manual positions cleared, full ELK recalculation
+- **Click-release without movement** (<1px) → node is NOT marked as manual
+
+### Reset Layout
+
+Click the **Reset layout** button (↺ icon) in the toolbar to clear all saved positions and recalculate a fresh ELK layout with animation.
 
 ### Keyboard Shortcuts
 

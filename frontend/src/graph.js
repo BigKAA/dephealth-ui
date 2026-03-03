@@ -1,14 +1,16 @@
 import cytoscape from 'cytoscape';
-import dagre from 'cytoscape-dagre';
-import fcose from 'cytoscape-fcose';
+import elk from 'cytoscape-elk';
 import cytoscapeSvg from 'cytoscape-svg';
 import { isElementVisible } from './search.js';
 import { isEdgeLabelsEnabled } from './main.js';
 import { getNamespaceColor, getContrastTextColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
 import { isGroupingEnabled, buildCompoundElements, getGroupingDimension } from './grouping.js';
+import {
+  hasSavedPositions, applySavedPositions, saveAutoPositions,
+  pruneStalePositions, clearSavedPositions, clearManualFlags,
+} from './layout-store.js';
 
-cytoscape.use(dagre);
-cytoscape.use(fcose);
+cytoscape.use(elk);
 cytoscape.use(cytoscapeSvg);
 
 let layoutDirection = 'TB'; // Global layout direction: 'TB' or 'LR'
@@ -545,31 +547,87 @@ function updateAlertBadges(cy, container) {
 }
 
 /**
- * Build a layout configuration object for the current grouping mode.
- * Centralizes layout params shared between renderGraph and relayout.
- * @param {{ animate?: boolean, animationDuration?: number }} [opts]
+ * Build ELK layout configuration for hierarchical DAG layout.
+ * Single layout engine for both flat and compound graph modes.
+ * @param {{ animate?: boolean, animationDuration?: number, stop?: Function }} [opts]
  * @returns {Object} Cytoscape layout config
  */
-function buildLayoutConfig({ animate = false, animationDuration } = {}) {
-  const animOpts = animate ? { animate: true, animationDuration } : { animate: false };
-  if (isGroupingEnabled()) {
-    return {
-      name: 'fcose',
-      ...animOpts,
-      quality: 'default',
-      nodeSeparation: 80,
-      idealEdgeLength: 120,
-      nodeRepulsion: 6000,
-      tile: true,
-    };
-  }
+function buildElkLayoutConfig({ animate = false, animationDuration = 500, stop = undefined } = {}) {
+  const direction = layoutDirection === 'LR' ? 'RIGHT' : 'DOWN';
+
   return {
-    name: 'dagre',
-    rankDir: layoutDirection,
-    nodeSep: 80,
-    rankSep: 120,
-    ...animOpts,
+    name: 'elk',
+    nodeDimensionsIncludeLabels: true,
+    fit: true,
+    padding: 50,
+    animate,
+    animationDuration,
+    stop,
+
+    // Per-node ELK options: pin entry points to first layer
+    nodeLayoutOptions: (node) => {
+      if (node.isParent()) return {};
+      if (node.data('isEntry') || node.indegree(false) === 0) {
+        return { 'elk.layered.layering.layerConstraint': 'FIRST' };
+      }
+      return {};
+    },
+
+    elk: {
+      algorithm: 'layered',
+      'elk.direction': direction,
+
+      // Hierarchy: layout parent and children together
+      'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+
+      // Layer assignment: prioritize longest path (entry → deps)
+      'elk.layered.layering.strategy': 'LONGEST_PATH',
+
+      // Crossing minimization for cleaner edges
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+
+      // Node placement: optimize for balanced vertical distribution
+      'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+
+      // Spacing
+      'elk.layered.spacing.nodeNodeBetweenLayers': 100,
+      'elk.layered.spacing.edgeNodeBetweenLayers': 30,
+      'elk.spacing.nodeNode': 60,
+      'elk.padding': '[left=20, top=30, right=20, bottom=20]',
+
+      // Edge routing: smooth polylines
+      'elk.layered.edgeRouting': 'POLYLINE',
+    },
   };
+}
+
+/**
+ * Run ELK layout only for unpositioned nodes.
+ * Positioned nodes keep their saved coordinates via the transform callback.
+ * @param {cytoscape.Core} cy
+ * @param {Set<string>} unpositionedIds - node IDs that need layout
+ */
+function runIncrementalElk(cy, unpositionedIds, onStop) {
+  // Position unpositioned nodes near their graph neighbors as starting hint
+  for (const id of unpositionedIds) {
+    const node = cy.getElementById(id);
+    const neighbors = node.neighborhood('node');
+    if (neighbors.length > 0) {
+      const avgX = neighbors.reduce((s, n) => s + n.position('x'), 0) / neighbors.length;
+      const avgY = neighbors.reduce((s, n) => s + n.position('y'), 0) / neighbors.length;
+      node.position({ x: avgX + 50, y: avgY + 50 });
+    }
+  }
+
+  const config = buildElkLayoutConfig({ animate: false, stop: onStop });
+  config.fit = false;
+  // Only apply ELK positions for unpositioned nodes; keep saved positions for others
+  config.transform = (node, pos) => {
+    return unpositionedIds.has(node.id()) ? pos : node.position();
+  };
+  const layout = cy.layout(config);
+  layout.run();
+  return layout;
 }
 
 /**
@@ -746,10 +804,36 @@ export function renderGraph(cy, data, config) {
     }
   });
 
-  cy.layout(buildLayoutConfig()).run();
+  // Collect current node IDs for position pruning
+  const currentNodeIds = new Set(data.nodes.map((n) => n.id));
+  pruneStalePositions(currentNodeIds);
+
+  if (hasSavedPositions()) {
+    // Step 1: restore saved positions (preset)
+    const unpositionedIds = applySavedPositions(cy);
+
+    if (unpositionedIds.size > 0) {
+      // Step 2: run ELK only for new/unpositioned nodes
+      runIncrementalElk(cy, unpositionedIds, () => {
+        saveAutoPositions(cy);
+        cy.fit(50);
+      });
+    } else {
+      // All nodes positioned from saved data — no ELK needed
+      saveAutoPositions(cy);
+      cy.fit(50);
+    }
+  } else {
+    // No saved positions — full ELK layout
+    cy.layout(buildElkLayoutConfig({
+      stop: () => {
+        saveAutoPositions(cy);
+        cy.fit(50);
+      },
+    })).run();
+  }
 
   if (isFirstRender) {
-    cy.fit(50);
     isFirstRender = false;
   }
 
@@ -775,12 +859,42 @@ export function setLayoutDirection(direction) {
 }
 
 /**
+ * Get the current layout direction.
+ * @returns {'TB'|'LR'}
+ */
+export function getLayoutDirection() {
+  return layoutDirection;
+}
+
+/**
  * Re-run layout with specified direction.
  * @param {cytoscape.Core} cy - Cytoscape instance
  * @param {string} direction - Layout direction: 'TB' (top-bottom) or 'LR' (left-right)
  */
 export function relayout(cy, direction = 'TB') {
   if (!cy) return;
-  layoutDirection = direction; // Update global direction
-  cy.layout(buildLayoutConfig({ animate: true, animationDuration: 500 })).run();
+  layoutDirection = direction;
+
+  // Direction change invalidates manual positions (TB coords != LR coords)
+  clearManualFlags();
+
+  cy.layout(buildElkLayoutConfig({
+    animate: true,
+    animationDuration: 500,
+    stop: () => saveAutoPositions(cy),
+  })).run();
+}
+
+/**
+ * Reset layout: clear all saved positions and run fresh ELK layout.
+ * @param {cytoscape.Core} cy - Cytoscape instance
+ */
+export function resetLayout(cy) {
+  if (!cy) return;
+  clearSavedPositions();
+  cy.layout(buildElkLayoutConfig({
+    animate: true,
+    animationDuration: 500,
+    stop: () => saveAutoPositions(cy),
+  })).run();
 }

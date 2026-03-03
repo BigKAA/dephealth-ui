@@ -48,6 +48,7 @@ export default {
   'graphToolbar.switchDimension': 'Switch grouping dimension',
   'graphToolbar.dimNamespace': 'NS',
   'graphToolbar.dimGroup': 'GRP',
+  'graphToolbar.resetLayout': 'Reset layout',
   'graphToolbar.edgeLabels': 'Toggle edge type labels',
   'graphToolbar.legends': 'Legends',
   'graphToolbar.nsLegend': 'Toggle namespace legend',
