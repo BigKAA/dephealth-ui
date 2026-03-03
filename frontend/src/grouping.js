@@ -1,6 +1,7 @@
 // Namespace grouping module — state management, compound nodes, collapse/expand
 
 import { extractNamespaceFromHost } from './namespace.js';
+import { relayout, getLayoutDirection } from './graph.js';
 
 const LS_GROUPING = 'dephealth-grouping';
 const LS_COLLAPSED = 'dephealth-collapsed-ns';
@@ -374,17 +375,8 @@ export function expandNamespace(cy, nsName) {
   // Persist
   setCollapsedNamespaces(otherCollapsed);
 
-  // Re-layout
-  cy.layout({
-    name: 'fcose',
-    animate: true,
-    animationDuration: 400,
-    quality: 'default',
-    nodeSeparation: 80,
-    idealEdgeLength: 120,
-    nodeRepulsion: 6000,
-    tile: true,
-  }).run();
+  // Re-layout with shared ELK config
+  relayout(cy, getLayoutDirection());
 }
 
 /**

@@ -449,7 +449,6 @@ function setupGraphToolbar() {
   const btnDimToggle = $('#btn-dimension-toggle');
   if (isGroupingEnabled()) {
     btnGrouping.classList.add('active');
-    btnLayoutToggle.classList.add('hidden');
     btnCollapseAll.classList.remove('hidden');
     // Dimension toggle visibility depends on data — updated after first fetch
   }
@@ -457,7 +456,6 @@ function setupGraphToolbar() {
     const next = !isGroupingEnabled();
     setGroupingEnabled(next);
     btnGrouping.classList.toggle('active', next);
-    btnLayoutToggle.classList.toggle('hidden', next);
     btnCollapseAll.classList.toggle('hidden', !next);
     btnDimToggle.classList.toggle('hidden', !next || !dataHasGroups);
     refresh();

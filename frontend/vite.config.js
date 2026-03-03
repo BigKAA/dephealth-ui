@@ -11,7 +11,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          cytoscape: ['cytoscape', 'cytoscape-dagre', 'dagre'],
+          cytoscape: ['cytoscape', 'cytoscape-elk', 'elkjs'],
           'tom-select': ['tom-select'],
         },
       },
