@@ -1,7 +1,7 @@
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
-import { initGraph, renderGraph, updateGraphTheme, relayout, setLayoutDirection } from './graph.js';
+import { initGraph, renderGraph, updateGraphTheme, relayout, resetLayout, setLayoutDirection } from './graph.js';
 import { fetchTopology, fetchConfig, fetchUserInfo, withRetry } from './api.js';
 import { showToast } from './toast.js';
 import {
@@ -441,6 +441,11 @@ function setupGraphToolbar() {
     }
     localStorage.setItem('dephealth-layout-direction', layoutDirection);
     relayout(cy, layoutDirection);
+  });
+
+  // Reset layout button
+  $('#btn-reset-layout').addEventListener('click', () => {
+    if (cy) resetLayout(cy);
   });
 
   // Namespace grouping toggle button

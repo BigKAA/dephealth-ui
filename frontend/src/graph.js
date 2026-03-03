@@ -5,6 +5,10 @@ import { isElementVisible } from './search.js';
 import { isEdgeLabelsEnabled } from './main.js';
 import { getNamespaceColor, getContrastTextColor, getStripeDataUri, extractNamespaceFromHost } from './namespace.js';
 import { isGroupingEnabled, buildCompoundElements, getGroupingDimension } from './grouping.js';
+import {
+  hasSavedPositions, applySavedPositions, saveAutoPositions,
+  pruneStalePositions, clearSavedPositions, clearManualFlags,
+} from './layout-store.js';
 
 cytoscape.use(elk);
 cytoscape.use(cytoscapeSvg);
@@ -545,10 +549,10 @@ function updateAlertBadges(cy, container) {
 /**
  * Build ELK layout configuration for hierarchical DAG layout.
  * Single layout engine for both flat and compound graph modes.
- * @param {{ animate?: boolean, animationDuration?: number }} [opts]
+ * @param {{ animate?: boolean, animationDuration?: number, stop?: Function }} [opts]
  * @returns {Object} Cytoscape layout config
  */
-function buildElkLayoutConfig({ animate = false, animationDuration = 500 } = {}) {
+function buildElkLayoutConfig({ animate = false, animationDuration = 500, stop = undefined } = {}) {
   const direction = layoutDirection === 'LR' ? 'RIGHT' : 'DOWN';
 
   return {
@@ -558,6 +562,7 @@ function buildElkLayoutConfig({ animate = false, animationDuration = 500 } = {})
     padding: 50,
     animate,
     animationDuration,
+    stop,
 
     // Per-node ELK options: pin entry points to first layer
     nodeLayoutOptions: (node) => {
@@ -594,6 +599,35 @@ function buildElkLayoutConfig({ animate = false, animationDuration = 500 } = {})
       'elk.layered.edgeRouting': 'POLYLINE',
     },
   };
+}
+
+/**
+ * Run ELK layout only for unpositioned nodes.
+ * Positioned nodes keep their saved coordinates via the transform callback.
+ * @param {cytoscape.Core} cy
+ * @param {Set<string>} unpositionedIds - node IDs that need layout
+ */
+function runIncrementalElk(cy, unpositionedIds, onStop) {
+  // Position unpositioned nodes near their graph neighbors as starting hint
+  for (const id of unpositionedIds) {
+    const node = cy.getElementById(id);
+    const neighbors = node.neighborhood('node');
+    if (neighbors.length > 0) {
+      const avgX = neighbors.reduce((s, n) => s + n.position('x'), 0) / neighbors.length;
+      const avgY = neighbors.reduce((s, n) => s + n.position('y'), 0) / neighbors.length;
+      node.position({ x: avgX + 50, y: avgY + 50 });
+    }
+  }
+
+  const config = buildElkLayoutConfig({ animate: false, stop: onStop });
+  config.fit = false;
+  // Only apply ELK positions for unpositioned nodes; keep saved positions for others
+  config.transform = (node, pos) => {
+    return unpositionedIds.has(node.id()) ? pos : node.position();
+  };
+  const layout = cy.layout(config);
+  layout.run();
+  return layout;
 }
 
 /**
@@ -770,10 +804,36 @@ export function renderGraph(cy, data, config) {
     }
   });
 
-  cy.layout(buildElkLayoutConfig()).run();
+  // Collect current node IDs for position pruning
+  const currentNodeIds = new Set(data.nodes.map((n) => n.id));
+  pruneStalePositions(currentNodeIds);
+
+  if (hasSavedPositions()) {
+    // Step 1: restore saved positions (preset)
+    const unpositionedIds = applySavedPositions(cy);
+
+    if (unpositionedIds.size > 0) {
+      // Step 2: run ELK only for new/unpositioned nodes
+      runIncrementalElk(cy, unpositionedIds, () => {
+        saveAutoPositions(cy);
+        cy.fit(50);
+      });
+    } else {
+      // All nodes positioned from saved data — no ELK needed
+      saveAutoPositions(cy);
+      cy.fit(50);
+    }
+  } else {
+    // No saved positions — full ELK layout
+    cy.layout(buildElkLayoutConfig({
+      stop: () => {
+        saveAutoPositions(cy);
+        cy.fit(50);
+      },
+    })).run();
+  }
 
   if (isFirstRender) {
-    cy.fit(50);
     isFirstRender = false;
   }
 
@@ -814,7 +874,15 @@ export function getLayoutDirection() {
 export function relayout(cy, direction = 'TB') {
   if (!cy) return;
   layoutDirection = direction;
-  cy.layout(buildElkLayoutConfig({ animate: true, animationDuration: 500 })).run();
+
+  // Direction change invalidates manual positions (TB coords != LR coords)
+  clearManualFlags();
+
+  cy.layout(buildElkLayoutConfig({
+    animate: true,
+    animationDuration: 500,
+    stop: () => saveAutoPositions(cy),
+  })).run();
 }
 
 /**
@@ -823,5 +891,10 @@ export function relayout(cy, direction = 'TB') {
  */
 export function resetLayout(cy) {
   if (!cy) return;
-  cy.layout(buildElkLayoutConfig({ animate: true, animationDuration: 500 })).run();
+  clearSavedPositions();
+  cy.layout(buildElkLayoutConfig({
+    animate: true,
+    animationDuration: 500,
+    stop: () => saveAutoPositions(cy),
+  })).run();
 }

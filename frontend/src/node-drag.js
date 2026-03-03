@@ -1,6 +1,7 @@
 // Node drag module: group drag for selected nodes, Ctrl+Drag downstream
 
 import { getDownstreamNodes } from './graph-utils.js';
+import { markManualPosition, markManualPositions } from './layout-store.js';
 
 /**
  * Initialize node drag behavior on the Cytoscape instance.
@@ -69,7 +70,41 @@ export function initNodeDrag(cy) {
     });
   });
 
-  cy.on('free', 'node', () => {
+  cy.on('free', 'node', (evt) => {
+    const node = evt.target;
+
+    // Skip compound parent nodes — their position is derived from children
+    if (node.isParent()) {
+      companions.clear();
+      grabbedStartPos = null;
+      return;
+    }
+
+    // No-op drag guard: skip if node barely moved (click-release, not actual drag)
+    const endPos = node.position();
+    const movedEnough = grabbedStartPos &&
+      (Math.abs(endPos.x - grabbedStartPos.x) > 1 ||
+       Math.abs(endPos.y - grabbedStartPos.y) > 1);
+
+    if (movedEnough) {
+      // Save grabbed node position as manual
+      markManualPosition(node.id(), endPos);
+
+      // Save companion positions as manual
+      if (companions.size > 0) {
+        const batch = [];
+        for (const [id] of companions) {
+          const n = cy.getElementById(id);
+          if (n.length && !n.isParent()) {
+            batch.push({ id, ...n.position() });
+          }
+        }
+        if (batch.length > 0) {
+          markManualPositions(batch);
+        }
+      }
+    }
+
     companions.clear();
     grabbedStartPos = null;
   });
