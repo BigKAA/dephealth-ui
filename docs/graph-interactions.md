@@ -21,7 +21,7 @@ Throughout this document, "Ctrl" refers to `Ctrl` on Windows/Linux and `Cmd (⌘
 
 | Action | Target | Ctrl | Shift | Alt | Result |
 |--------|--------|------|-------|-----|--------|
-| Click | Node | — | — | — | Focus mode (1-hop) + sidebar |
+| Click | Node | — | — | — | Focus mode (1-hop) |
 | Click | Node | + | — | — | Toggle node selection |
 | Click | Node | — | + | — | Focus downstream (full chain) |
 | Click | Node | — | + | + | Focus upstream (full chain) |
@@ -35,6 +35,8 @@ Throughout this document, "Ctrl" refers to `Ctrl` on Windows/Linux and `Cmd (⌘
 | Double-click | Background | — | — | — | Center camera on click point |
 | Double-click | Node with Grafana URL | — | — | — | Open Grafana dashboard |
 | Double-click | Collapsed namespace | — | — | — | Expand namespace |
+| Right-click | Node | — | — | — | Context menu (Grafana, Show Details) |
+| Right-click | Edge | — | — | — | Context menu (Grafana, Show Details) |
 | Escape | — | — | — | — | Close sidebar, clear selection |
 
 ## Focus Mode
@@ -51,7 +53,7 @@ Click on any node (without modifier keys) to activate focus mode:
 - **Neighbor nodes** (sources and targets) remain at full opacity
 - All other elements are **dimmed** (low opacity)
 
-Click another node to switch focus. Focus and sidebar open simultaneously — the sidebar shows node details while focus highlights connections.
+Click another node to switch focus. To view node details, right-click the node and select **Show Details** from the context menu.
 
 ### Shift+Click (Downstream Focus)
 
@@ -81,7 +83,7 @@ Collapsed namespace nodes work with focus mode — clicking a collapsed namespac
 
 Hold **Ctrl** and click on a node to add it to the selection or remove it if already selected. The selected state is indicated by a blue border and overlay.
 
-Multiple nodes can be selected simultaneously. Clicking a node without Ctrl opens the sidebar instead.
+Multiple nodes can be selected simultaneously. Clicking a node without Ctrl activates focus mode.
 
 ### Box-Select (Ctrl+Drag on Background)
 

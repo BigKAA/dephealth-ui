@@ -2,7 +2,7 @@
 
 import { t } from './i18n.js';
 import { showToast } from './toast.js';
-import { openSidebar } from './sidebar.js';
+import { openSidebar, openEdgeSidebar } from './sidebar.js';
 import { expandNamespace } from './grouping.js';
 import { isHistoryMode, getSelectedTime } from './timeline.js';
 
@@ -140,21 +140,27 @@ export function initContextMenu(cy) {
     const pos = evt.renderedPosition || evt.cyRenderedPosition;
     const containerRect = cy.container().getBoundingClientRect();
 
-    if (!data.grafanaUrl) return; // No menu if no Grafana URL
+    const items = [];
 
-    const edgeGUrl = appendHistoryTimeRange(data.grafanaUrl);
-    const items = [
-      {
+    if (data.grafanaUrl) {
+      const edgeGUrl = appendHistoryTimeRange(data.grafanaUrl);
+      items.push({
         label: t('contextMenu.openInGrafana'),
         icon: 'bi-graph-up',
         action: () => window.open(edgeGUrl, '_blank'),
-      },
-      {
+      });
+      items.push({
         label: t('contextMenu.copyGrafanaUrl'),
         icon: 'bi-clipboard',
         action: () => copyToClipboard(edgeGUrl),
-      },
-    ];
+      });
+    }
+
+    items.push({
+      label: t('contextMenu.showDetails'),
+      icon: 'bi-info-circle',
+      action: () => openEdgeSidebar(edge, cy),
+    });
 
     showMenu(pos.x + containerRect.left, pos.y + containerRect.top, items);
   });

@@ -133,49 +133,11 @@ export function initSidebar(cy, topologyData) {
   const sidebar = $('#node-sidebar');
   const closeBtn = $('#btn-sidebar-close');
 
-  // Single tap on node: toggle sidebar
-  cy.on('tap', 'node', (evt) => {
-    // Skip Ctrl/Cmd+Click — used for multi-selection
-    // Skip Shift+Click — used for focus traversal (downstream/upstream)
-    const oe = evt.originalEvent;
-    if (oe && (oe.ctrlKey || oe.metaKey)) return;
-    if (oe && oe.shiftKey) return;
-
-    const node = evt.target;
-    // Skip expanded (non-collapsed) group nodes — clicking the border does nothing
-    if (node.data('isGroup') && !node.data('isCollapsed')) return;
-    const nodeId = node.data('id');
-    const sidebar = $('#node-sidebar');
-
-    // If clicking the same node while sidebar is open - close it
-    if (currentNodeId === nodeId && !sidebar.classList.contains('hidden')) {
-      closeSidebar();
-    } else if (node.data('isCollapsed')) {
-      openCollapsedSidebar(node, cy);
-    } else {
-      openSidebar(node, cy);
-    }
-  });
-
   // Double tap on node with Grafana URL: open Grafana in new tab (skip group nodes)
   cy.on('dbltap', 'node[grafanaUrl]', (evt) => {
     if (evt.target.data('isGroup')) return;
     const url = evt.target.data('grafanaUrl');
     if (url) window.open(url, '_blank');
-  });
-
-  // Single tap on edge: toggle edge sidebar
-  cy.on('tap', 'edge', (evt) => {
-    const edge = evt.target;
-    const edgeId = edge.data('id');
-    const sidebar = $('#node-sidebar');
-
-    // If clicking the same edge while sidebar is open - close it
-    if (currentEdgeId === edgeId && !sidebar.classList.contains('hidden')) {
-      closeSidebar();
-    } else {
-      openEdgeSidebar(edge, cy);
-    }
   });
 
   // Close button
