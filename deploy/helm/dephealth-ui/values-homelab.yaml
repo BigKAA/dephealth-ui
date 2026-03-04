@@ -1,15 +1,15 @@
 # dephealth-ui — homelab overrides
 
 global:
-  pushRegistry: "harbor.kryukov.lan/library"
+  pushRegistry: ""
   namespace: dephealth-ui
   gateway:
     name: eg
     namespace: envoy-gateway-system
 
 image:
-  name: dephealth-ui
-  tag: v0.18.0-2
+  name: container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui
+  tag: v0.19.1
   pullPolicy: Always
 
 route:
