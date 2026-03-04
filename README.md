@@ -1,6 +1,6 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.19.0-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.19.1-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
 [![Helm Chart](https://img.shields.io/badge/helm-0.10.0-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)

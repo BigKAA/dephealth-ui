@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-03-04
+
+### Documentation
+
+- Full README.md and README.ru.md rewrite — sync with v0.19.0 features, configuration, and API
+
 ## [0.19.0] - 2026-03-03
 
 ### Added
