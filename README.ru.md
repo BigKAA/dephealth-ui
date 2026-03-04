@@ -1,8 +1,8 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.19.0-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
-[![Helm Chart](https://img.shields.io/badge/helm-0.6.0-0F1689.svg)](./deploy/helm/dephealth-ui)
+[![Helm Chart](https://img.shields.io/badge/helm-0.10.0-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
 
 **Визуализация топологии и здоровья микросервисов в реальном времени**
@@ -27,10 +27,16 @@
 
 ✅ **Визуализация топологии в реальном времени**
 - Интерактивная диаграмма узлов с Cytoscape.js
-- Двойной layout: dagre (плоский режим) и fcose (группировка)
+- ELK layered layout для плоского и группированного режимов
 - Цветовая индикация состояний (зелёный=OK, жёлтый=DEGRADED, красный=DOWN, серый=Unknown/stale)
 - Динамический размер узлов в зависимости от длины текста
 - Удержание stale-нод с настраиваемым окном lookback
+- Сохранение позиций в localStorage с кнопкой сброса layout
+
+✅ **Режим фокуса (Focus Mode)**
+- Подсветка связанных элементов при выборе узла
+- Три режима: 1-hop соседи, downstream-зависимости, upstream-зависимости
+- Затемнение несвязанных узлов и рёбер для наглядности
 
 ✅ **Группировка по namespace**
 - Группировка сервисов по Kubernetes namespace в составные узлы
@@ -48,11 +54,16 @@
 - Бейджи каскадных предупреждений (`⚠ N`) на затронутых вышестоящих узлах с tooltip'ом корневой причины
 - Умная фильтрация с виртуальным состоянием «warning» и видимостью цепочки degraded/down
 
+✅ **Timeline и исторические запросы**
+- Исторические снимки топологии на любой момент времени
+- Endpoint событий для отслеживания переходов состояний
+
 ✅ **Полный мониторинг**
 - Статус здоровья сервисов с количеством алертов
 - Отображение latency на рёбрах (средний и P99 перцентиль)
 - Выделение критичных зависимостей (толще рёбра)
 - Интеграция с активными алертами AlertManager
+- ETag/304 кэширование для эффективной передачи данных
 
 ✅ **Богатый UI**
 - Умный поиск с fuzzy matching
@@ -61,11 +72,12 @@
 - Боковая панель узла с инстансами, связанными рёбрами и ссылками на Grafana дашборды
 - Боковая панель ребра с состоянием, latency, алертами, связанными узлами и Grafana ссылками
 - Боковая панель свёрнутого namespace с кликабельным списком сервисов и кнопкой разворачивания
-- Интеграция с Grafana: контекстное меню, ссылки на все 5 дашбордов с контекстно-зависимыми параметрами
+- Интеграция с Grafana: контекстное меню, ссылки на все 8 дашбордов с контекстно-зависимыми параметрами
 - Контекстное меню (правый клик) на узлах/рёбрах: Открыть в Grafana, Копировать URL, Детали
 - Интернационализация (i18n): английский и русский
 - Цветовая кодировка namespace с детерминированной палитрой
-- Легенда, легенда namespace, статистика, экспорт в PNG
+- Легенда, легенда namespace, статистика
+- Экспорт в JSON, CSV, DOT, PNG, SVG
 - Горячие клавиши и полноэкранный режим
 - Поддержка тёмной темы
 
@@ -81,32 +93,41 @@
 
 ```
 ┌─────────────────────┐
-│  Браузер (SPA)      │  ← Cytoscape.js + Vite
+│  Браузер (SPA)      │  ← Cytoscape.js + ELK + Vite
 │  Vanilla JS         │
 └──────────┬──────────┘
            │ HTTPS (REST API)
            ▼
-┌─────────────────────────────────┐
-│  dephealth-ui (Go)              │  ← Единый бинарник
-│  ┌─────────────────────────┐   │
-│  │ REST API                │   │  /api/v1/topology
-│  │ /api/v1/alerts          │   │  /api/v1/instances
-│  │ /api/v1/config          │   │  /api/v1/config
-│  └─────────────────────────┘   │
-│  ┌─────────────────────────┐   │
-│  │ Topology Service        │   │  ← PromQL-запросы
-│  │ Alert Aggregation       │   │  ← AlertManager API
-│  │ In-memory Cache (TTL)   │   │
-│  └─────────────────────────┘   │
-│  ┌─────────────────────────┐   │
-│  │ Auth (none/basic/oidc)  │   │  ← Подключаемый
-│  └─────────────────────────┘   │
-└──────────┬──────────────────────┘
+┌──────────────────────────────────────┐
+│  dephealth-ui (Go)                   │  ← Единый бинарник
+│  ┌──────────────────────────────┐   │
+│  │ REST API                     │   │
+│  │ /api/v1/topology             │   │  GET — граф топологии
+│  │ /api/v1/alerts               │   │  GET — активные алерты
+│  │ /api/v1/instances            │   │  GET — инстансы сервиса
+│  │ /api/v1/config               │   │  GET — конфиг для фронтенда
+│  │ /api/v1/cascade-analysis     │   │  GET — анализ каскадных сбоев
+│  │ /api/v1/cascade-graph        │   │  GET — граф каскада (Grafana)
+│  │ /api/v1/timeline/events      │   │  GET — переходы состояний
+│  │ /api/v1/export/{format}      │   │  GET — экспорт данных
+│  │ /healthz, /readyz            │   │  Health probes
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │ Topology Service             │   │  ← PromQL-запросы
+│  │ Alert Aggregation            │   │  ← AlertManager API
+│  │ In-memory Cache (TTL)        │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │ Auth (none/basic/oidc)       │   │  ← Подключаемый
+│  └──────────────────────────────┘   │
+└──────────┬───────────────────────────┘
            │
            ▼
 ┌──────────────────────────────────┐
 │ Prometheus/VictoriaMetrics       │  ← app_dependency_health
 │ AlertManager                     │  ← app_dependency_latency_seconds
+│                                  │  ← app_dependency_status
+│                                  │  ← app_dependency_status_detail
 └──────────────────────────────────┘
 ```
 
@@ -116,7 +137,7 @@
 |-----------|------------|
 | **Backend** | Go 1.25 (net/http + chi router) |
 | **Frontend** | Vanilla JS + Vite + Cytoscape.js + Tom Select |
-| **Визуализация** | Cytoscape.js + dagre (плоский) + fcose (группировка) |
+| **Визуализация** | Cytoscape.js + ELK layered layout |
 | **Контейнер** | Docker (multi-stage, multi-arch) |
 | **Оркестрация** | Kubernetes (Helm 3) |
 
@@ -196,6 +217,9 @@ datasources:
   alertmanager:
     url: "http://alertmanager.monitoring.svc:9093"
 
+topology:
+  lookback: 0  # Окно удержания stale-нод (напр. "5m", "1h"); 0 = отключено
+
 cache:
   ttl: 15s  # Время жизни кэша топологии
 
@@ -215,14 +239,42 @@ auth:
   #   clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
   #   redirectUrl: "https://dephealth.example.com/auth/callback"
 
+alerts:
+  severityLabel: "severity"  # Метка AlertManager для severity
+  severityLevels:            # Уровни severity с цветами
+    - value: "critical"
+      color: "#f44336"
+    - value: "warning"
+      color: "#ff9800"
+    - value: "info"
+      color: "#2196f3"
+
 grafana:
   baseUrl: "https://grafana.example.com"
+  # Опционально: аутентификация для Grafana API
+  # token: "glsa_..."              # API-ключ или токен сервисного аккаунта
+  # username: "admin"              # Basic auth
+  # password: "secret"             # Basic auth
   dashboards:
     serviceStatus: "dephealth-service-status"
     linkStatus: "dephealth-link-status"
     serviceList: "dephealth-service-list"
     servicesStatus: "dephealth-services-status"
     linksStatus: "dephealth-links-status"
+    cascadeOverview: "dephealth-cascade-overview"
+    rootCause: "dephealth-root-cause"
+    connectionDiagnostics: "dephealth-connection-diagnostics"
+
+log:
+  format: "json"          # "json" или "text"
+  level: "info"           # "debug", "info", "warn", "error"
+  timeFormat: "rfc3339nano"
+  addSource: false        # Включить файл/строку источника в записи лога
+  # Пользовательские имена ключей (опционально, по умолчанию — стандарт slog)
+  # timeKey: "time"
+  # levelKey: "level"
+  # messageKey: "msg"
+  # sourceKey: "source"
 ```
 
 ### Переменные окружения
@@ -233,16 +285,25 @@ grafana:
 DEPHEALTH_SERVER_LISTEN=":8080"
 DEPHEALTH_DATASOURCES_PROMETHEUS_URL="http://victoriametrics:8428"
 DEPHEALTH_DATASOURCES_ALERTMANAGER_URL="http://alertmanager:9093"
+DEPHEALTH_TOPOLOGY_LOOKBACK="5m"
 DEPHEALTH_CACHE_TTL="15s"
 DEPHEALTH_AUTH_TYPE="none"
+DEPHEALTH_ALERTS_SEVERITYLABEL="severity"
 DEPHEALTH_GRAFANA_BASEURL="https://grafana.example.com"
+DEPHEALTH_GRAFANA_TOKEN="glsa_..."
+DEPHEALTH_GRAFANA_USERNAME="admin"
+DEPHEALTH_GRAFANA_PASSWORD="secret"
+LOG_FORMAT="json"
+LOG_LEVEL="info"
+LOG_TIME_FORMAT="rfc3339nano"
+LOG_ADD_SOURCE="false"
 ```
 
 ---
 
 ## Необходимые метрики
 
-dephealth-ui требует две Prometheus-метрики от сервисов, инструментированных [dephealth SDK](https://github.com/BigKAA/topologymetrics):
+dephealth-ui требует метрики от сервисов, инструментированных [dephealth SDK](https://github.com/BigKAA/topologymetrics) (v0.4.1+):
 
 ### 1. `app_dependency_health` (Gauge)
 
@@ -265,6 +326,14 @@ app_dependency_health{name="order-service",namespace="prod",dependency="postgres
 ### 2. `app_dependency_latency_seconds` (Histogram)
 
 Latency health check'ов в секундах со стандартными bucket'ами: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
+
+### 3. `app_dependency_status` (Enum)
+
+Активное состояние зависимости (ok, degraded, down и т.д.). Используется для отслеживания переходов состояний на timeline.
+
+### 4. `app_dependency_status_detail` (Info)
+
+Info-pattern метрика с детальным описанием зависимости и метаданными.
 
 **Полная спецификация:** [docs/METRICS.ru.md](./docs/METRICS.ru.md)
 
@@ -307,12 +376,12 @@ go build -o dephealth-ui ./cmd/dephealth-ui
 
 ```bash
 # Сборка multi-arch образа
-make docker-build TAG=v0.13.0
+make docker-build TAG=v0.19.0
 
 # Или вручную
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui:v0.13.0 \
+  -t container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui:v0.19.0 \
   --push .
 ```
 
@@ -363,7 +432,7 @@ dephealth-ui/
 │   └── helm/                 # Helm-чарты
 │       ├── dephealth-ui/     # Чарт приложения
 │       ├── dephealth-infra/  # Тестовая инфраструктура
-│       ├── dephealth-uniproxy/  # Тестовые прокси-экземпляры
+│       ├── dephealth-uniproxy/  # Универсальный тестовый прокси
 │       └── dephealth-monitoring/  # Стек мониторинга
 ├── docs/                      # Документация
 └── test/                      # Тестовые утилиты и фикстуры
