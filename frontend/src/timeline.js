@@ -42,7 +42,9 @@ let trackFillEl = null;
 let rangeOverlayEl = null;
 let tooltipEl = null;
 let markersEl = null;
+let ticksEl = null;
 let timeDisplayEl = null;
+let resizeObserver = null;
 
 const PRESETS = [
   { label: '1h', hours: 1 },
@@ -305,6 +307,7 @@ export function restoreFromURL() {
     setThumbPositionVisual(Math.max(0, Math.min(1, ratio)));
 
     updateTimeDisplay();
+    renderTicksDOM();
     loadMarkers();
     return true;
   } catch (err) {
@@ -532,6 +535,7 @@ function buildUI() {
       <button id="timeline-live" class="timeline-live-btn" data-i18n="timeline.live">Live</button>
     </div>
     <div class="timeline-slider-container" id="timeline-slider-container">
+      <div class="timeline-ticks" id="timeline-ticks"></div>
       <div class="timeline-track" id="timeline-track">
         <div class="timeline-track-fill" id="timeline-track-fill"></div>
         <div class="timeline-range-overlay hidden" id="timeline-range-overlay"></div>
@@ -548,6 +552,7 @@ function buildUI() {
   rangeOverlayEl = document.getElementById('timeline-range-overlay');
   tooltipEl = document.getElementById('timeline-tooltip');
   markersEl = document.getElementById('timeline-markers');
+  ticksEl = document.getElementById('timeline-ticks');
   timeDisplayEl = document.getElementById('timeline-time-display');
 
   // Preset buttons
@@ -611,6 +616,31 @@ function buildUI() {
     exitHistoryMode();
     if (onTimeChangedCb) onTimeChangedCb(null);
   });
+
+  // Re-render ticks on container resize
+  resizeObserver = new ResizeObserver(() => renderTicksDOM());
+  resizeObserver.observe(containerEl);
+}
+
+/**
+ * Render tick marks and labels into the timeline-ticks container.
+ */
+function renderTicksDOM() {
+  if (!ticksEl || !rangeStart || !rangeEnd) return;
+  const containerWidth = ticksEl.offsetWidth;
+  if (containerWidth <= 0) { ticksEl.innerHTML = ''; return; }
+
+  const ticks = generateTicks(rangeStart, rangeEnd, containerWidth);
+  ticksEl.innerHTML = ticks.map((tick) => {
+    const left = `${tick.ratio * 100}%`;
+    if (tick.type === 'major') {
+      const labelHtml = tick.label
+        ? `<span class="timeline-tick-label">${escapeHtml(tick.label)}</span>`
+        : '';
+      return `<div class="timeline-tick major" style="left:${left}">${labelHtml}</div>`;
+    }
+    return `<div class="timeline-tick minor" style="left:${left}"></div>`;
+  }).join('');
 }
 
 function applyPreset(hours) {
@@ -635,6 +665,9 @@ function setRange(start, end) {
   syncToURL();
 
   if (onTimeChangedCb) onTimeChangedCb(selectedTime);
+
+  // Render tick marks and labels
+  renderTicksDOM();
 
   // Fetch and render event markers
   loadMarkers();

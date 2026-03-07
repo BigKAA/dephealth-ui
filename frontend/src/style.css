@@ -2293,14 +2293,14 @@ body.fullscreen .alert-drawer {
 
 .timeline-slider-container {
   position: relative;
-  height: 24px;
+  height: 48px;
   cursor: crosshair;
   user-select: none;
 }
 
 .timeline-track {
   position: absolute;
-  top: 9px;
+  top: 6px;
   left: 0;
   right: 0;
   height: 6px;
@@ -2337,7 +2337,7 @@ body.fullscreen .alert-drawer {
 
 .timeline-thumb {
   position: absolute;
-  top: 4px;
+  top: 1px;
   left: 100%;
   width: 16px;
   height: 16px;
@@ -2362,7 +2362,7 @@ body.fullscreen .alert-drawer {
 
 .timeline-tooltip {
   position: absolute;
-  bottom: 28px;
+  bottom: 52px;
   left: 0;
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
@@ -2383,15 +2383,15 @@ body.fullscreen .alert-drawer {
   top: 0;
   left: 0;
   right: 0;
-  height: 100%;
+  height: 18px;
   pointer-events: none;
 }
 
 .timeline-marker {
   position: absolute;
-  top: 2px;
+  top: 0;
   width: 4px;
-  height: 20px;
+  height: 18px;
   border-radius: 2px;
   transform: translateX(-50%);
   cursor: pointer;
@@ -2420,6 +2420,51 @@ body.fullscreen .alert-drawer {
   color: var(--text-secondary, #999);
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* Timeline ticks and labels */
+.timeline-ticks {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  height: 34px;
+  pointer-events: none;
+}
+
+.timeline-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background: var(--border-color);
+}
+
+.timeline-tick.major {
+  height: 10px;
+}
+
+.timeline-tick.minor {
+  height: 5px;
+  opacity: 0.5;
+}
+
+.timeline-tick-label {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+html[data-theme="dark"] .timeline-tick {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="dark"] .timeline-tick-label {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* History mode: header visual distinction */
