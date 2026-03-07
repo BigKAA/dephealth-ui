@@ -54,6 +54,154 @@ const PRESETS = [
   { label: '90d', hours: 2160 },
 ];
 
+// --- Tick calculation ---
+
+const MINUTE = 60_000;
+const HOUR = 3_600_000;
+const DAY = 86_400_000;
+
+const TICK_TIERS = [
+  { maxRange: 1 * HOUR,  majorStep: 10 * MINUTE, minorStep: 2 * MINUTE,  format: 'HH:mm',       labelWidth: 70 },
+  { maxRange: 6 * HOUR,  majorStep: 1 * HOUR,    minorStep: 15 * MINUTE, format: 'HH:mm',       labelWidth: 70 },
+  { maxRange: 12 * HOUR, majorStep: 2 * HOUR,    minorStep: 30 * MINUTE, format: 'HH:mm',       labelWidth: 70 },
+  { maxRange: 1 * DAY,   majorStep: 4 * HOUR,    minorStep: 1 * HOUR,    format: 'HH:mm',       labelWidth: 70 },
+  { maxRange: 7 * DAY,   majorStep: 1 * DAY,     minorStep: 6 * HOUR,    format: 'dd.MM HH:mm', labelWidth: 110 },
+  { maxRange: 30 * DAY,  majorStep: 7 * DAY,     minorStep: 1 * DAY,     format: 'dd.MM',       labelWidth: 70 },
+  { maxRange: Infinity,  majorStep: 14 * DAY,    minorStep: 7 * DAY,     format: 'dd.MM',       labelWidth: 70 },
+];
+
+/**
+ * Choose tick interval parameters based on total range duration.
+ * @param {number} rangeMs - total range in milliseconds
+ * @returns {{ majorStep: number, minorStep: number, format: string, labelWidth: number }}
+ */
+function chooseTicks(rangeMs) {
+  for (const tier of TICK_TIERS) {
+    if (rangeMs <= tier.maxRange) return tier;
+  }
+  return TICK_TIERS[TICK_TIERS.length - 1];
+}
+
+/**
+ * Format a Date according to the given format string.
+ * Supported tokens: HH, mm, dd, MM.
+ * @param {Date} date
+ * @param {string} fmt
+ * @returns {string}
+ */
+function formatTickLabel(date, fmt) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return fmt
+    .replace('HH', pad(date.getHours()))
+    .replace('mm', pad(date.getMinutes()))
+    .replace('dd', pad(date.getDate()))
+    .replace('MM', pad(date.getMonth() + 1));
+}
+
+/**
+ * Snap a timestamp up to the nearest boundary of the given step.
+ * @param {number} ts - timestamp in ms
+ * @param {number} step - step size in ms
+ * @returns {number}
+ */
+function snapCeil(ts, step) {
+  const remainder = ts % step;
+  return remainder === 0 ? ts : ts + (step - remainder);
+}
+
+/**
+ * Snap a timestamp down to the nearest boundary of the given step.
+ * @param {number} ts - timestamp in ms
+ * @param {number} step - step size in ms
+ * @returns {number}
+ */
+function snapFloor(ts, step) {
+  return ts - (ts % step);
+}
+
+/**
+ * Generate an array of tick objects for the given range and container width.
+ * @param {Date} start - range start
+ * @param {Date} end - range end
+ * @param {number} containerWidth - container width in pixels
+ * @returns {Array<{ time: Date, ratio: number, type: 'major'|'minor', label?: string }>}
+ */
+export function generateTicks(start, end, containerWidth) {
+  const totalMs = end.getTime() - start.getTime();
+  if (totalMs <= 0 || containerWidth <= 0) return [];
+
+  const tier = chooseTicks(totalMs);
+  const { majorStep, minorStep, format, labelWidth } = tier;
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+
+  // Collect major tick timestamps (snapped to pretty boundaries)
+  const firstMajor = snapCeil(startMs, majorStep);
+  const lastMajor = snapFloor(endMs, majorStep);
+  const majorSet = new Set();
+  const ticks = [];
+
+  for (let ts = firstMajor; ts <= lastMajor; ts += majorStep) {
+    majorSet.add(ts);
+    const ratio = (ts - startMs) / totalMs;
+    ticks.push({
+      time: new Date(ts),
+      ratio,
+      type: 'major',
+      label: formatTickLabel(new Date(ts), format),
+    });
+  }
+
+  // Collect minor ticks (skip where major tick exists)
+  const firstMinor = snapCeil(startMs, minorStep);
+  for (let ts = firstMinor; ts <= endMs; ts += minorStep) {
+    if (majorSet.has(ts)) continue;
+    const ratio = (ts - startMs) / totalMs;
+    if (ratio < 0 || ratio > 1) continue;
+    ticks.push({ time: new Date(ts), ratio, type: 'minor' });
+  }
+
+  // Sort by ratio for anti-overlap pass
+  ticks.sort((a, b) => a.ratio - b.ratio);
+
+  // Anti-overlap: suppress labels that collide
+  if (containerWidth > 0) {
+    const gap = 8; // minimum gap between labels in px
+
+    // Find first and last major ticks (mandatory labels)
+    let firstMajorIdx = -1;
+    let lastMajorIdx = -1;
+    for (let i = 0; i < ticks.length; i++) {
+      if (ticks[i].type === 'major') {
+        if (firstMajorIdx === -1) firstMajorIdx = i;
+        lastMajorIdx = i;
+      }
+    }
+
+    if (firstMajorIdx !== -1 && firstMajorIdx !== lastMajorIdx) {
+      // Last major tick's left edge in px
+      const lastLabelLeft = ticks[lastMajorIdx].ratio * containerWidth - labelWidth / 2;
+
+      // Walk left-to-right, suppressing overlapping labels (skip first and last)
+      let lastRightPx = ticks[firstMajorIdx].ratio * containerWidth + labelWidth / 2;
+
+      for (let i = firstMajorIdx + 1; i < lastMajorIdx; i++) {
+        if (ticks[i].type !== 'major') continue;
+        const leftPx = ticks[i].ratio * containerWidth - labelWidth / 2;
+        const rightPx = leftPx + labelWidth;
+        // Check overlap with previous visible label and with the last mandatory label
+        if (leftPx < lastRightPx + gap || rightPx + gap > lastLabelLeft) {
+          delete ticks[i].label;
+        } else {
+          lastRightPx = rightPx;
+        }
+      }
+    }
+  }
+
+  return ticks;
+}
+
 // --- Public API ---
 
 export function isHistoryMode() {

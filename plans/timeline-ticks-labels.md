@@ -5,7 +5,7 @@
 - **Plan version**: 1.0.0
 - **Created**: 2026-03-07
 - **Last updated**: 2026-03-07
-- **Status**: Pending
+- **Status**: In Progress
 
 ---
 
@@ -17,16 +17,16 @@
 
 ## Current Status
 
-- **Active phase**: Phase 1
-- **Active item**: 1.1
+- **Active phase**: Phase 2
+- **Active item**: 2.1
 - **Last updated**: 2026-03-07
-- **Note**: Plan created, ready for implementation
+- **Note**: Phase 1 completed — chooseTicks, generateTicks, anti-overlap logic implemented
 
 ---
 
 ## Table of Contents
 
-- [ ] [Phase 1: Tick Calculation Engine](#phase-1-tick-calculation-engine)
+- [x] [Phase 1: Tick Calculation Engine](#phase-1-tick-calculation-engine)
 - [ ] [Phase 2: DOM Rendering & Styles](#phase-2-dom-rendering--styles)
 - [ ] [Phase 3: Build, Deploy & Test](#phase-3-build-deploy--test)
 
@@ -35,7 +35,7 @@
 ## Phase 1: Tick Calculation Engine
 
 **Dependencies**: None
-**Status**: Pending
+**Status**: Completed
 
 ### Description
 
@@ -45,7 +45,7 @@ isolation.
 
 ### Items
 
-- [ ] **1.1 Tick interval selection function**
+- [x] **1.1 Tick interval selection function**
   - **Dependencies**: None
   - **Description**: Create a function `chooseTicks(rangeMs)` that returns
     `{ majorStep, minorStep, format }` based on the total range duration.
@@ -64,7 +64,7 @@ isolation.
   - **Modifies**: `frontend/src/timeline.js`
   - **Links**: N/A
 
-- [ ] **1.2 Tick generation function**
+- [x] **1.2 Tick generation function**
   - **Dependencies**: 1.1
   - **Description**: Create a function `generateTicks(rangeStart, rangeEnd, containerWidth)`
     that returns an array of tick objects:
@@ -87,10 +87,10 @@ isolation.
 
 ### Completion Criteria — Phase 1
 
-- [ ] All items completed (1.1, 1.2)
-- [ ] `chooseTicks()` covers all 7 range tiers
-- [ ] `generateTicks()` produces correct tick arrays for representative ranges (1h, 6h, 1d, 7d, 30d, 90d)
-- [ ] Anti-overlap logic prevents label collisions
+- [x] All items completed (1.1, 1.2)
+- [x] `chooseTicks()` covers all 7 range tiers
+- [x] `generateTicks()` produces correct tick arrays for representative ranges (1h, 6h, 1d, 7d, 30d, 90d)
+- [x] Anti-overlap logic prevents label collisions
 
 ---
 
