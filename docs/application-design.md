@@ -553,6 +553,7 @@ Browser                          Go Backend                    VictoriaMetrics
 
 **Frontend:**
 - Timeline panel: bottom panel with time range presets (1h–90d), custom datetime inputs, and a range slider
+- Time scale: major/minor ticks with formatted time labels (adaptive intervals from 10 min to 14 days depending on range); anti-overlap label suppression; responsive via ResizeObserver
 - Event markers: colored markers on the slider showing state transitions (red=degradation, green=recovery, orange=change)
 - URL synchronization: `?time=`, `?from=`, `?to=` query parameters are maintained via `history.replaceState()` for shareable links
 - Grafana links: in history mode, all Grafana dashboard URLs include `&from=<ts-1h>&to=<ts+1h>` (Unix ms) to navigate to the relevant time window

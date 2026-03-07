@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-03-07
+
+### Added
+
+- **Timeline ticks & labels** — time scale with major/minor ticks and formatted time labels on the timeline slider; adaptive intervals based on range duration (10 min–14 days), anti-overlap label suppression, responsive to window resize via ResizeObserver
+
 ## [0.19.1] - 2026-03-04
 
 ### Documentation

@@ -9,7 +9,7 @@ global:
 
 image:
   name: container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui
-  tag: v0.19.1
+  tag: v0.19.2
   pullPolicy: Always
 
 route:
