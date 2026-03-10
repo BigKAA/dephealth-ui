@@ -21,17 +21,17 @@
 
 ## Current Status
 
-- **Active phase**: Phase 1
-- **Active item**: 1.1
+- **Active phase**: Phase 3
+- **Active item**: 3.1
 - **Updated**: 2026-03-10
-- **Note**: Plan created, awaiting implementation start
+- **Note**: Phase 1 and Phase 2 completed
 
 ---
 
 ## Table of Contents
 
-- [ ] [Phase 1: Configuration and Types](#phase-1-configuration-and-types)
-- [ ] [Phase 2: LDAP Authenticator Core](#phase-2-ldap-authenticator-core)
+- [x] [Phase 1: Configuration and Types](#phase-1-configuration-and-types)
+- [x] [Phase 2: LDAP Authenticator Core](#phase-2-ldap-authenticator-core)
 - [ ] [Phase 3: Login Template and Rate Limiting](#phase-3-login-template-and-rate-limiting)
 - [ ] [Phase 4: Frontend, Helm Chart and Documentation](#phase-4-frontend-helm-chart-and-documentation)
 
@@ -40,7 +40,7 @@
 ## Phase 1: Configuration and Types
 
 **Dependencies**: None
-**Status**: Pending
+**Status**: Done
 
 ### Description
 
@@ -50,7 +50,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
 
 ### Items
 
-- [ ] **1.1 Add LDAPConfig types to config package**
+- [x] **1.1 Add LDAPConfig types to config package**
   - **Dependencies**: None
   - **Description**: Add `LDAPConfig` and `LDAPAttributes` structs to `internal/config/config.go`.
     Add `LDAP LDAPConfig` field to `AuthConfig`. Set default `UserFilter` value
@@ -94,7 +94,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     },
     ```
 
-- [ ] **1.2 Add LDAP validation to Validate()**
+- [x] **1.2 Add LDAP validation to Validate()**
   - **Dependencies**: 1.1
   - **Description**: Add `case "ldap"` to `Validate()` switch. Required fields: `url`, `baseDN`.
     Update the `default` case error message to include `ldap` in supported types list.
@@ -124,7 +124,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     - `"auth type ldap invalid url scheme"` — url=`http://ldap:389`, wantErr=true
     - `"auth type ldap missing baseDN"` — wantErr=true
 
-- [ ] **1.3 Add LDAP environment variable overrides**
+- [x] **1.3 Add LDAP environment variable overrides**
   - **Dependencies**: 1.1
   - **Description**: Add env overrides in `applyEnvOverrides()` for all LDAP config fields.
     Add test `TestLDAPEnvOverrides`.
@@ -148,7 +148,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     | `DEPHEALTH_AUTH_LDAP_GROUP_FILTER` | `LDAP.GroupFilter` |
     | `DEPHEALTH_AUTH_LDAP_ALLOWED_GROUPS` | `LDAP.AllowedGroups` (comma-separated, `strings.Split` + `strings.TrimSpace` each element, skip empty) |
 
-- [ ] **1.4 Add LDAP config YAML loading test**
+- [x] **1.4 Add LDAP config YAML loading test**
   - **Dependencies**: 1.1
   - **Description**: Add `TestLoadLDAPConfig` — load LDAP config from YAML file, verify all
     fields are parsed correctly (including nested `attributes` and `allowedGroups` list).
@@ -184,7 +184,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     Verify: all fields including nested `attributes.displayName`, `attributes.email`,
     and `allowedGroups` slice length and values.
 
-- [ ] **1.5 Add LDAP case to auth factory**
+- [x] **1.5 Add LDAP case to auth factory**
   - **Dependencies**: 1.1
   - **Description**: Add `case "ldap"` to `NewFromConfigWithContext()` in `internal/auth/auth.go`.
     This will call `NewLDAP(cfg.LDAP, logger)` which doesn't exist yet — create a minimal
@@ -226,17 +226,17 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
 
 ### Completion Criteria Phase 1
 
-- [ ] All items completed (1.1–1.5)
-- [ ] `go build ./...` succeeds
-- [ ] `go test ./internal/config/...` passes (including new LDAP tests)
-- [ ] `go test ./internal/auth/...` passes (factory test updated)
+- [x] All items completed (1.1–1.5)
+- [x] `go build ./...` succeeds
+- [x] `go test ./internal/config/...` passes (including new LDAP tests)
+- [x] `go test ./internal/auth/...` passes (factory test updated)
 
 ---
 
 ## Phase 2: LDAP Authenticator Core
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Done
 
 ### Description
 
@@ -246,7 +246,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
 
 ### Items
 
-- [ ] **2.1 Add go-ldap dependency**
+- [x] **2.1 Add go-ldap dependency**
   - **Dependencies**: None
   - **Description**: Run `go get github.com/go-ldap/ldap/v3` and
     `go get github.com/jimlambrt/gldap` (test dependency) to add them to `go.mod`.
@@ -254,7 +254,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     - `go.mod`
     - `go.sum`
 
-- [ ] **2.2 Move shared session constants to session.go**
+- [x] **2.2 Move shared session constants to session.go**
   - **Dependencies**: None
   - **Description**: Move `sessionCookieName` and `sessionTTL` constants from
     `internal/auth/oidc.go` to `internal/auth/session.go` where they logically belong.
@@ -264,7 +264,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     - `internal/auth/oidc.go` — remove `sessionCookieName` and `sessionTTL`
     - `internal/auth/session.go` — add `sessionCookieName` and `sessionTTL`
 
-- [ ] **2.3 Implement ldapAuth struct and NewLDAP constructor**
+- [x] **2.3 Implement ldapAuth struct and NewLDAP constructor**
   - **Dependencies**: 2.1, 2.2
   - **Description**: Replace the stub in `internal/auth/ldap.go` with the full
     implementation. The `ldapAuth` struct holds config, `SessionStore`,
@@ -295,7 +295,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     `Routes()` — return `chi.Router` with GET/POST `/login`, GET `/logout`, GET `/userinfo`.
     `Stop()` — call `sessions.Stop()`.
 
-- [ ] **2.4 Implement LDAP connect function**
+- [x] **2.4 Implement LDAP connect function**
   - **Dependencies**: 2.1
   - **Description**: Implement `connect()` method that dials the LDAP server. Handle
     `ldaps://` (TLS from start) and `ldap://` with optional StartTLS. Support
@@ -339,7 +339,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     }
     ```
 
-- [ ] **2.5 Implement authenticate method**
+- [x] **2.5 Implement authenticate method**
   - **Dependencies**: 2.4
   - **Description**: Core authentication logic — search bind or direct bind mode,
     user attribute extraction, optional group membership check.
@@ -382,7 +382,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
 
     Return `*UserInfo{Subject: userDN, Name: displayName, Email: email}`.
 
-- [ ] **2.6 Implement HTTP handlers (login, logout, userinfo)**
+- [x] **2.6 Implement HTTP handlers (login, logout, userinfo)**
   - **Dependencies**: 2.5
   - **Description**: Implement route handlers for LDAP auth flow.
   - **Modifies**:
@@ -408,7 +408,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     **GET /logout**: Delete session, clear cookie, redirect to `/`.
     **GET /userinfo**: Return session user as JSON (same as OIDC).
 
-- [ ] **2.7 Unit tests with mock LDAP server**
+- [x] **2.7 Unit tests with mock LDAP server**
   - **Dependencies**: 2.6
   - **Description**: Create `internal/auth/ldap_test.go` with tests using `gldap` mock server.
   - **Creates**:
@@ -447,11 +447,11 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
 
 ### Completion Criteria Phase 2
 
-- [ ] All items completed (2.1–2.7)
-- [ ] `go build ./...` succeeds
-- [ ] `go test ./internal/auth/...` passes (all LDAP tests green)
-- [ ] LDAP injection is prevented via `ldap.EscapeFilter()`
-- [ ] Both search bind and direct bind modes work
+- [x] All items completed (2.1–2.7)
+- [x] `go build ./...` succeeds
+- [x] `go test ./internal/auth/...` passes (all LDAP tests green)
+- [x] LDAP injection is prevented via `ldap.EscapeFilter()`
+- [x] Both search bind and direct bind modes work
 
 ---
 
