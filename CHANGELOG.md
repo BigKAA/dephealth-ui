@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3] - 2026-03-10
+
+### Fixed
+
+- **Server input validation** — hardened input validation and error handling in server endpoints
+
+### Changed
+
+- **Frontend cleanup** — deduplicated `escapeHtml` utility and improved accessibility attributes
+- **Frontend dead code removal** — removed unused exported functions
+- **Code style** — aligned struct field tags and fixed whitespace in Go source files
+
 ## [0.19.2] - 2026-03-07
 
 ### Added
@@ -357,6 +369,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.19.3]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.2...v0.19.3
+[0.19.2]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.1...v0.19.2
+[0.19.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.2...v0.18.0
 [0.17.2]: https://github.com/BigKAA/dephealth-ui/compare/v0.17.1...v0.17.2
