@@ -5,6 +5,7 @@
 
 import { fetchInstances } from './api.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './utils.js';
 import { STATUS_COLORS, STATUS_LABELS } from './graph.js';
 import { getContrastTextColor } from './namespace.js';
 import { getCollapsedChildren, expandNamespace, findConnectedChild } from './grouping.js';
@@ -20,25 +21,6 @@ let highlightTimer = null; // Timer for highlight auto-clear
 
 const $ = (sel) => document.querySelector(sel);
 
-// ---------------------------------------------------------------------------
-// HTML escaping
-// ---------------------------------------------------------------------------
-
-/**
- * Escape a string for safe insertion into HTML.
- * Prevents XSS when rendering API data via innerHTML.
- * @param {*} str - Value to escape (non-strings returned as-is)
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== 'string') return String(str);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 // ---------------------------------------------------------------------------
 // Shared rendering helpers

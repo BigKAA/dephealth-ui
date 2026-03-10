@@ -1,20 +1,6 @@
 import { t } from './i18n.js';
 import { STATUS_COLORS, STATUS_LABELS } from './graph.js';
-
-/**
- * Escape a string for safe insertion into HTML.
- * @param {*} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== 'string') return String(str);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+import { escapeHtml } from './utils.js';
 
 /**
  * Initialize tooltip functionality for the graph.

@@ -9,22 +9,22 @@
   <header id="header">
     <span class="header-title" data-i18n="header.title">dephealth-ui</span>
     <div class="toolbar">
-      <button id="btn-alerts" data-i18n-title="toolbar.alerts" title="Active alerts">
-        <i class="bi bi-bell"></i>
+      <button id="btn-alerts" data-i18n-title="toolbar.alerts" title="Active alerts" aria-label="Active alerts">
+        <i class="bi bi-bell" aria-hidden="true"></i>
         <span id="alert-badge" class="header-badge hidden">0</span>
       </button>
-      <button id="btn-filter" data-i18n-title="toolbar.filter" title="Toggle filters"><i class="bi bi-funnel"></i></button>
-      <button id="btn-search" data-i18n-title="toolbar.search" title="Search nodes"><i class="bi bi-search"></i></button>
-      <button id="btn-refresh" data-i18n-title="toolbar.refresh" title="Refresh now"><i class="bi bi-arrow-clockwise"></i></button>
-      <button id="btn-auto-refresh" class="active" data-i18n-title="toolbar.autoRefresh" title="Toggle auto-refresh"><i class="bi bi-play-circle"></i></button>
-      <button id="btn-fit" data-i18n-title="toolbar.fit" title="Fit graph to screen"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button id="btn-history" data-i18n-title="toolbar.history" title="History mode"><i class="bi bi-clock-history"></i></button>
-      <button id="btn-theme" data-i18n-title="toolbar.theme" title="Toggle dark/light theme"><i class="bi bi-moon"></i></button>
-      <button id="btn-lang" title="Language" data-i18n-title="toolbar.language"><span id="lang-label">EN</span></button>
+      <button id="btn-filter" data-i18n-title="toolbar.filter" title="Toggle filters" aria-label="Toggle filters"><i class="bi bi-funnel" aria-hidden="true"></i></button>
+      <button id="btn-search" data-i18n-title="toolbar.search" title="Search nodes" aria-label="Search nodes"><i class="bi bi-search" aria-hidden="true"></i></button>
+      <button id="btn-refresh" data-i18n-title="toolbar.refresh" title="Refresh now" aria-label="Refresh now"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+      <button id="btn-auto-refresh" class="active" data-i18n-title="toolbar.autoRefresh" title="Toggle auto-refresh" aria-label="Toggle auto-refresh"><i class="bi bi-play-circle" aria-hidden="true"></i></button>
+      <button id="btn-fit" data-i18n-title="toolbar.fit" title="Fit graph to screen" aria-label="Fit graph to screen"><i class="bi bi-arrows-fullscreen" aria-hidden="true"></i></button>
+      <button id="btn-history" data-i18n-title="toolbar.history" title="History mode" aria-label="History mode"><i class="bi bi-clock-history" aria-hidden="true"></i></button>
+      <button id="btn-theme" data-i18n-title="toolbar.theme" title="Toggle dark/light theme" aria-label="Toggle dark/light theme"><i class="bi bi-moon" aria-hidden="true"></i></button>
+      <button id="btn-lang" title="Language" data-i18n-title="toolbar.language" aria-label="Language"><span id="lang-label">EN</span></button>
     </div>
     <div id="user-info" class="hidden">
       <span id="user-name"></span>
-      <button id="btn-logout" data-i18n-title="toolbar.logout" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
+      <button id="btn-logout" data-i18n-title="toolbar.logout" title="Logout" aria-label="Logout"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></button>
     </div>
   </header>
 
@@ -70,24 +70,24 @@
     <div id="graph-toolbar" class="graph-toolbar">
       <div class="toolbar-grip"></div>
       <!-- Navigation group -->
-      <button id="btn-zoom-in" data-i18n-title="graphToolbar.zoomIn" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
-      <button id="btn-zoom-out" data-i18n-title="graphToolbar.zoomOut" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
-      <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen"><i class="bi bi-fullscreen"></i></button>
+      <button id="btn-zoom-in" data-i18n-title="graphToolbar.zoomIn" title="Zoom in" aria-label="Zoom in"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>
+      <button id="btn-zoom-out" data-i18n-title="graphToolbar.zoomOut" title="Zoom out" aria-label="Zoom out"><i class="bi bi-zoom-out" aria-hidden="true"></i></button>
+      <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen"><i class="bi bi-fullscreen" aria-hidden="true"></i></button>
       <div class="toolbar-separator"></div>
       <!-- Structure group -->
-      <button id="btn-layout-toggle" data-i18n-title="graphToolbar.layout" title="Toggle layout direction"><i class="bi bi-distribute-vertical"></i></button>
-      <button id="btn-reset-layout" data-i18n-title="graphToolbar.resetLayout" title="Reset layout"><i class="bi bi-arrow-counterclockwise"></i></button>
-      <button id="btn-grouping" data-i18n-title="graphToolbar.groupByNs" title="Group by namespace"><i class="bi bi-bounding-box"></i></button>
-      <button id="btn-dimension-toggle" class="hidden" data-i18n-title="graphToolbar.switchDimension" title="Switch grouping dimension"><span id="dimension-label">NS</span></button>
-      <button id="btn-collapse-all" class="hidden" data-i18n-title="graphToolbar.collapseAll" title="Collapse/expand all namespaces"><i class="bi bi-arrows-collapse"></i></button>
+      <button id="btn-layout-toggle" data-i18n-title="graphToolbar.layout" title="Toggle layout direction" aria-label="Toggle layout direction"><i class="bi bi-distribute-vertical" aria-hidden="true"></i></button>
+      <button id="btn-reset-layout" data-i18n-title="graphToolbar.resetLayout" title="Reset layout" aria-label="Reset layout"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+      <button id="btn-grouping" data-i18n-title="graphToolbar.groupByNs" title="Group by namespace" aria-label="Group by namespace"><i class="bi bi-bounding-box" aria-hidden="true"></i></button>
+      <button id="btn-dimension-toggle" class="hidden" data-i18n-title="graphToolbar.switchDimension" title="Switch grouping dimension" aria-label="Switch grouping dimension"><span id="dimension-label">NS</span></button>
+      <button id="btn-collapse-all" class="hidden" data-i18n-title="graphToolbar.collapseAll" title="Collapse/expand all namespaces" aria-label="Collapse/expand all namespaces"><i class="bi bi-arrows-collapse" aria-hidden="true"></i></button>
       <div class="toolbar-separator"></div>
       <!-- Display group -->
-      <button id="btn-edge-labels" data-i18n-title="graphToolbar.edgeLabels" title="Toggle edge type labels"><i class="bi bi-tag"></i></button>
+      <button id="btn-edge-labels" data-i18n-title="graphToolbar.edgeLabels" title="Toggle edge type labels" aria-label="Toggle edge type labels"><i class="bi bi-tag" aria-hidden="true"></i></button>
       <div class="toolbar-separator"></div>
       <!-- Utilities group -->
-      <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export"><i class="bi bi-download"></i></button>
+      <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export" aria-label="Export"><i class="bi bi-download" aria-hidden="true"></i></button>
       <div class="toolbar-dropdown-wrapper">
-        <button id="btn-legends" data-i18n-title="graphToolbar.legends" title="Legends"><i class="bi bi-info-circle"></i></button>
+        <button id="btn-legends" data-i18n-title="graphToolbar.legends" title="Legends" aria-label="Legends"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
         <div id="legends-dropdown" class="toolbar-dropdown hidden">
           <div class="toolbar-dropdown-item" data-target="graph-legend">
             <span class="dropdown-icon"><i class="bi bi-info-circle"></i></span>

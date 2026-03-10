@@ -27,6 +27,7 @@ import {
   initTimeline, isHistoryMode, getSelectedTime,
   enterHistoryMode, exitHistoryMode, restoreFromURL,
 } from './timeline.js';
+import { escapeHtml } from './utils.js';
 import {
   isGroupingEnabled, setGroupingEnabled,
   getGroupingDimension, setGroupingDimension,
@@ -67,21 +68,6 @@ const $ = (sel) => document.querySelector(sel);
 
 const RETRY_BASE = 5000;
 const RETRY_MAX = 30000;
-
-/**
- * Escape a string for safe insertion into HTML.
- * @param {*} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== 'string') return String(str);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 function updateStatus(data) {
   const { nodeCount, edgeCount } = data.meta;
@@ -689,14 +675,18 @@ function updateNamespaceLegend(data) {
 }
 
 async function initUserInfo() {
-  const user = await fetchUserInfo();
-  if (user && (user.name || user.email)) {
-    $('#user-name').textContent = user.name || user.email;
-    $('#user-info').classList.remove('hidden');
+  try {
+    const user = await fetchUserInfo();
+    if (user && (user.name || user.email)) {
+      $('#user-name').textContent = user.name || user.email;
+      $('#user-info').classList.remove('hidden');
 
-    $('#btn-logout').addEventListener('click', () => {
-      window.location.href = '/auth/logout';
-    });
+      $('#btn-logout').addEventListener('click', () => {
+        window.location.href = '/auth/logout';
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to fetch user info:', err);
   }
 }
 

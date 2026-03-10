@@ -6,21 +6,7 @@
 import { t } from './i18n.js';
 import { fetchTimelineEvents } from './api.js';
 import { showToast } from './toast.js';
-
-/**
- * Escape a string for safe insertion into HTML attributes.
- * @param {*} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (typeof str !== 'string') return String(str);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+import { escapeHtml } from './utils.js';
 
 // --- Interaction states ---
 const INTERACTION = { IDLE: 0, THUMB_DRAG: 1, RANGE_SELECT: 2, MARKER_HOVER: 3 };
