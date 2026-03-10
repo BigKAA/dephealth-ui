@@ -31,7 +31,7 @@ spec:
           args:
             - "-config"
             - "/etc/dephealth-ui/config.yaml"
-          {{- if or .Values.customCA.enabled .Values.grafanaSecret.enabled }}
+          {{- if or .Values.customCA.enabled .Values.grafanaSecret.enabled .Values.ldapSecret.enabled }}
           env:
             {{- if .Values.customCA.enabled }}
             - name: SSL_CERT_FILE
@@ -56,6 +56,13 @@ spec:
                   name: {{ .Values.grafanaSecret.secretName }}
                   key: {{ .Values.grafanaSecret.passwordKey }}
                   optional: true
+            {{- end }}
+            {{- if .Values.ldapSecret.enabled }}
+            - name: DEPHEALTH_AUTH_LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ldapSecret.secretName }}
+                  key: {{ .Values.ldapSecret.bindPasswordKey }}
             {{- end }}
           {{- end }}
           {{- with .Values.securityContext }}

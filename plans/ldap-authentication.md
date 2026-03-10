@@ -21,10 +21,10 @@
 
 ## Current Status
 
-- **Active phase**: Phase 3
-- **Active item**: 3.1
+- **Active phase**: Phase 4
+- **Active item**: 4.4 (manual verification)
 - **Updated**: 2026-03-10
-- **Note**: Phase 1 and Phase 2 completed
+- **Note**: Phases 1–3 completed, Phase 4 items 4.1–4.3 completed
 
 ---
 
@@ -32,7 +32,7 @@
 
 - [x] [Phase 1: Configuration and Types](#phase-1-configuration-and-types)
 - [x] [Phase 2: LDAP Authenticator Core](#phase-2-ldap-authenticator-core)
-- [ ] [Phase 3: Login Template and Rate Limiting](#phase-3-login-template-and-rate-limiting)
+- [x] [Phase 3: Login Template and Rate Limiting](#phase-3-login-template-and-rate-limiting)
 - [ ] [Phase 4: Frontend, Helm Chart and Documentation](#phase-4-frontend-helm-chart-and-documentation)
 
 ---
@@ -458,7 +458,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
 ## Phase 3: Login Template and Rate Limiting
 
 **Dependencies**: Phase 2
-**Status**: Pending
+**Status**: Done
 
 ### Description
 
@@ -468,7 +468,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
 
 ### Items
 
-- [ ] **3.1 Create login.html template**
+- [x] **3.1 Create login.html template**
   - **Dependencies**: None
   - **Description**: Create `internal/auth/templates/login.html` — an `html/template`
     file with a login form. The form POSTs to `/auth/login` with fields `username`
@@ -497,7 +497,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     - Hidden CSRF token: `<input type="hidden" name="_csrf" value="{{.CSRFToken}}">`
     - No external dependencies (no CDN links)
 
-- [ ] **3.2 Embed template and wire into ldapAuth**
+- [x] **3.2 Embed template and wire into ldapAuth**
   - **Dependencies**: 3.1
   - **Description**: Add `//go:embed templates/login.html` in `ldap.go`. Add
     `loginTmpl *template.Template` field to `ldapAuth` struct (was deferred from Phase 2).
@@ -528,7 +528,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     })
     ```
 
-- [ ] **3.3 Implement CSRF token protection**
+- [x] **3.3 Implement CSRF token protection**
   - **Dependencies**: 3.2
   - **Description**: Generate a random CSRF token per login page render. Store it in
     a short-lived map (similar to OIDC states). Validate on POST /login before
@@ -546,7 +546,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     Max tokens cap: 10000 — if exceeded after cleanup, reject with 503
     (Service Unavailable) to prevent memory exhaustion from automated GET /login spam.
 
-- [ ] **3.4 Implement per-IP rate limiter**
+- [x] **3.4 Implement per-IP rate limiter**
   - **Dependencies**: None
   - **Description**: Implement a simple in-memory rate limiter that tracks login attempts
     per client IP address. Hardcoded: 5 attempts per 1-minute sliding window. Returns
@@ -585,7 +585,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     cleanup to run at most once per `window` duration (track `lastCleanup` timestamp).
     This prevents both excessive cleanup overhead and unbounded memory growth.
 
-- [ ] **3.5 Rate limiter and CSRF tests**
+- [x] **3.5 Rate limiter and CSRF tests**
   - **Dependencies**: 3.3, 3.4
   - **Description**: Add tests for rate limiter and CSRF validation.
   - **Modifies**:
@@ -662,7 +662,7 @@ templates for LDAP configuration. Update project documentation.
 
 ### Items
 
-- [ ] **4.1 Frontend: support LDAP auth type**
+- [x] **4.1 Frontend: support LDAP auth type**
   - **Dependencies**: None
   - **Description**: Update `frontend/src/main.js` to show user info panel for LDAP
     auth type (same as OIDC). Single line change in the `init()` function where
@@ -677,7 +677,7 @@ templates for LDAP configuration. Update project documentation.
     if (config.auth && ['oidc', 'ldap'].includes(config.auth.type)) {
     ```
 
-- [ ] **4.2 Helm chart: add LDAP config values**
+- [x] **4.2 Helm chart: add LDAP config values**
   - **Dependencies**: None
   - **Description**: Add LDAP configuration section to `deploy/helm/dephealth-ui/values.yaml`.
     Add `secureCookie` field (shared by all auth types, introduced in Phase 2).
@@ -735,7 +735,7 @@ templates for LDAP configuration. Update project documentation.
     Note: `customCA` already exists and works for LDAP TLS too (SSL_CERT_FILE is
     process-wide), so no additional CA handling needed.
 
-- [ ] **4.3 Update project documentation**
+- [x] **4.3 Update project documentation**
   - **Dependencies**: 4.1, 4.2
   - **Description**: Document LDAP authentication configuration. Update existing
     auth documentation files (not `docs/README.md` — auth docs are elsewhere).

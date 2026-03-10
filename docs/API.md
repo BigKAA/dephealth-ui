@@ -20,8 +20,9 @@ Authentication mode is configured in `config.yaml`:
 - **`none`** — No authentication (open access)
 - **`basic`** — HTTP Basic Authentication (username/password)
 - **`oidc`** — OpenID Connect (redirects to SSO provider)
+- **`ldap`** — LDAP bind authentication (username/password login form)
 
-For OIDC, the frontend automatically handles the OAuth2 flow. API calls after authentication include session cookies.
+For OIDC, the frontend automatically handles the OAuth2 flow. For LDAP, the user is presented with a login form at `/auth/login`. API calls after authentication include session cookies.
 
 ---
 
@@ -660,10 +661,35 @@ Kubernetes readiness probe. Always returns `200 OK` with `{"status":"ok"}`.
 
 ### `GET /auth/login`
 
-Initiates OIDC authentication flow (only when `auth.type=oidc`).
+Initiates authentication flow.
 
-**Response:** `302 Found`
-Redirects to OIDC provider's authorization endpoint.
+- **OIDC** (`auth.type=oidc`): Redirects to OIDC provider's authorization endpoint (`302 Found`).
+- **LDAP** (`auth.type=ldap`): Renders HTML login form with username/password fields and CSRF token (`200 OK`).
+
+---
+
+### `POST /auth/login`
+
+Processes login form submission (only when `auth.type=ldap`).
+
+**Form fields:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `username` | string | Yes | LDAP username |
+| `password` | string | Yes | LDAP password |
+| `_csrf` | string | Yes | CSRF token from the login form |
+
+**Responses:**
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| 302 | Successful authentication — sets session cookie, redirects to `/` |
+| 400 | Missing username or password |
+| 401 | Invalid credentials |
+| 403 | Invalid or missing CSRF token |
+| 429 | Rate limit exceeded (5 attempts per minute per IP) |
+| 503 | Too many pending CSRF tokens |
 
 ---
 
@@ -678,24 +704,24 @@ Sets session cookie and redirects to application root.
 
 ### `GET /auth/logout`
 
-Terminates user session (only when `auth.type=oidc`).
+Terminates user session (when `auth.type=oidc` or `auth.type=ldap`).
 
 **Response:** `302 Found`
-Clears session cookie and redirects to login page.
+Clears session cookie and redirects to application root.
 
 ---
 
 ### `GET /auth/userinfo`
 
-Returns current authenticated user information (only when `auth.type=oidc`).
+Returns current authenticated user information (when `auth.type=oidc` or `auth.type=ldap`).
 
 **Response:** `200 OK`
 
 ```json
 {
-  "username": "john.doe",
-  "email": "john.doe@example.com",
-  "authenticated": true
+  "sub": "uid=john,ou=people,dc=example,dc=com",
+  "name": "John Doe",
+  "email": "john.doe@example.com"
 }
 ```
 

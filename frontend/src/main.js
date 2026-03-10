@@ -761,7 +761,7 @@ async function init() {
       pollInterval = config.cache.ttl * 1000;
     }
 
-    if (config.auth && config.auth.type === 'oidc') {
+    if (config.auth && ['oidc', 'ldap'].includes(config.auth.type)) {
       await initUserInfo();
     }
 

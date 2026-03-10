@@ -1,13 +1,18 @@
 package auth
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,7 +21,21 @@ import (
 	"github.com/BigKAA/dephealth-ui/internal/config"
 )
 
-const ldapDialTimeout = 10 * time.Second
+const (
+	ldapDialTimeout = 10 * time.Second
+	csrfTokenTTL    = 10 * time.Minute
+	csrfMaxTokens   = 10000
+)
+
+//go:embed templates/login.html
+var loginTemplateHTML string
+
+// loginPageData holds template data for the login page.
+type loginPageData struct {
+	Error     string
+	CSRFToken string
+	Username  string
+}
 
 // ldapAuth implements LDAP bind authentication.
 type ldapAuth struct {
@@ -24,6 +43,10 @@ type ldapAuth struct {
 	sessions     *SessionStore
 	secureCookie bool
 	logger       *slog.Logger
+	loginTmpl    *template.Template
+	limiter      *rateLimiter
+	csrfTokens   map[string]time.Time
+	csrfMu       sync.Mutex
 }
 
 // NewLDAP creates an LDAP authenticator.
@@ -35,11 +58,19 @@ func NewLDAP(cfg config.AuthConfig, logger *slog.Logger) (Authenticator, error) 
 		return nil, fmt.Errorf("LDAP direct bind mode does not support compound filters (userFilter contains '&' or '|'); set bindDN for search bind mode")
 	}
 
+	tmpl, err := template.New("login").Parse(loginTemplateHTML)
+	if err != nil {
+		return nil, fmt.Errorf("parse login template: %w", err)
+	}
+
 	return &ldapAuth{
 		cfg:          lcfg,
 		sessions:     NewSessionStore(sessionTTL),
 		secureCookie: cfg.SecureCookie,
 		logger:       logger,
+		loginTmpl:    tmpl,
+		limiter:      newRateLimiter(1*time.Minute, 5),
+		csrfTokens:   make(map[string]time.Time),
 	}, nil
 }
 
@@ -98,7 +129,7 @@ func (a *ldapAuth) connect() (*ldap.Conn, error) {
 
 	if a.cfg.StartTLS && strings.HasPrefix(a.cfg.URL, "ldap://") {
 		if err := conn.StartTLS(tlsCfg); err != nil {
-			conn.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("LDAP StartTLS: %w", err)
 		}
 	}
@@ -111,7 +142,7 @@ func (a *ldapAuth) authenticate(username, password string) (*UserInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	escapedUsername := ldap.EscapeFilter(username)
 	renderedFilter := strings.ReplaceAll(a.cfg.UserFilter, "{{.Username}}", escapedUsername)
@@ -234,14 +265,60 @@ func (a *ldapAuth) checkGroupMembership(conn *ldap.Conn, userDN string) error {
 	return fmt.Errorf("user is not a member of any allowed group")
 }
 
-func (a *ldapAuth) handleLoginGET(w http.ResponseWriter, _ *http.Request) {
+func (a *ldapAuth) generateCSRFToken() (string, error) {
+	a.csrfMu.Lock()
+	defer a.csrfMu.Unlock()
+
+	// Cleanup expired tokens.
+	now := time.Now()
+	for k, exp := range a.csrfTokens {
+		if now.After(exp) {
+			delete(a.csrfTokens, k)
+		}
+	}
+
+	// Check max tokens cap.
+	if len(a.csrfTokens) >= csrfMaxTokens {
+		return "", fmt.Errorf("too many pending CSRF tokens")
+	}
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(b)
+	a.csrfTokens[token] = now.Add(csrfTokenTTL)
+	return token, nil
+}
+
+func (a *ldapAuth) validateCSRFToken(token string) bool {
+	a.csrfMu.Lock()
+	defer a.csrfMu.Unlock()
+
+	exp, ok := a.csrfTokens[token]
+	if !ok {
+		return false
+	}
+	delete(a.csrfTokens, token)
+	return time.Now().Before(exp)
+}
+
+func (a *ldapAuth) renderLogin(w http.ResponseWriter, status int, data loginPageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprint(w, `<!DOCTYPE html><html><body><h1>Login</h1>
-<form method="POST" action="/auth/login">
-<input name="username" placeholder="Username" autofocus><br>
-<input name="password" type="password" placeholder="Password"><br>
-<button type="submit">Login</button>
-</form></body></html>`)
+	w.WriteHeader(status)
+	_ = a.loginTmpl.Execute(w, data)
+}
+
+func (a *ldapAuth) handleLoginGET(w http.ResponseWriter, _ *http.Request) {
+	token, err := a.generateCSRFToken()
+	if err != nil {
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	a.renderLogin(w, http.StatusOK, loginPageData{
+		CSRFToken: token,
+	})
 }
 
 func (a *ldapAuth) handleLoginPOST(w http.ResponseWriter, r *http.Request) {
@@ -250,34 +327,68 @@ func (a *ldapAuth) handleLoginPOST(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// CSRF validation.
+	csrfToken := r.FormValue("_csrf")
+	if !a.validateCSRFToken(csrfToken) {
+		newToken, err := a.generateCSRFToken()
+		if err != nil {
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		a.renderLogin(w, http.StatusForbidden, loginPageData{
+			Error:     "Invalid or expired form submission. Please try again.",
+			CSRFToken: newToken,
+			Username:  strings.TrimSpace(r.FormValue("username")),
+		})
+		return
+	}
+
+	// Rate limiting.
+	ip := clientIP(r)
+	if !a.limiter.Allow(ip) {
+		newToken, err := a.generateCSRFToken()
+		if err != nil {
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		a.renderLogin(w, http.StatusTooManyRequests, loginPageData{
+			Error:     "Too many login attempts. Please wait a moment and try again.",
+			CSRFToken: newToken,
+			Username:  strings.TrimSpace(r.FormValue("username")),
+		})
+		return
+	}
+
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 
 	if username == "" || password == "" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `<!DOCTYPE html><html><body><h1>Login</h1>
-<p style="color:red">Username and password are required</p>
-<form method="POST" action="/auth/login">
-<input name="username" placeholder="Username" autofocus><br>
-<input name="password" type="password" placeholder="Password"><br>
-<button type="submit">Login</button>
-</form></body></html>`)
+		newToken, err := a.generateCSRFToken()
+		if err != nil {
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		a.renderLogin(w, http.StatusBadRequest, loginPageData{
+			Error:     "Username and password are required",
+			CSRFToken: newToken,
+			Username:  username,
+		})
 		return
 	}
 
 	user, err := a.authenticate(username, password)
 	if err != nil {
 		a.logger.Warn("LDAP authentication failed", "username", username, "error", err)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprint(w, `<!DOCTYPE html><html><body><h1>Login</h1>
-<p style="color:red">Invalid username or password</p>
-<form method="POST" action="/auth/login">
-<input name="username" placeholder="Username" autofocus><br>
-<input name="password" type="password" placeholder="Password"><br>
-<button type="submit">Login</button>
-</form></body></html>`)
+		newToken, tokenErr := a.generateCSRFToken()
+		if tokenErr != nil {
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		a.renderLogin(w, http.StatusUnauthorized, loginPageData{
+			Error:     "Invalid username or password",
+			CSRFToken: newToken,
+			Username:  username,
+		})
 		return
 	}
 

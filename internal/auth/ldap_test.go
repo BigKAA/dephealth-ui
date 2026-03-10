@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -30,32 +31,32 @@ func testLDAPServer(t *testing.T) (string, func()) {
 		t.Fatalf("gldap.NewMux: %v", err)
 	}
 
-	mux.Bind(func(w *gldap.ResponseWriter, r *gldap.Request) {
+	_ = mux.Bind(func(w *gldap.ResponseWriter, r *gldap.Request) {
 		resp := r.NewBindResponse(
 			gldap.WithResponseCode(gldap.ResultInvalidCredentials),
 		)
 
 		msg, err := r.GetSimpleBindMessage()
 		if err != nil {
-			w.Write(resp)
+			_ = w.Write(resp)
 			return
 		}
 
 		validBinds := map[string]string{
-			"cn=readonly,dc=example,dc=com":              "readonly-pass",
-			"uid=testuser,ou=people,dc=example,dc=com":   "testpass",
-			"uid=admin,ou=people,dc=example,dc=com":      "adminpass",
-			"uid=nogroup,ou=people,dc=example,dc=com":    "nogroup-pass",
-			"uid=special*,ou=people,dc=example,dc=com":   "specialpass",
+			"cn=readonly,dc=example,dc=com":            "readonly-pass",
+			"uid=testuser,ou=people,dc=example,dc=com": "testpass",
+			"uid=admin,ou=people,dc=example,dc=com":    "adminpass",
+			"uid=nogroup,ou=people,dc=example,dc=com":  "nogroup-pass",
+			"uid=special*,ou=people,dc=example,dc=com": "specialpass",
 		}
 
 		if pass, ok := validBinds[msg.UserName]; ok && pass == string(msg.Password) {
 			resp.SetResultCode(gldap.ResultSuccess)
 		}
-		w.Write(resp)
+		_ = w.Write(resp)
 	})
 
-	mux.Search(func(w *gldap.ResponseWriter, r *gldap.Request) {
+	_ = mux.Search(func(w *gldap.ResponseWriter, r *gldap.Request) {
 		msg, err := r.GetSearchMessage()
 		if err != nil {
 			return
@@ -97,7 +98,7 @@ func testLDAPServer(t *testing.T) (string, func()) {
 							"mail":        {attrs["mail"]},
 						}),
 					)
-					w.Write(entry)
+					_ = w.Write(entry)
 				}
 			}
 		}
@@ -118,13 +119,13 @@ func testLDAPServer(t *testing.T) (string, func()) {
 				for _, memberDN := range members {
 					if strings.Contains(filter, memberDN) {
 						entry := r.NewSearchResponseEntry(groupDN)
-						w.Write(entry)
+						_ = w.Write(entry)
 					}
 				}
 			}
 		}
 
-		w.Write(r.NewSearchDoneResponse())
+		_ = w.Write(r.NewSearchDoneResponse())
 	})
 
 	if err := s.Router(mux); err != nil {
@@ -136,7 +137,7 @@ func testLDAPServer(t *testing.T) (string, func()) {
 		t.Fatalf("net.Listen: %v", err)
 	}
 	addr := listener.Addr().String()
-	listener.Close() // gldap.Run will re-listen
+	_ = listener.Close() // gldap.Run will re-listen
 
 	go func() {
 		_ = s.Run(addr)
@@ -145,7 +146,7 @@ func testLDAPServer(t *testing.T) (string, func()) {
 	ldapURL := fmt.Sprintf("ldap://%s", addr)
 
 	return ldapURL, func() {
-		s.Stop()
+		_ = s.Stop()
 	}
 }
 
@@ -163,7 +164,7 @@ func testLDAPConfig(ldapURL string) config.AuthConfig {
 				Email:       "mail",
 			},
 			GroupBaseDN: "ou=groups,dc=example,dc=com",
-			GroupFilter:  "(member={{.UserDN}})",
+			GroupFilter: "(member={{.UserDN}})",
 		},
 	}
 }
@@ -398,6 +399,16 @@ func TestLDAP_ConnectTimeout(t *testing.T) {
 	}
 }
 
+// extractCSRFToken extracts the CSRF token from the login HTML response.
+func extractCSRFToken(body string) string {
+	re := regexp.MustCompile(`name="_csrf"\s+value="([^"]+)"`)
+	matches := re.FindStringSubmatch(body)
+	if len(matches) < 2 {
+		return ""
+	}
+	return matches[1]
+}
+
 func TestLDAP_LoginFlow(t *testing.T) {
 	ldapURL, cleanup := testLDAPServer(t)
 	defer cleanup()
@@ -412,7 +423,7 @@ func TestLDAP_LoginFlow(t *testing.T) {
 
 	router := auth.Routes()
 
-	// GET /login.
+	// GET /login — get CSRF token.
 	req := httptest.NewRequest("GET", "/login", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -420,8 +431,17 @@ func TestLDAP_LoginFlow(t *testing.T) {
 		t.Errorf("GET /login status = %d, want %d", w.Code, http.StatusOK)
 	}
 
-	// POST /login with valid credentials.
-	form := url.Values{"username": {"testuser"}, "password": {"testpass"}}
+	csrfToken := extractCSRFToken(w.Body.String())
+	if csrfToken == "" {
+		t.Fatal("CSRF token not found in login page")
+	}
+
+	// POST /login with valid credentials and CSRF token.
+	form := url.Values{
+		"username": {"testuser"},
+		"password": {"testpass"},
+		"_csrf":    {csrfToken},
+	}
 	req = httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w = httptest.NewRecorder()
@@ -458,8 +478,19 @@ func TestLDAP_LoginWrongCreds(t *testing.T) {
 	defer auth.Stop()
 
 	router := auth.Routes()
+	a := auth.(*ldapAuth)
 
-	form := url.Values{"username": {"testuser"}, "password": {"wrongpass"}}
+	// Get a CSRF token.
+	token, err := a.generateCSRFToken()
+	if err != nil {
+		t.Fatalf("generateCSRFToken: %v", err)
+	}
+
+	form := url.Values{
+		"username": {"testuser"},
+		"password": {"wrongpass"},
+		"_csrf":    {token},
+	}
 	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
@@ -635,6 +666,218 @@ func TestLDAP_FilterEscaping(t *testing.T) {
 	// The error should be "not found" — the injection should have been escaped.
 	if !strings.Contains(err.Error(), "not found") {
 		t.Logf("got expected error (escaped): %v", err)
+	}
+}
+
+func TestLDAP_CSRF_ValidToken(t *testing.T) {
+	ldapURL, cleanup := testLDAPServer(t)
+	defer cleanup()
+
+	cfg := testLDAPConfig(ldapURL)
+	cfg.LDAP.AllowedGroups = nil
+	auth, err := NewLDAP(cfg, testLogger())
+	if err != nil {
+		t.Fatalf("NewLDAP error: %v", err)
+	}
+	defer auth.Stop()
+
+	a := auth.(*ldapAuth)
+	router := auth.Routes()
+
+	token, err := a.generateCSRFToken()
+	if err != nil {
+		t.Fatalf("generateCSRFToken: %v", err)
+	}
+
+	form := url.Values{
+		"username": {"testuser"},
+		"password": {"testpass"},
+		"_csrf":    {token},
+	}
+	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Should proceed to authentication (302 on success).
+	if w.Code != http.StatusFound {
+		t.Errorf("POST with valid CSRF status = %d, want %d", w.Code, http.StatusFound)
+	}
+}
+
+func TestLDAP_CSRF_InvalidToken(t *testing.T) {
+	ldapURL, cleanup := testLDAPServer(t)
+	defer cleanup()
+
+	cfg := testLDAPConfig(ldapURL)
+	auth, err := NewLDAP(cfg, testLogger())
+	if err != nil {
+		t.Fatalf("NewLDAP error: %v", err)
+	}
+	defer auth.Stop()
+
+	router := auth.Routes()
+
+	form := url.Values{
+		"username": {"testuser"},
+		"password": {"testpass"},
+		"_csrf":    {"invalid-token"},
+	}
+	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("POST with invalid CSRF status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestLDAP_CSRF_MissingToken(t *testing.T) {
+	ldapURL, cleanup := testLDAPServer(t)
+	defer cleanup()
+
+	cfg := testLDAPConfig(ldapURL)
+	auth, err := NewLDAP(cfg, testLogger())
+	if err != nil {
+		t.Fatalf("NewLDAP error: %v", err)
+	}
+	defer auth.Stop()
+
+	router := auth.Routes()
+
+	form := url.Values{
+		"username": {"testuser"},
+		"password": {"testpass"},
+	}
+	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("POST without CSRF status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestLDAP_CSRF_MaxTokensCap(t *testing.T) {
+	ldapURL, cleanup := testLDAPServer(t)
+	defer cleanup()
+
+	cfg := testLDAPConfig(ldapURL)
+	auth, err := NewLDAP(cfg, testLogger())
+	if err != nil {
+		t.Fatalf("NewLDAP error: %v", err)
+	}
+	defer auth.Stop()
+
+	a := auth.(*ldapAuth)
+
+	// Fill up CSRF tokens to the max.
+	for i := 0; i < csrfMaxTokens; i++ {
+		if _, err := a.generateCSRFToken(); err != nil {
+			t.Fatalf("generateCSRFToken %d: %v", i, err)
+		}
+	}
+
+	// Next GET /login should return 503.
+	router := auth.Routes()
+	req := httptest.NewRequest("GET", "/login", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("GET /login at max tokens status = %d, want %d", w.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestLDAP_RateLimit_POST(t *testing.T) {
+	ldapURL, cleanup := testLDAPServer(t)
+	defer cleanup()
+
+	cfg := testLDAPConfig(ldapURL)
+	cfg.LDAP.AllowedGroups = nil
+	auth, err := NewLDAP(cfg, testLogger())
+	if err != nil {
+		t.Fatalf("NewLDAP error: %v", err)
+	}
+	defer auth.Stop()
+
+	a := auth.(*ldapAuth)
+	router := auth.Routes()
+
+	// Make 5 POST requests (exhaust rate limit).
+	for i := 0; i < 5; i++ {
+		token, err := a.generateCSRFToken()
+		if err != nil {
+			t.Fatalf("generateCSRFToken: %v", err)
+		}
+		form := url.Values{
+			"username": {"testuser"},
+			"password": {"wrongpass"},
+			"_csrf":    {token},
+		}
+		req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.RemoteAddr = "10.0.0.99:12345"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	// 6th request should be rate limited.
+	token, err := a.generateCSRFToken()
+	if err != nil {
+		t.Fatalf("generateCSRFToken: %v", err)
+	}
+	form := url.Values{
+		"username": {"testuser"},
+		"password": {"wrongpass"},
+		"_csrf":    {token},
+	}
+	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.RemoteAddr = "10.0.0.99:12345"
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("6th POST status = %d, want %d", w.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestLDAP_LoginPreservesUsername(t *testing.T) {
+	ldapURL, cleanup := testLDAPServer(t)
+	defer cleanup()
+
+	cfg := testLDAPConfig(ldapURL)
+	cfg.LDAP.AllowedGroups = nil
+	auth, err := NewLDAP(cfg, testLogger())
+	if err != nil {
+		t.Fatalf("NewLDAP error: %v", err)
+	}
+	defer auth.Stop()
+
+	a := auth.(*ldapAuth)
+	router := auth.Routes()
+
+	token, err := a.generateCSRFToken()
+	if err != nil {
+		t.Fatalf("generateCSRFToken: %v", err)
+	}
+
+	form := url.Values{
+		"username": {"myuser"},
+		"password": {"wrongpass"},
+		"_csrf":    {token},
+	}
+	req := httptest.NewRequest("POST", "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `value="myuser"`) {
+		t.Error("expected username to be preserved in form after failed login")
 	}
 }
 

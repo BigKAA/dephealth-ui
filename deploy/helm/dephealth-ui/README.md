@@ -117,6 +117,90 @@ customCA:
   key: ca.crt
 ```
 
+### LDAP Authentication
+
+#### Simple LDAP (Direct Bind)
+
+Direct bind mode constructs the user DN from the filter and attempts to bind directly. No service account required.
+
+```yaml
+config:
+  auth:
+    type: ldap
+    secureCookie: true  # set to true when behind HTTPS
+    ldap:
+      url: "ldap://ldap.example.com:389"
+      baseDN: "ou=people,dc=example,dc=com"
+      userFilter: "(uid={{.Username}})"
+```
+
+> **Limitation:** Direct bind mode only supports simple single-attribute filters like `(uid={{.Username}})`. Compound filters (e.g. `(&(uid=...)(objectClass=...))`) are not supported.
+
+#### LDAP with Service Account (Search Bind)
+
+Search bind mode uses a service account to find the user, then re-binds as the user to verify the password.
+
+```yaml
+config:
+  auth:
+    type: ldap
+    secureCookie: true
+    ldap:
+      url: "ldaps://ldap.example.com:636"
+      bindDN: "cn=readonly,dc=example,dc=com"
+      # bindPassword: set via ldapSecret below
+      baseDN: "ou=people,dc=example,dc=com"
+      userFilter: "(uid={{.Username}})"
+      attributes:
+        displayName: "cn"
+        email: "mail"
+
+ldapSecret:
+  enabled: true
+  secretName: ldap-bind-password
+  bindPasswordKey: bindPassword
+```
+
+Create the Kubernetes Secret:
+
+```bash
+kubectl create secret generic ldap-bind-password \
+  --from-literal=bindPassword="readonly-pass" \
+  -n dephealth-ui
+```
+
+#### LDAP with Group Restrictions
+
+```yaml
+config:
+  auth:
+    type: ldap
+    secureCookie: true
+    ldap:
+      url: "ldaps://ldap.example.com:636"
+      bindDN: "cn=readonly,dc=example,dc=com"
+      baseDN: "ou=people,dc=example,dc=com"
+      userFilter: "(uid={{.Username}})"
+      groupBaseDN: "ou=groups,dc=example,dc=com"
+      groupFilter: "(member={{.UserDN}})"
+      allowedGroups:
+        - "cn=dephealth-users,ou=groups,dc=example,dc=com"
+
+ldapSecret:
+  enabled: true
+  secretName: ldap-bind-password
+  bindPasswordKey: bindPassword
+```
+
+> **Note:** Group check in direct bind mode (no service account) requires the user to have LDAP read access to `groupBaseDN`, which depends on the LDAP server's ACL configuration.
+
+#### LDAP Notes
+
+- **`secureCookie`**: Set to `true` when the application is behind an HTTPS-terminating proxy. This applies to all auth types.
+- **Custom CA**: The existing `customCA` Helm value (sets `SSL_CERT_FILE`) works for LDAP TLS verification too, since Go's TLS uses the system cert pool.
+- **Rate limiting**: Login attempts are rate-limited to 5 per minute per IP address.
+- **CSRF protection**: The login form includes a CSRF token to prevent cross-site form submission.
+
 ### Stale Node Retention
 
 When a service stops sending metrics, it normally vanishes from the graph. Enable the lookback window to retain disappeared services with `state="unknown"` for a configurable duration:
@@ -235,7 +319,14 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 | `ingress.tls.certManager.enabled` | Generate cert via cert-manager | `false` |
 | `ingress.tls.certManager.issuerName` | cert-manager Issuer name | `""` |
 | `ingress.tls.certManager.issuerKind` | cert-manager Issuer kind | `ClusterIssuer` |
-| `config.auth.type` | Auth type: `none`, `basic`, `oidc` | `none` |
+| `config.auth.type` | Auth type: `none`, `basic`, `oidc`, `ldap` | `none` |
+| `config.auth.secureCookie` | Set cookie Secure flag (use behind HTTPS) | `false` |
+| `config.auth.ldap.url` | LDAP server URL (`ldap://` or `ldaps://`) | `""` |
+| `config.auth.ldap.baseDN` | Base DN for user search | `""` |
+| `config.auth.ldap.userFilter` | LDAP user search filter | `(uid={{.Username}})` |
+| `ldapSecret.enabled` | Enable LDAP bind password from Secret | `false` |
+| `ldapSecret.secretName` | Name of K8s Secret | `""` |
+| `ldapSecret.bindPasswordKey` | Secret key for bind password | `bindPassword` |
 | `config.datasources.prometheus.url` | Prometheus/VictoriaMetrics URL | `http://victoriametrics:8428` |
 | `config.datasources.alertmanager.url` | AlertManager URL | `""` |
 | `config.cache.ttl` | Cache TTL duration | `15s` |
@@ -264,4 +355,5 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 - For Gateway API: Gateway API CRDs installed
 - For TLS: cert-manager (optional, if using automatic certificates)
 - For OIDC: OIDC provider (e.g., Dex, Keycloak)
+- For LDAP: LDAP server (e.g., OpenLDAP, Active Directory)
 - For group dimension: topologymetrics SDK v0.5.0+ (adds `group` label to metrics)
