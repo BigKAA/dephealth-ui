@@ -23,6 +23,26 @@ import (
 	"github.com/BigKAA/dephealth-ui/internal/topology"
 )
 
+// maxQueryParamLen is the maximum allowed length for a single query parameter value.
+const maxQueryParamLen = 256
+
+// writeJSONError writes a JSON error response with proper escaping.
+func writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// validateQueryLength checks that a query parameter value does not exceed maxQueryParamLen.
+func validateQueryLength(w http.ResponseWriter, name, value string) bool {
+	if len(value) > maxQueryParamLen {
+		writeJSONError(w, http.StatusBadRequest,
+			fmt.Sprintf("query parameter %q exceeds maximum length of %d", name, maxQueryParamLen))
+		return false
+	}
+	return true
+}
+
 // Server is the main HTTP server for dephealth-ui.
 type Server struct {
 	cfg     *config.Config
@@ -145,15 +165,16 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	group := r.URL.Query().Get("group")
+	if !validateQueryLength(w, "namespace", namespace) || !validateQueryLength(w, "group", group) {
+		return
+	}
 	opts := topology.QueryOptions{Namespace: namespace, Group: group}
 
 	// Parse optional ?time= parameter for historical queries.
 	if timeStr := r.URL.Query().Get("time"); timeStr != "" {
 		t, err := time.Parse(time.RFC3339, timeStr)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			writeJSONError(w, http.StatusBadRequest, "invalid time parameter: must be RFC3339 format")
 			return
 		}
 		opts.Time = &t
@@ -178,9 +199,7 @@ func (s *Server) handleTopology(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.builder.Build(r.Context(), opts)
 	if err != nil {
 		s.logger.Error("failed to build topology", "error", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
-		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+		writeJSONError(w, http.StatusBadGateway, "failed to fetch topology data")
 		return
 	}
 
@@ -220,9 +239,7 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	fetched, err := s.am.FetchAlerts(r.Context())
 	if err != nil {
 		s.logger.Error("failed to fetch alerts", "error", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
-		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch alerts: %s"}`, err.Error())
+		writeJSONError(w, http.StatusBadGateway, "failed to fetch alerts")
 		return
 	}
 
@@ -259,19 +276,18 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 // handleInstances returns instances (pods/containers) for a given service.
 func (s *Server) handleInstances(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
+	if !validateQueryLength(w, "service", serviceName) {
+		return
+	}
 	if serviceName == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, `{"error":"missing required query parameter: service"}`)
+		writeJSONError(w, http.StatusBadRequest, "missing required query parameter: service")
 		return
 	}
 
 	instances, err := s.builder.QueryInstances(r.Context(), serviceName)
 	if err != nil {
 		s.logger.Error("failed to fetch instances", "error", err, "service", serviceName)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
-		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch instances: %s"}`, err.Error())
+		writeJSONError(w, http.StatusBadGateway, "failed to fetch instances")
 		return
 	}
 
@@ -358,13 +374,18 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 	service := r.URL.Query().Get("service")
 	namespace := r.URL.Query().Get("namespace")
+	if !validateQueryLength(w, "service", service) || !validateQueryLength(w, "namespace", namespace) {
+		return
+	}
 
 	maxDepth := 0
 	if d := r.URL.Query().Get("depth"); d != "" {
 		if _, err := fmt.Sscanf(d, "%d", &maxDepth); err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
+			writeJSONError(w, http.StatusBadRequest, "invalid depth parameter: must be an integer")
+			return
+		}
+		if maxDepth < 0 || maxDepth > 100 {
+			writeJSONError(w, http.StatusBadRequest, "depth must be between 0 and 100")
 			return
 		}
 	}
@@ -374,9 +395,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 	if timeStr := r.URL.Query().Get("time"); timeStr != "" {
 		t, err := time.Parse(time.RFC3339, timeStr)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			writeJSONError(w, http.StatusBadRequest, "invalid time parameter: must be RFC3339 format")
 			return
 		}
 		queryTime = &t
@@ -393,9 +412,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 		resp, err := s.builder.Build(r.Context(), opts)
 		if err != nil {
 			s.logger.Error("failed to build historical topology for cascade analysis", "error", err)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			writeJSONError(w, http.StatusBadGateway, "failed to fetch topology data")
 			return
 		}
 		nodes = resp.Nodes
@@ -407,9 +424,7 @@ func (s *Server) handleCascadeAnalysis(w http.ResponseWriter, r *http.Request) {
 		resp, err := s.builder.Build(r.Context(), topology.QueryOptions{})
 		if err != nil {
 			s.logger.Error("failed to build topology for cascade analysis", "error", err)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			writeJSONError(w, http.StatusBadGateway, "failed to fetch topology data")
 			return
 		}
 		s.cache.Set(resp)
@@ -464,13 +479,18 @@ type cascadeGraphResponse struct {
 func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 	service := r.URL.Query().Get("service")
 	namespace := r.URL.Query().Get("namespace")
+	if !validateQueryLength(w, "service", service) || !validateQueryLength(w, "namespace", namespace) {
+		return
+	}
 
 	maxDepth := 0
 	if d := r.URL.Query().Get("depth"); d != "" {
 		if _, err := fmt.Sscanf(d, "%d", &maxDepth); err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprint(w, `{"error":"invalid depth parameter: must be an integer"}`)
+			writeJSONError(w, http.StatusBadRequest, "invalid depth parameter: must be an integer")
+			return
+		}
+		if maxDepth < 0 || maxDepth > 100 {
+			writeJSONError(w, http.StatusBadRequest, "depth must be between 0 and 100")
 			return
 		}
 	}
@@ -486,9 +506,7 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 		resp, err := s.builder.Build(r.Context(), topology.QueryOptions{})
 		if err != nil {
 			s.logger.Error("failed to build topology for cascade graph", "error", err)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			writeJSONError(w, http.StatusBadGateway, "failed to fetch topology data")
 			return
 		}
 		s.cache.Set(resp)
@@ -619,38 +637,32 @@ func (s *Server) handleCascadeGraph(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 	startStr := r.URL.Query().Get("start")
 	endStr := r.URL.Query().Get("end")
+	namespace := r.URL.Query().Get("namespace")
+	if !validateQueryLength(w, "namespace", namespace) {
+		return
+	}
 
 	if startStr == "" || endStr == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, `{"error":"missing required query parameters: start and end"}`)
+		writeJSONError(w, http.StatusBadRequest, "missing required query parameters: start and end")
 		return
 	}
 
 	start, err := time.Parse(time.RFC3339, startStr)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, `{"error":"invalid start parameter: must be RFC3339 format"}`)
+		writeJSONError(w, http.StatusBadRequest, "invalid start parameter: must be RFC3339 format")
 		return
 	}
 
 	end, err := time.Parse(time.RFC3339, endStr)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, `{"error":"invalid end parameter: must be RFC3339 format"}`)
+		writeJSONError(w, http.StatusBadRequest, "invalid end parameter: must be RFC3339 format")
 		return
 	}
 
 	if !start.Before(end) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, `{"error":"start must be before end"}`)
+		writeJSONError(w, http.StatusBadRequest, "start must be before end")
 		return
 	}
-
-	namespace := r.URL.Query().Get("namespace")
 
 	req := timeline.EventsRequest{
 		Start:     start,
@@ -661,9 +673,7 @@ func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := timeline.QueryStatusTransitions(r.Context(), s.prom, req)
 	if err != nil {
 		s.logger.Error("failed to query timeline events", "error", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
-		_, _ = fmt.Fprintf(w, `{"error":"failed to fetch timeline events: %s"}`, err.Error())
+		writeJSONError(w, http.StatusBadGateway, "failed to fetch timeline events")
 		return
 	}
 

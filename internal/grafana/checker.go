@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 )
+
+// validUID matches Grafana dashboard UIDs: alphanumeric, hyphens, underscores.
+var validUID = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // Config holds Grafana API connection settings.
 type Config struct {
@@ -66,6 +70,9 @@ func (c *Checker) Available(ctx context.Context) bool {
 
 // CheckDashboard checks if a dashboard with the given UID exists.
 func (c *Checker) CheckDashboard(ctx context.Context, uid string) bool {
+	if !validUID.MatchString(uid) {
+		return false
+	}
 	url := fmt.Sprintf("%s/api/dashboards/uid/%s", c.cfg.BaseURL, uid)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

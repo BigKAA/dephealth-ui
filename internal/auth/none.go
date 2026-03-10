@@ -14,3 +14,5 @@ func (a *noneAuth) Middleware() func(http.Handler) http.Handler {
 func (a *noneAuth) Routes() http.Handler {
 	return nil
 }
+
+func (a *noneAuth) Stop() {}

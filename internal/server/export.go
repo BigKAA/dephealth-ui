@@ -27,9 +27,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	case "json", "csv", "dot", "png", "svg":
 		// valid
 	default:
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprintf(w, `{"error":"unsupported export format: %s"}`, format)
+		writeJSONError(w, http.StatusBadRequest, "unsupported export format")
 		return
 	}
 
@@ -39,9 +37,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		scope = "full"
 	}
 	if scope != "full" && scope != "current" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, `{"error":"scope must be 'full' or 'current'"}`)
+		writeJSONError(w, http.StatusBadRequest, "scope must be 'full' or 'current'")
 		return
 	}
 
@@ -57,9 +53,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if timeStr := r.URL.Query().Get("time"); timeStr != "" {
 		t, err := time.Parse(time.RFC3339, timeStr)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprint(w, `{"error":"invalid time parameter: must be RFC3339 format"}`)
+			writeJSONError(w, http.StatusBadRequest, "invalid time parameter: must be RFC3339 format")
 			return
 		}
 		opts.Time = &t
@@ -70,9 +64,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if scaleStr := r.URL.Query().Get("scale"); scaleStr != "" {
 		v, err := strconv.Atoi(scaleStr)
 		if err != nil || v < 1 || v > 4 {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprint(w, `{"error":"scale must be an integer between 1 and 4"}`)
+			writeJSONError(w, http.StatusBadRequest, "scale must be an integer between 1 and 4")
 			return
 		}
 		scale = v
@@ -90,9 +82,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		built, err := s.builder.Build(r.Context(), opts)
 		if err != nil {
 			s.logger.Error("failed to build topology for export", "error", err)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = fmt.Fprintf(w, `{"error":"failed to fetch topology data: %s"}`, err.Error())
+			writeJSONError(w, http.StatusBadGateway, "failed to fetch topology data")
 			return
 		}
 		resp = built
@@ -134,9 +124,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		fileExt = "dot"
 	case "png":
 		if !export.GraphvizAvailable() {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = fmt.Fprint(w, `{"error":"Graphviz is not installed on the server"}`)
+			writeJSONError(w, http.StatusServiceUnavailable, "Graphviz is not installed on the server")
 			return
 		}
 		dot, dotErr := export.ExportDOT(data, export.DOTOptions{RankDir: "TB"})
@@ -149,9 +137,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		fileExt = "png"
 	case "svg":
 		if !export.GraphvizAvailable() {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = fmt.Fprint(w, `{"error":"Graphviz is not installed on the server"}`)
+			writeJSONError(w, http.StatusServiceUnavailable, "Graphviz is not installed on the server")
 			return
 		}
 		dot, dotErr := export.ExportDOT(data, export.DOTOptions{RankDir: "TB"})
@@ -166,9 +152,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		s.logger.Error("export failed", "format", format, "error", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, `{"error":"export failed: %s"}`, err.Error())
+		writeJSONError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
 

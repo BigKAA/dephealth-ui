@@ -15,6 +15,8 @@ type Authenticator interface {
 	// Routes returns an http.Handler with auth-specific routes (e.g. /login, /callback).
 	// Returns nil if the auth type does not require additional routes.
 	Routes() http.Handler
+	// Stop releases resources (e.g. background goroutines) held by the authenticator.
+	Stop()
 }
 
 // NewFromConfig creates an Authenticator based on the configuration.
