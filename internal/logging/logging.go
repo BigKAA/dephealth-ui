@@ -75,7 +75,7 @@ func buildReplaceAttr(cfg LogConfig) func([]string, slog.Attr) slog.Attr {
 					a = slog.Int64(a.Key, t.Unix())
 				case "unixmilli":
 					a = slog.Int64(a.Key, t.UnixMilli())
-				// "rfc3339nano" = slog default, no transform needed
+					// "rfc3339nano" = slog default, no transform needed
 				}
 			}
 		case slog.LevelKey:

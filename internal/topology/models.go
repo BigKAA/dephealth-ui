@@ -6,8 +6,8 @@ import "time"
 type Node struct {
 	ID              string `json:"id"`
 	Label           string `json:"label"`
-	State           string `json:"state"`           // "ok", "degraded", "down", "unknown"
-	Type            string `json:"type"`            // "service" or dependency type
+	State           string `json:"state"` // "ok", "degraded", "down", "unknown"
+	Type            string `json:"type"`  // "service" or dependency type
 	Namespace       string `json:"namespace"`
 	Group           string `json:"group,omitempty"`
 	Host            string `json:"host,omitempty"`
@@ -24,14 +24,14 @@ type Node struct {
 type Edge struct {
 	Source        string  `json:"source"`
 	Target        string  `json:"target"`
-	Type          string  `json:"type,omitempty"`  // grpc, http, postgres, redis, etc.
-	Latency       string  `json:"latency"`         // human-readable "5.2ms"
+	Type          string  `json:"type,omitempty"` // grpc, http, postgres, redis, etc.
+	Latency       string  `json:"latency"`        // human-readable "5.2ms"
 	LatencyRaw    float64 `json:"latencyRaw"`
-	Health        float64 `json:"health"`          // 0 or 1; -1 for stale
-	State         string  `json:"state"`           // "ok", "degraded", "down", "unknown"
+	Health        float64 `json:"health"` // 0 or 1; -1 for stale
+	State         string  `json:"state"`  // "ok", "degraded", "down", "unknown"
 	Critical      bool    `json:"critical"`
-	Status        string  `json:"status,omitempty"`  // SDK v0.4.1: ok, timeout, connection_error, dns_error, auth_error, tls_error, unhealthy, error
-	Detail        string  `json:"detail,omitempty"`  // SDK v0.4.1: e.g. http_503, grpc_not_serving, connection_refused
+	Status        string  `json:"status,omitempty"` // SDK v0.4.1: ok, timeout, connection_error, dns_error, auth_error, tls_error, unhealthy, error
+	Detail        string  `json:"detail,omitempty"` // SDK v0.4.1: e.g. http_503, grpc_not_serving, connection_refused
 	Stale         bool    `json:"stale,omitempty"`
 	GrafanaURL    string  `json:"grafanaUrl,omitempty"`
 	AlertCount    int     `json:"alertCount,omitempty"`
@@ -120,8 +120,8 @@ type QueryOptions struct {
 
 // Instance represents a single instance (pod or container) of a service.
 type Instance struct {
-	Instance string `json:"instance"`           // Required: host:port or instance identifier
-	Pod      string `json:"pod,omitempty"`      // Optional: Kubernetes pod name
-	Job      string `json:"job,omitempty"`      // Optional: Prometheus job label
-	Service  string `json:"service,omitempty"`  // Service name this instance belongs to
+	Instance string `json:"instance"`          // Required: host:port or instance identifier
+	Pod      string `json:"pod,omitempty"`     // Optional: Kubernetes pod name
+	Job      string `json:"job,omitempty"`     // Optional: Prometheus job label
+	Service  string `json:"service,omitempty"` // Service name this instance belongs to
 }

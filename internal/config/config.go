@@ -46,7 +46,7 @@ type ServerConfig struct {
 
 // DatasourcesConfig holds external datasource connection settings.
 type DatasourcesConfig struct {
-	Prometheus  PrometheusConfig  `yaml:"prometheus"`
+	Prometheus   PrometheusConfig   `yaml:"prometheus"`
 	Alertmanager AlertmanagerConfig `yaml:"alertmanager"`
 }
 

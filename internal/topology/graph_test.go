@@ -111,13 +111,13 @@ func TestGraphBuilder_Build(t *testing.T) {
 			{Name: "svc-python", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:    1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}:         0,
+			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:     1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}:          0,
 			{Name: "svc-python", Host: "pg-primary", Port: "5432"}: 1,
 		},
 		avg: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:    0.0052,
-			{Name: "svc-go", Host: "redis", Port: "6379"}:         0.001,
+			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:     0.0052,
+			{Name: "svc-go", Host: "redis", Port: "6379"}:          0.001,
 			{Name: "svc-python", Host: "pg-primary", Port: "5432"}: 0.003,
 		},
 	}
@@ -248,7 +248,7 @@ func TestDepNodeDedup_SameEndpointMerges(t *testing.T) {
 			{Name: "svc-python", Dependency: "redis-cache", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "redis-host", Port: "6379"}:    1,
+			{Name: "svc-go", Host: "redis-host", Port: "6379"}:     1,
 			{Name: "svc-python", Host: "redis-host", Port: "6379"}: 0,
 		},
 		avg: map[EdgeKey]float64{},
@@ -1239,12 +1239,12 @@ func TestBuildWithDependencyStatus(t *testing.T) {
 		},
 		health: map[EdgeKey]float64{
 			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}:  0,
-			{Name: "svc-old", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "redis", Port: "6379"}: 0,
+			{Name: "svc-old", Host: "pg", Port: "5432"}:   1,
 		},
 		avg: map[EdgeKey]float64{},
 		depStatus: map[EdgeKey]string{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:   "ok",
+			{Name: "svc-go", Host: "pg", Port: "5432"}:    "ok",
 			{Name: "svc-go", Host: "redis", Port: "6379"}: "timeout",
 		},
 		depDetail: map[EdgeKey]string{
@@ -1331,8 +1331,8 @@ func TestStaleDetection_AllStale(t *testing.T) {
 			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
 			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
 		},
-		health:     map[EdgeKey]float64{}, // empty — nothing is current
-		avg:        map[EdgeKey]float64{},
+		health: map[EdgeKey]float64{}, // empty — nothing is current
+		avg:    map[EdgeKey]float64{},
 	}
 
 	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
@@ -1483,7 +1483,7 @@ func TestGroupPropagation(t *testing.T) {
 			{Name: "svc-python", Namespace: "ns1", Group: "cluster-2", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
+			{Name: "svc-go", Host: "pg", Port: "5432"}:        1,
 			{Name: "svc-python", Host: "redis", Port: "6379"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
@@ -1699,8 +1699,8 @@ func TestIsEntryFromLabel(t *testing.T) {
 		},
 		health: map[EdgeKey]float64{
 			{Name: "svc-a", Host: "svc-b.ns1.svc", Port: "8080"}: 1,
-			{Name: "svc-b", Host: "redis-host", Port: "6379"}:     1,
-			{Name: "svc-d", Host: "redis-host", Port: "6379"}:     1,
+			{Name: "svc-b", Host: "redis-host", Port: "6379"}:    1,
+			{Name: "svc-d", Host: "redis-host", Port: "6379"}:    1,
 		},
 		avg: map[EdgeKey]float64{},
 	}

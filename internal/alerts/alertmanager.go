@@ -34,8 +34,8 @@ type Config struct {
 }
 
 type client struct {
-	cfg    Config
-	http   *http.Client
+	cfg  Config
+	http *http.Client
 }
 
 // NewClient creates a new AlertManager client.

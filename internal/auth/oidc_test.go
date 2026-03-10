@@ -55,12 +55,12 @@ func newMockOIDCProvider(t *testing.T) *mockOIDCProvider {
 func (m *mockOIDCProvider) handleDiscovery(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"issuer":                 m.server.URL,
-		"authorization_endpoint": m.server.URL + "/authorize",
-		"token_endpoint":         m.server.URL + "/token",
-		"jwks_uri":               m.server.URL + "/jwks",
-		"response_types_supported": []string{"code"},
-		"subject_types_supported":  []string{"public"},
+		"issuer":                                m.server.URL,
+		"authorization_endpoint":                m.server.URL + "/authorize",
+		"token_endpoint":                        m.server.URL + "/token",
+		"jwks_uri":                              m.server.URL + "/jwks",
+		"response_types_supported":              []string{"code"},
+		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 	})
 }

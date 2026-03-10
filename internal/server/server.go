@@ -223,9 +223,9 @@ type alertsResponse struct {
 }
 
 type alertsMeta struct {
-	Total    int    `json:"total"`
-	Critical int    `json:"critical"`
-	Warning  int    `json:"warning"`
+	Total     int    `json:"total"`
+	Critical  int    `json:"critical"`
+	Warning   int    `json:"warning"`
 	FetchedAt string `json:"fetchedAt"`
 }
 
@@ -310,7 +310,7 @@ type configResponse struct {
 }
 
 type configAlerts struct {
-	Enabled        bool                  `json:"enabled"`
+	Enabled        bool                   `json:"enabled"`
 	SeverityLevels []config.SeverityLevel `json:"severityLevels"`
 }
 
@@ -319,16 +319,16 @@ type configAuth struct {
 }
 
 type configGrafana struct {
-	BaseURL    string            `json:"baseUrl"`
-	Dashboards configDashboards  `json:"dashboards"`
+	BaseURL    string           `json:"baseUrl"`
+	Dashboards configDashboards `json:"dashboards"`
 }
 
 type configDashboards struct {
-	ServiceStatus   string `json:"serviceStatus"`
-	LinkStatus      string `json:"linkStatus"`
-	ServiceList     string `json:"serviceList"`
-	ServicesStatus  string `json:"servicesStatus"`
-	LinksStatus     string `json:"linksStatus"`
+	ServiceStatus         string `json:"serviceStatus"`
+	LinkStatus            string `json:"linkStatus"`
+	ServiceList           string `json:"serviceList"`
+	ServicesStatus        string `json:"servicesStatus"`
+	LinksStatus           string `json:"linksStatus"`
 	CascadeOverview       string `json:"cascadeOverview"`
 	RootCause             string `json:"rootCause"`
 	ConnectionDiagnostics string `json:"connectionDiagnostics"`
@@ -343,11 +343,11 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		Grafana: configGrafana{
 			BaseURL: s.cfg.Grafana.BaseURL,
 			Dashboards: configDashboards{
-				ServiceStatus:   s.cfg.Grafana.Dashboards.ServiceStatus,
-				LinkStatus:      s.cfg.Grafana.Dashboards.LinkStatus,
-				ServiceList:     s.cfg.Grafana.Dashboards.ServiceList,
-				ServicesStatus:  s.cfg.Grafana.Dashboards.ServicesStatus,
-				LinksStatus:     s.cfg.Grafana.Dashboards.LinksStatus,
+				ServiceStatus:         s.cfg.Grafana.Dashboards.ServiceStatus,
+				LinkStatus:            s.cfg.Grafana.Dashboards.LinkStatus,
+				ServiceList:           s.cfg.Grafana.Dashboards.ServiceList,
+				ServicesStatus:        s.cfg.Grafana.Dashboards.ServicesStatus,
+				LinksStatus:           s.cfg.Grafana.Dashboards.LinksStatus,
 				CascadeOverview:       s.cfg.Grafana.Dashboards.CascadeOverview,
 				RootCause:             s.cfg.Grafana.Dashboards.RootCause,
 				ConnectionDiagnostics: s.cfg.Grafana.Dashboards.ConnectionDiagnostics,
@@ -686,4 +686,3 @@ func (s *Server) handleTimelineEvents(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to encode timeline events response", "error", err)
 	}
 }
-

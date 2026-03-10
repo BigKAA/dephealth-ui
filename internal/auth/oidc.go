@@ -35,13 +35,13 @@ type stateEntry struct {
 
 // oidcAuth implements OIDC Authorization Code Flow with PKCE.
 type oidcAuth struct {
-	oauth2Cfg  oauth2.Config
-	verifier   *oidc.IDTokenVerifier
-	sessions   *SessionStore
-	states     map[string]stateEntry
-	statesMu   sync.Mutex
+	oauth2Cfg    oauth2.Config
+	verifier     *oidc.IDTokenVerifier
+	sessions     *SessionStore
+	states       map[string]stateEntry
+	statesMu     sync.Mutex
 	secureCookie bool
-	logger     *slog.Logger
+	logger       *slog.Logger
 }
 
 // NewOIDC creates a new OIDC authenticator. It performs provider discovery

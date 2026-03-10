@@ -569,8 +569,8 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 	nodeAlertHealth := make(map[string][]float64)
 	// Track alert counts and worst severity per node and edge.
 	nodeAlertCounts := make(map[string]int)
-	nodeWorstSeverity := make(map[string]int)  // node ID → best (lowest) severity priority
-	edgeWorstSeverity := make(map[int]int)      // edge index → best (lowest) severity priority
+	nodeWorstSeverity := make(map[string]int) // node ID → best (lowest) severity priority
+	edgeWorstSeverity := make(map[int]int)    // edge index → best (lowest) severity priority
 
 	var alertInfos []AlertInfo
 	for _, a := range fetched {

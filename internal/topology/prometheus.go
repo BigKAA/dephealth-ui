@@ -205,8 +205,8 @@ type promRangeData struct {
 }
 
 type promMatrixEntry struct {
-	Metric map[string]string    `json:"metric"`
-	Values []json.RawMessage    `json:"values"` // each element is [timestamp, "value"]
+	Metric map[string]string `json:"metric"`
+	Values []json.RawMessage `json:"values"` // each element is [timestamp, "value"]
 }
 
 func (c *prometheusClient) queryRange(ctx context.Context, promql string, start, end time.Time, step time.Duration) ([]promMatrixEntry, error) {
