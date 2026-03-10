@@ -19,14 +19,6 @@ let focusActive = false;
 let _suppressSelect = false;
 
 /**
- * Whether focus mode is currently active.
- * @returns {boolean}
- */
-export function isFocusActive() {
-  return focusActive;
-}
-
-/**
  * Clear all focus mode classes from the graph.
  * @param {cytoscape.Core} cy
  */

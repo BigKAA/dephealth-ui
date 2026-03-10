@@ -21,7 +21,6 @@ let highlightTimer = null; // Timer for highlight auto-clear
 
 const $ = (sel) => document.querySelector(sel);
 
-
 // ---------------------------------------------------------------------------
 // Shared rendering helpers
 // ---------------------------------------------------------------------------

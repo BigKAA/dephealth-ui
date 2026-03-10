@@ -46,19 +46,6 @@ export function getNamespaceColor(namespace) {
 }
 
 /**
- * Build a namespace → color map for an array of namespaces.
- * @param {string[]} namespaces
- * @returns {Object.<string, string>}
- */
-export function getNamespaceColorMap(namespaces) {
-  const map = {};
-  for (const ns of namespaces) {
-    map[ns] = getNamespaceColor(ns);
-  }
-  return map;
-}
-
-/**
  * Extract Kubernetes namespace from a dependency host string.
  * Supports K8s DNS patterns:
  *   - <service>.<namespace>.svc
