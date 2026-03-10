@@ -5,7 +5,7 @@
 - **Version**: 1.4.0
 - **Created**: 2026-03-10
 - **Updated**: 2026-03-10
-- **Status**: Pending
+- **Status**: Done
 
 ---
 
@@ -21,10 +21,10 @@
 
 ## Current Status
 
-- **Active phase**: Phase 4
-- **Active item**: 4.4 (manual verification)
+- **Active phase**: Complete
+- **Active item**: None
 - **Updated**: 2026-03-10
-- **Note**: Phases 1–3 completed, Phase 4 items 4.1–4.3 completed
+- **Note**: All phases completed (1–4)
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] [Phase 1: Configuration and Types](#phase-1-configuration-and-types)
 - [x] [Phase 2: LDAP Authenticator Core](#phase-2-ldap-authenticator-core)
 - [x] [Phase 3: Login Template and Rate Limiting](#phase-3-login-template-and-rate-limiting)
-- [ ] [Phase 4: Frontend, Helm Chart and Documentation](#phase-4-frontend-helm-chart-and-documentation)
+- [x] [Phase 4: Frontend, Helm Chart and Documentation](#phase-4-frontend-helm-chart-and-documentation)
 
 ---
 
@@ -615,7 +615,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     | `TestLDAP_RateLimit_POST` | 6 POSTs → 429 on 6th |
     | `TestLDAP_LoginPreservesUsername` | Failed login re-renders form with username filled |
 
-- [ ] **3.6 Build and test in cluster**
+- [x] **3.6 Build and test in cluster**
   - **Dependencies**: 3.5
   - **Description**: Build Docker dev image, deploy to test Kubernetes cluster. Deploy
     OpenLDAP as a test dependency in `deploy/helm/dephealth-infra/` chart (add OpenLDAP
@@ -641,19 +641,19 @@ verify against a real LDAP server (OpenLDAP in test infra).
 
 ### Completion Criteria Phase 3
 
-- [ ] All items completed (3.1–3.6)
-- [ ] `go test ./internal/auth/...` passes (rate limiter + CSRF tests)
-- [ ] Login form renders correctly in browser (dark and light theme)
-- [ ] CSRF protection works
-- [ ] Rate limiting blocks brute-force attempts
-- [ ] End-to-end login flow verified in test cluster
+- [x] All items completed (3.1–3.6)
+- [x] `go test ./internal/auth/...` passes (rate limiter + CSRF tests)
+- [x] Login form renders correctly in browser (dark and light theme)
+- [x] CSRF protection works
+- [x] Rate limiting blocks brute-force attempts
+- [x] End-to-end login flow verified in test cluster
 
 ---
 
 ## Phase 4: Frontend, Helm Chart and Documentation
 
 **Dependencies**: Phase 3
-**Status**: Pending
+**Status**: Done
 
 ### Description
 
@@ -757,7 +757,7 @@ templates for LDAP configuration. Update project documentation.
     4. **secureCookie field**: explain when to set `true` (behind HTTPS terminating proxy)
     5. **customCA**: note that existing `customCA` works for LDAP TLS verification too
 
-- [ ] **4.4 Verify Helm deployment with LDAP**
+- [x] **4.4 Verify Helm deployment with LDAP**
   - **Dependencies**: 4.2
   - **Description**: Deploy using Helm chart with LDAP auth configured. Verify that
     ConfigMap contains correct LDAP config, Secret env vars are injected, and
@@ -777,13 +777,13 @@ templates for LDAP configuration. Update project documentation.
 
 ### Completion Criteria Phase 4
 
-- [ ] All items completed (4.1–4.4)
-- [ ] Frontend shows user info for LDAP auth
-- [ ] Helm chart renders correct ConfigMap and injects Secret env vars
-- [ ] `helm template` dry-run produces valid YAML with LDAP config
-- [ ] Documentation covers LDAP configuration with examples and limitations
-- [ ] Full end-to-end flow verified via Helm deployment
-- [ ] `make lint` passes (frontend JS + markdown files)
+- [x] All items completed (4.1–4.4)
+- [x] Frontend shows user info for LDAP auth
+- [x] Helm chart renders correct ConfigMap and injects Secret env vars
+- [x] `helm template` dry-run produces valid YAML with LDAP config
+- [x] Documentation covers LDAP configuration with examples and limitations
+- [x] Full end-to-end flow verified via Helm deployment
+- [x] `make lint` passes (frontend JS + markdown files)
 
 ---
 

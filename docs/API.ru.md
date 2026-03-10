@@ -20,8 +20,9 @@ dephealth-ui предоставляет REST API для визуализации
 - **`none`** — Без аутентификации (открытый доступ)
 - **`basic`** — HTTP Basic Authentication (username/password)
 - **`oidc`** — OpenID Connect (перенаправление на SSO провайдер)
+- **`ldap`** — LDAP bind-аутентификация (форма логина с username/password)
 
-Для OIDC фронтенд автоматически обрабатывает OAuth2 flow. API-запросы после аутентификации включают session cookies.
+Для OIDC фронтенд автоматически обрабатывает OAuth2 flow. Для LDAP пользователю отображается форма логина на `/auth/login`. API-запросы после аутентификации включают session cookies.
 
 ---
 
@@ -654,10 +655,35 @@ Kubernetes readiness проба. Всегда возвращает `200 OK` с `
 
 ### `GET /auth/login`
 
-Инициирует OIDC-аутентификацию (только при `auth.type=oidc`).
+Инициирует аутентификацию.
 
-**Ответ:** `302 Found`
-Перенаправляет на authorization endpoint OIDC-провайдера.
+- **OIDC** (`auth.type=oidc`): Перенаправляет на authorization endpoint OIDC-провайдера (`302 Found`).
+- **LDAP** (`auth.type=ldap`): Отображает HTML-форму логина с полями username/password и CSRF-токеном (`200 OK`).
+
+---
+
+### `POST /auth/login`
+
+Обрабатывает отправку формы логина (только при `auth.type=ldap`).
+
+**Поля формы:**
+
+| Поле | Тип | Обязательно | Описание |
+|------|-----|:-----------:|----------|
+| `username` | string | Да | Имя пользователя LDAP |
+| `password` | string | Да | Пароль LDAP |
+| `_csrf` | string | Да | CSRF-токен из формы логина |
+
+**Ответы:**
+
+| HTTP-статус | Условие |
+|-------------|---------|
+| 302 | Успешная аутентификация — устанавливает session cookie, перенаправляет на `/` |
+| 400 | Отсутствует username или password |
+| 401 | Неверные учётные данные |
+| 403 | Невалидный или отсутствующий CSRF-токен |
+| 429 | Превышен лимит попыток (5 в минуту на IP) |
+| 503 | Слишком много ожидающих CSRF-токенов |
 
 ---
 
@@ -672,24 +698,24 @@ Callback endpoint для OIDC (только при `auth.type=oidc`).
 
 ### `GET /auth/logout`
 
-Завершает сессию пользователя (только при `auth.type=oidc`).
+Завершает сессию пользователя (при `auth.type=oidc` или `auth.type=ldap`).
 
 **Ответ:** `302 Found`
-Удаляет session cookie и перенаправляет на страницу входа.
+Удаляет session cookie и перенаправляет на корень приложения.
 
 ---
 
 ### `GET /auth/userinfo`
 
-Возвращает информацию о текущем аутентифицированном пользователе (только при `auth.type=oidc`).
+Возвращает информацию о текущем аутентифицированном пользователе (при `auth.type=oidc` или `auth.type=ldap`).
 
 **Ответ:** `200 OK`
 
 ```json
 {
-  "username": "john.doe",
-  "email": "john.doe@example.com",
-  "authenticated": true
+  "sub": "uid=john,ou=people,dc=example,dc=com",
+  "name": "John Doe",
+  "email": "john.doe@example.com"
 }
 ```
 

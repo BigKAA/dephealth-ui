@@ -197,6 +197,8 @@ ldapSecret:
 #### LDAP Notes
 
 - **`secureCookie`**: Set to `true` when the application is behind an HTTPS-terminating proxy. This applies to all auth types.
+- **`startTLS`**: Set to `true` to upgrade an `ldap://` connection to TLS via the StartTLS extension. Not needed for `ldaps://` URLs (TLS from start).
+- **`insecureSkipVerify`**: Set to `true` to skip TLS certificate verification (for development environments with self-signed certificates). Do not use in production.
 - **Custom CA**: The existing `customCA` Helm value (sets `SSL_CERT_FILE`) works for LDAP TLS verification too, since Go's TLS uses the system cert pool.
 - **Rate limiting**: Login attempts are rate-limited to 5 per minute per IP address.
 - **CSRF protection**: The login form includes a CSRF token to prevent cross-site form submission.
@@ -355,5 +357,5 @@ See `values-ingress-example.yaml` for Ingress configuration examples.
 - For Gateway API: Gateway API CRDs installed
 - For TLS: cert-manager (optional, if using automatic certificates)
 - For OIDC: OIDC provider (e.g., Dex, Keycloak)
-- For LDAP: LDAP server (e.g., OpenLDAP, Active Directory)
+- For LDAP: LDAP server (e.g., 389DS, OpenLDAP, Active Directory)
 - For group dimension: topologymetrics SDK v0.5.0+ (adds `group` label to metrics)

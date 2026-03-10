@@ -117,6 +117,90 @@ customCA:
   key: ca.crt
 ```
 
+### LDAP-аутентификация
+
+#### Простой LDAP (Direct Bind)
+
+Режим direct bind формирует DN пользователя из фильтра и пытается выполнить bind напрямую. Сервисный аккаунт не требуется.
+
+```yaml
+config:
+  auth:
+    type: ldap
+    secureCookie: true  # установить true за HTTPS
+    ldap:
+      url: "ldap://ldap.example.com:389"
+      baseDN: "ou=people,dc=example,dc=com"
+      userFilter: "(uid={{.Username}})"
+```
+
+> **Ограничение:** Режим direct bind поддерживает только простые однопараметровые фильтры типа `(uid={{.Username}})`. Составные фильтры (например, `(&(uid=...)(objectClass=...))`) не поддерживаются.
+
+#### LDAP с сервисным аккаунтом (Search Bind)
+
+Режим search bind использует сервисный аккаунт для поиска пользователя, затем выполняет повторный bind от имени пользователя для проверки пароля.
+
+```yaml
+config:
+  auth:
+    type: ldap
+    secureCookie: true
+    ldap:
+      url: "ldaps://ldap.example.com:636"
+      bindDN: "cn=readonly,dc=example,dc=com"
+      # bindPassword: задаётся через ldapSecret ниже
+      baseDN: "ou=people,dc=example,dc=com"
+      userFilter: "(uid={{.Username}})"
+      attributes:
+        displayName: "cn"
+        email: "mail"
+
+ldapSecret:
+  enabled: true
+  secretName: ldap-bind-password
+  bindPasswordKey: bindPassword
+```
+
+Создание Kubernetes Secret:
+
+```bash
+kubectl create secret generic ldap-bind-password \
+  --from-literal=bindPassword="readonly-pass" \
+  -n dephealth-ui
+```
+
+#### LDAP с ограничением по группам
+
+```yaml
+config:
+  auth:
+    type: ldap
+    secureCookie: true
+    ldap:
+      url: "ldaps://ldap.example.com:636"
+      bindDN: "cn=readonly,dc=example,dc=com"
+      baseDN: "ou=people,dc=example,dc=com"
+      userFilter: "(uid={{.Username}})"
+      groupBaseDN: "ou=groups,dc=example,dc=com"
+      groupFilter: "(member={{.UserDN}})"
+      allowedGroups:
+        - "cn=dephealth-users,ou=groups,dc=example,dc=com"
+
+ldapSecret:
+  enabled: true
+  secretName: ldap-bind-password
+  bindPasswordKey: bindPassword
+```
+
+> **Примечание:** Проверка групп в режиме direct bind (без сервисного аккаунта) требует, чтобы у пользователя был доступ на чтение `groupBaseDN` в LDAP, что зависит от настроек ACL сервера.
+
+#### Примечания по LDAP
+
+- **`secureCookie`**: Установите `true`, когда приложение находится за HTTPS-терминирующим прокси. Применяется ко всем типам аутентификации.
+- **Custom CA**: Существующее значение `customCA` в Helm (устанавливает `SSL_CERT_FILE`) работает и для проверки TLS-сертификатов LDAP, так как Go TLS использует системный пул сертификатов.
+- **Rate limiting**: Попытки входа ограничены — 5 в минуту на IP-адрес.
+- **CSRF-защита**: Форма логина включает CSRF-токен для предотвращения межсайтовой отправки форм.
+
 ### Удержание stale-нод (lookback)
 
 Когда сервис перестаёт отправлять метрики, он обычно исчезает с графа. Включите окно lookback, чтобы сохранять исчезнувшие сервисы в состоянии `unknown` на настраиваемый период:
@@ -235,7 +319,18 @@ Helm chart `dephealth-monitoring` включает 7 готовых Grafana-да
 | `ingress.tls.certManager.enabled` | Генерировать сертификат через cert-manager | `false` |
 | `ingress.tls.certManager.issuerName` | Имя Issuer cert-manager | `""` |
 | `ingress.tls.certManager.issuerKind` | Тип Issuer cert-manager | `ClusterIssuer` |
-| `config.auth.type` | Тип аутентификации: `none`, `basic`, `oidc` | `none` |
+| `config.auth.type` | Тип аутентификации: `none`, `basic`, `oidc`, `ldap` | `none` |
+| `config.auth.secureCookie` | Использовать Secure-флаг для cookie (за HTTPS) | `false` |
+| `config.auth.ldap.url` | URL LDAP-сервера (`ldap://` или `ldaps://`) | `""` |
+| `config.auth.ldap.baseDN` | Базовый DN для поиска пользователей | `""` |
+| `config.auth.ldap.bindDN` | DN сервисного аккаунта (пусто = direct bind) | `""` |
+| `config.auth.ldap.userFilter` | Фильтр поиска пользователей | `(uid={{.Username}})` |
+| `config.auth.ldap.groupBaseDN` | Базовый DN для поиска групп | `""` |
+| `config.auth.ldap.groupFilter` | Фильтр поиска групп | `""` |
+| `config.auth.ldap.allowedGroups` | Список разрешённых групп (DN) | `[]` |
+| `ldapSecret.enabled` | Включить LDAP bind password из Secret | `false` |
+| `ldapSecret.secretName` | Имя K8s Secret | `""` |
+| `ldapSecret.bindPasswordKey` | Ключ в Secret для bind password | `bindPassword` |
 | `config.datasources.prometheus.url` | URL Prometheus/VictoriaMetrics | `http://victoriametrics:8428` |
 | `config.datasources.alertmanager.url` | URL AlertManager | `""` |
 | `config.cache.ttl` | TTL кэша | `15s` |
@@ -258,4 +353,5 @@ Helm chart `dephealth-monitoring` включает 7 готовых Grafana-да
 - Для Gateway API: установлены CRD Gateway API
 - Для TLS: cert-manager (опционально, для автоматических сертификатов)
 - Для OIDC: провайдер OIDC (например, Dex, Keycloak)
+- Для LDAP: LDAP-сервер (например, 389DS, OpenLDAP, Active Directory)
 - Для группировки по group: topologymetrics SDK v0.5.0+ (добавляет метку `group` к метрикам)
