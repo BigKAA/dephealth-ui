@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-03-10
+
+### Added
+
+- **LDAP authentication** — full LDAP auth support with direct bind and search bind modes, group membership checks, and LDAP injection prevention via `EscapeFilter`
+- **LDAP login page** — HTML login form with dark/light theme support (`go:embed`), CSRF token protection (10 min TTL, 10k cap)
+- **Per-IP rate limiter** — login endpoint rate limiting (5 req/min) with `X-Forwarded-For` support
+- **Helm LDAP configuration** — `auth.ldap` values section with `ldapSecret` for credentials, documented with examples (direct bind, search bind, groups)
+
+### Documentation
+
+- LDAP authentication type and `POST /auth/login` endpoint documented in API reference (EN + RU)
+- LDAP configuration examples added to Helm chart README (EN + RU)
+- startTLS and insecureSkipVerify options documented
+
 ## [0.19.3] - 2026-03-10
 
 ### Fixed
@@ -369,6 +384,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-stage Docker build (Go + Vite + Alpine)
 - Test environment with Helm charts (infra, monitoring, services)
 
+[0.20.0]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.3...v0.20.0
 [0.19.3]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.2...v0.19.3
 [0.19.2]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/BigKAA/dephealth-ui/compare/v0.19.0...v0.19.1
