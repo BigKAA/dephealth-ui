@@ -54,6 +54,11 @@ func NewFromConfigWithContext(ctx context.Context, cfg config.AuthConfig, logger
 			logger = slog.Default()
 		}
 		return NewOIDC(ctx, cfg.OIDC, logger)
+	case "ldap":
+		if logger == nil {
+			logger = slog.Default()
+		}
+		return NewLDAP(cfg, logger)
 	default:
 		return nil, fmt.Errorf("unknown auth type: %q", cfg.Type)
 	}

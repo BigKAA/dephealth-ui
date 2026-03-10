@@ -22,9 +22,7 @@ import (
 )
 
 const (
-	sessionCookieName = "dephealth_session"
-	sessionTTL        = 8 * time.Hour
-	stateTTL          = 5 * time.Minute
+	stateTTL = 5 * time.Minute
 )
 
 // stateEntry holds PKCE and expiry data for an in-flight OIDC auth request.

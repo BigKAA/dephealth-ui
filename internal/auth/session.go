@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	sessionCookieName = "dephealth_session"
+	sessionTTL        = 8 * time.Hour
+)
+
 // UserInfo holds claims extracted from the OIDC ID token.
 type UserInfo struct {
 	Subject string `json:"sub"`

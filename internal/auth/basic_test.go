@@ -191,8 +191,25 @@ func TestFactoryBasicEmptyHash(t *testing.T) {
 }
 
 func TestFactoryUnknownType(t *testing.T) {
-	_, err := NewFromConfig(config.AuthConfig{Type: "ldap"})
+	_, err := NewFromConfig(config.AuthConfig{Type: "kerberos"})
 	if err == nil {
 		t.Fatal("expected error for unknown auth type")
 	}
+}
+
+func TestFactoryLDAP(t *testing.T) {
+	auth, err := NewFromConfig(config.AuthConfig{
+		Type: "ldap",
+		LDAP: config.LDAPConfig{
+			URL:    "ldap://localhost:389",
+			BaseDN: "dc=example,dc=com",
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewFromConfig error: %v", err)
+	}
+	if auth == nil {
+		t.Fatal("expected non-nil authenticator")
+	}
+	auth.Stop()
 }

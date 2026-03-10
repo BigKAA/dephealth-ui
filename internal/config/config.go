@@ -79,9 +79,32 @@ type TopologyConfig struct {
 
 // AuthConfig holds authentication settings.
 type AuthConfig struct {
-	Type  string      `yaml:"type"`
-	Basic BasicConfig `yaml:"basic"`
-	OIDC  OIDCConfig  `yaml:"oidc"`
+	Type         string      `yaml:"type"`
+	SecureCookie bool        `yaml:"secureCookie"`
+	Basic        BasicConfig `yaml:"basic"`
+	OIDC         OIDCConfig  `yaml:"oidc"`
+	LDAP         LDAPConfig  `yaml:"ldap"`
+}
+
+// LDAPConfig holds LDAP authentication settings.
+type LDAPConfig struct {
+	URL                string         `yaml:"url"`
+	StartTLS           bool           `yaml:"startTLS"`
+	InsecureSkipVerify bool           `yaml:"insecureSkipVerify"`
+	BindDN             string         `yaml:"bindDN"`
+	BindPassword       string         `yaml:"bindPassword"`
+	BaseDN             string         `yaml:"baseDN"`
+	UserFilter         string         `yaml:"userFilter"`
+	Attributes         LDAPAttributes `yaml:"attributes"`
+	GroupBaseDN        string         `yaml:"groupBaseDN"`
+	GroupFilter        string         `yaml:"groupFilter"`
+	AllowedGroups      []string       `yaml:"allowedGroups"`
+}
+
+// LDAPAttributes maps LDAP entry attributes to UserInfo fields.
+type LDAPAttributes struct {
+	DisplayName string `yaml:"displayName"`
+	Email       string `yaml:"email"`
 }
 
 // OIDCConfig holds OpenID Connect authentication settings.
@@ -185,8 +208,18 @@ func (c *Config) Validate() error {
 		if c.Auth.OIDC.RedirectURL == "" {
 			return fmt.Errorf("auth.oidc.redirectUrl is required when auth.type is \"oidc\"")
 		}
+	case "ldap":
+		if c.Auth.LDAP.URL == "" {
+			return fmt.Errorf("auth.ldap.url is required when auth.type is \"ldap\"")
+		}
+		if !strings.HasPrefix(c.Auth.LDAP.URL, "ldap://") && !strings.HasPrefix(c.Auth.LDAP.URL, "ldaps://") {
+			return fmt.Errorf("auth.ldap.url must start with \"ldap://\" or \"ldaps://\"")
+		}
+		if c.Auth.LDAP.BaseDN == "" {
+			return fmt.Errorf("auth.ldap.baseDN is required when auth.type is \"ldap\"")
+		}
 	default:
-		return fmt.Errorf("unknown auth.type: %q (supported: none, basic, oidc)", c.Auth.Type)
+		return fmt.Errorf("unknown auth.type: %q (supported: none, basic, oidc, ldap)", c.Auth.Type)
 	}
 
 	// Validate log config.
@@ -236,6 +269,13 @@ func defaultConfig() *Config {
 		},
 		Auth: AuthConfig{
 			Type: "none",
+			LDAP: LDAPConfig{
+				UserFilter: "(uid={{.Username}})",
+				Attributes: LDAPAttributes{
+					DisplayName: "displayName",
+					Email:       "mail",
+				},
+			},
 		},
 		Alerts: AlertsConfig{
 			SeverityLabel: "severity",
@@ -291,6 +331,49 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("DEPHEALTH_AUTH_OIDC_REDIRECTURL"); v != "" {
 		cfg.Auth.OIDC.RedirectURL = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_URL"); v != "" {
+		cfg.Auth.LDAP.URL = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_STARTTLS"); v != "" {
+		cfg.Auth.LDAP.StartTLS = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_INSECURE_SKIP_VERIFY"); v != "" {
+		cfg.Auth.LDAP.InsecureSkipVerify = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_BIND_DN"); v != "" {
+		cfg.Auth.LDAP.BindDN = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_BIND_PASSWORD"); v != "" {
+		cfg.Auth.LDAP.BindPassword = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_BASE_DN"); v != "" {
+		cfg.Auth.LDAP.BaseDN = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_USER_FILTER"); v != "" {
+		cfg.Auth.LDAP.UserFilter = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_ATTRIBUTES_DISPLAYNAME"); v != "" {
+		cfg.Auth.LDAP.Attributes.DisplayName = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_ATTRIBUTES_EMAIL"); v != "" {
+		cfg.Auth.LDAP.Attributes.Email = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_GROUP_BASE_DN"); v != "" {
+		cfg.Auth.LDAP.GroupBaseDN = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_GROUP_FILTER"); v != "" {
+		cfg.Auth.LDAP.GroupFilter = v
+	}
+	if v := os.Getenv("DEPHEALTH_AUTH_LDAP_ALLOWED_GROUPS"); v != "" {
+		var groups []string
+		for _, g := range strings.Split(v, ";") {
+			g = strings.TrimSpace(g)
+			if g != "" {
+				groups = append(groups, g)
+			}
+		}
+		cfg.Auth.LDAP.AllowedGroups = groups
 	}
 	if v := os.Getenv("DEPHEALTH_GRAFANA_BASEURL"); v != "" {
 		cfg.Grafana.BaseURL = v

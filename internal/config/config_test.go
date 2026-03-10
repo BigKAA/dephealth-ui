@@ -347,8 +347,73 @@ func TestValidate(t *testing.T) {
 			cfg: Config{
 				Server:      ServerConfig{Listen: ":8080"},
 				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
-				Auth:        AuthConfig{Type: "ldap"},
+				Auth:        AuthConfig{Type: "kerberos"},
 				Alerts:      validAlerts(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type ldap valid",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "ldap",
+					LDAP: LDAPConfig{URL: "ldap://ldap:389", BaseDN: "dc=example,dc=com"},
+				},
+				Alerts: validAlerts(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "auth type ldap valid ldaps",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "ldap",
+					LDAP: LDAPConfig{URL: "ldaps://ldap:636", BaseDN: "dc=example,dc=com"},
+				},
+				Alerts: validAlerts(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "auth type ldap missing url",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "ldap",
+					LDAP: LDAPConfig{BaseDN: "dc=example,dc=com"},
+				},
+				Alerts: validAlerts(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type ldap invalid url scheme",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "ldap",
+					LDAP: LDAPConfig{URL: "http://ldap:389", BaseDN: "dc=example,dc=com"},
+				},
+				Alerts: validAlerts(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "auth type ldap missing baseDN",
+			cfg: Config{
+				Server:      ServerConfig{Listen: ":8080"},
+				Datasources: DatasourcesConfig{Prometheus: PrometheusConfig{URL: "http://vm:8428"}},
+				Auth: AuthConfig{
+					Type: "ldap",
+					LDAP: LDAPConfig{URL: "ldap://ldap:389"},
+				},
+				Alerts: validAlerts(),
 			},
 			wantErr: true,
 		},
@@ -623,6 +688,150 @@ alerts:
 	}
 	if cfg.Alerts.SeverityLevels[0].Color != "#ff0000" {
 		t.Errorf("SeverityLevels[0].Color = %q, want %q", cfg.Alerts.SeverityLevels[0].Color, "#ff0000")
+	}
+}
+
+func TestLDAPEnvOverrides(t *testing.T) {
+	t.Setenv("DEPHEALTH_AUTH_LDAP_URL", "ldaps://ldap.env.com:636")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_STARTTLS", "true")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_INSECURE_SKIP_VERIFY", "1")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_BIND_DN", "cn=admin,dc=env,dc=com")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_BIND_PASSWORD", "env-pass")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_BASE_DN", "ou=people,dc=env,dc=com")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_USER_FILTER", "(mail={{.Username}})")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_ATTRIBUTES_DISPLAYNAME", "cn")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_ATTRIBUTES_EMAIL", "userEmail")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_GROUP_BASE_DN", "ou=groups,dc=env,dc=com")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_GROUP_FILTER", "(member={{.UserDN}})")
+	t.Setenv("DEPHEALTH_AUTH_LDAP_ALLOWED_GROUPS", "cn=admins,ou=groups,dc=env,dc=com ; cn=users,ou=groups,dc=env,dc=com")
+
+	cfg, err := Load("/nonexistent/config.yaml")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Auth.LDAP.URL != "ldaps://ldap.env.com:636" {
+		t.Errorf("LDAP.URL = %q, want env value", cfg.Auth.LDAP.URL)
+	}
+	if !cfg.Auth.LDAP.StartTLS {
+		t.Error("LDAP.StartTLS should be true")
+	}
+	if !cfg.Auth.LDAP.InsecureSkipVerify {
+		t.Error("LDAP.InsecureSkipVerify should be true")
+	}
+	if cfg.Auth.LDAP.BindDN != "cn=admin,dc=env,dc=com" {
+		t.Errorf("LDAP.BindDN = %q, want env value", cfg.Auth.LDAP.BindDN)
+	}
+	if cfg.Auth.LDAP.BindPassword != "env-pass" {
+		t.Errorf("LDAP.BindPassword = %q, want env value", cfg.Auth.LDAP.BindPassword)
+	}
+	if cfg.Auth.LDAP.BaseDN != "ou=people,dc=env,dc=com" {
+		t.Errorf("LDAP.BaseDN = %q, want env value", cfg.Auth.LDAP.BaseDN)
+	}
+	if cfg.Auth.LDAP.UserFilter != "(mail={{.Username}})" {
+		t.Errorf("LDAP.UserFilter = %q, want env value", cfg.Auth.LDAP.UserFilter)
+	}
+	if cfg.Auth.LDAP.Attributes.DisplayName != "cn" {
+		t.Errorf("LDAP.Attributes.DisplayName = %q, want %q", cfg.Auth.LDAP.Attributes.DisplayName, "cn")
+	}
+	if cfg.Auth.LDAP.Attributes.Email != "userEmail" {
+		t.Errorf("LDAP.Attributes.Email = %q, want %q", cfg.Auth.LDAP.Attributes.Email, "userEmail")
+	}
+	if cfg.Auth.LDAP.GroupBaseDN != "ou=groups,dc=env,dc=com" {
+		t.Errorf("LDAP.GroupBaseDN = %q, want env value", cfg.Auth.LDAP.GroupBaseDN)
+	}
+	if cfg.Auth.LDAP.GroupFilter != "(member={{.UserDN}})" {
+		t.Errorf("LDAP.GroupFilter = %q, want env value", cfg.Auth.LDAP.GroupFilter)
+	}
+	if len(cfg.Auth.LDAP.AllowedGroups) != 2 {
+		t.Fatalf("LDAP.AllowedGroups length = %d, want 2", len(cfg.Auth.LDAP.AllowedGroups))
+	}
+	if cfg.Auth.LDAP.AllowedGroups[0] != "cn=admins,ou=groups,dc=env,dc=com" {
+		t.Errorf("LDAP.AllowedGroups[0] = %q, want trimmed value", cfg.Auth.LDAP.AllowedGroups[0])
+	}
+	if cfg.Auth.LDAP.AllowedGroups[1] != "cn=users,ou=groups,dc=env,dc=com" {
+		t.Errorf("LDAP.AllowedGroups[1] = %q, want trimmed value", cfg.Auth.LDAP.AllowedGroups[1])
+	}
+}
+
+func TestLoadLDAPConfig(t *testing.T) {
+	content := `
+server:
+  listen: ":8080"
+datasources:
+  prometheus:
+    url: "http://vm:8428"
+auth:
+  type: "ldap"
+  ldap:
+    url: "ldaps://ldap.example.com:636"
+    startTLS: false
+    insecureSkipVerify: true
+    bindDN: "cn=readonly,dc=example,dc=com"
+    bindPassword: "readonly-pass"
+    baseDN: "ou=people,dc=example,dc=com"
+    userFilter: "(uid={{.Username}})"
+    attributes:
+      displayName: "cn"
+      email: "userEmail"
+    groupBaseDN: "ou=groups,dc=example,dc=com"
+    groupFilter: "(member={{.UserDN}})"
+    allowedGroups:
+      - "cn=dephealth-users,ou=groups,dc=example,dc=com"
+      - "cn=admins,ou=groups,dc=example,dc=com"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Auth.Type != "ldap" {
+		t.Errorf("Auth.Type = %q, want %q", cfg.Auth.Type, "ldap")
+	}
+	if cfg.Auth.LDAP.URL != "ldaps://ldap.example.com:636" {
+		t.Errorf("LDAP.URL = %q", cfg.Auth.LDAP.URL)
+	}
+	if cfg.Auth.LDAP.InsecureSkipVerify != true {
+		t.Errorf("LDAP.InsecureSkipVerify = %v, want true", cfg.Auth.LDAP.InsecureSkipVerify)
+	}
+	if cfg.Auth.LDAP.BindDN != "cn=readonly,dc=example,dc=com" {
+		t.Errorf("LDAP.BindDN = %q", cfg.Auth.LDAP.BindDN)
+	}
+	if cfg.Auth.LDAP.BindPassword != "readonly-pass" {
+		t.Errorf("LDAP.BindPassword = %q", cfg.Auth.LDAP.BindPassword)
+	}
+	if cfg.Auth.LDAP.BaseDN != "ou=people,dc=example,dc=com" {
+		t.Errorf("LDAP.BaseDN = %q", cfg.Auth.LDAP.BaseDN)
+	}
+	if cfg.Auth.LDAP.UserFilter != "(uid={{.Username}})" {
+		t.Errorf("LDAP.UserFilter = %q", cfg.Auth.LDAP.UserFilter)
+	}
+	if cfg.Auth.LDAP.Attributes.DisplayName != "cn" {
+		t.Errorf("LDAP.Attributes.DisplayName = %q, want %q", cfg.Auth.LDAP.Attributes.DisplayName, "cn")
+	}
+	if cfg.Auth.LDAP.Attributes.Email != "userEmail" {
+		t.Errorf("LDAP.Attributes.Email = %q, want %q", cfg.Auth.LDAP.Attributes.Email, "userEmail")
+	}
+	if cfg.Auth.LDAP.GroupBaseDN != "ou=groups,dc=example,dc=com" {
+		t.Errorf("LDAP.GroupBaseDN = %q", cfg.Auth.LDAP.GroupBaseDN)
+	}
+	if cfg.Auth.LDAP.GroupFilter != "(member={{.UserDN}})" {
+		t.Errorf("LDAP.GroupFilter = %q", cfg.Auth.LDAP.GroupFilter)
+	}
+	if len(cfg.Auth.LDAP.AllowedGroups) != 2 {
+		t.Fatalf("AllowedGroups length = %d, want 2", len(cfg.Auth.LDAP.AllowedGroups))
+	}
+	if cfg.Auth.LDAP.AllowedGroups[0] != "cn=dephealth-users,ou=groups,dc=example,dc=com" {
+		t.Errorf("AllowedGroups[0] = %q", cfg.Auth.LDAP.AllowedGroups[0])
+	}
+	if cfg.Auth.LDAP.AllowedGroups[1] != "cn=admins,ou=groups,dc=example,dc=com" {
+		t.Errorf("AllowedGroups[1] = %q", cfg.Auth.LDAP.AllowedGroups[1])
 	}
 }
 
