@@ -672,3 +672,27 @@ func TestQueryWithGroupFilter(t *testing.T) {
 		t.Errorf("combined filter query = %q, want %q", capturedQuery, want)
 	}
 }
+
+func TestQueryWithURLPathPrefix(t *testing.T) {
+	var capturedPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(topologyEdgesResponse))
+	}))
+	defer srv.Close()
+
+	// Simulate VictoriaMetrics multi-tenant URL with path prefix.
+	client := NewPrometheusClient(PrometheusConfig{
+		URL: srv.URL + "/select/1111111112/prometheus",
+	})
+	_, err := client.QueryTopologyEdges(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("QueryTopologyEdges() error: %v", err)
+	}
+
+	want := "/select/1111111112/prometheus/api/v1/query"
+	if capturedPath != want {
+		t.Errorf("request path = %q, want %q", capturedPath, want)
+	}
+}

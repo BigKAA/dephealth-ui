@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"path"
 	"strings"
 	"time"
 )
@@ -150,7 +151,7 @@ func (c *prometheusClient) query(ctx context.Context, promql string, at *time.Ti
 	if err != nil {
 		return nil, fmt.Errorf("invalid prometheus URL: %w", err)
 	}
-	u.Path = "/api/v1/query"
+	u.Path = path.Join(u.Path, "api/v1/query")
 	params := url.Values{"query": {promql}}
 	if at != nil {
 		params.Set("time", fmt.Sprintf("%d", at.Unix()))
@@ -214,7 +215,7 @@ func (c *prometheusClient) queryRange(ctx context.Context, promql string, start,
 	if err != nil {
 		return nil, fmt.Errorf("invalid prometheus URL: %w", err)
 	}
-	u.Path = "/api/v1/query_range"
+	u.Path = path.Join(u.Path, "api/v1/query_range")
 	u.RawQuery = url.Values{
 		"query": {promql},
 		"start": {fmt.Sprintf("%d", start.Unix())},
