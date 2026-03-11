@@ -1,6 +1,6 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.19.1-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.20.2-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
 [![Helm Chart](https://img.shields.io/badge/helm-0.10.0-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
@@ -84,7 +84,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Dark theme support
 
 ✅ **Enterprise-Ready**
-- Multiple authentication modes (none, Basic, OIDC/SSO)
+- Multiple authentication modes (none, Basic, OIDC/SSO, LDAP)
 - CORS support for browser-based clients
 - Server-side caching (configurable TTL)
 - Multi-architecture Docker images (amd64, arm64)
@@ -120,7 +120,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 │  │ In-memory Cache (TTL)        │   │
 │  └──────────────────────────────┘   │
 │  ┌──────────────────────────────┐   │
-│  │ Auth (none/basic/oidc)       │   │  ← Pluggable
+│  │ Auth (none/basic/oidc/ldap)  │   │  ← Pluggable
 │  └──────────────────────────────┘   │
 └──────────┬───────────────────────────┘
            │
@@ -226,7 +226,7 @@ cache:
   ttl: 15s  # Cache duration for topology data
 
 auth:
-  type: "none"  # Options: "none", "basic", "oidc"
+  type: "none"  # Options: "none", "basic", "oidc", "ldap"
 
   # Basic authentication
   # basic:
@@ -240,6 +240,21 @@ auth:
   #   clientId: "dephealth-ui"
   #   clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
   #   redirectUrl: "https://dephealth.example.com/auth/callback"
+
+  # LDAP authentication
+  # ldap:
+  #   url: "ldap://ldap.example.com:389"       # or ldaps://
+  #   startTLS: false
+  #   baseDN: "ou=people,dc=example,dc=com"
+  #   userFilter: "(uid={{.Username}})"
+  #   # Search bind (optional service account):
+  #   # bindDN: "cn=readonly,dc=example,dc=com"
+  #   # bindPassword: "secret"
+  #   # Group restrictions (optional):
+  #   # groupBaseDN: "ou=groups,dc=example,dc=com"
+  #   # groupFilter: "(member={{.UserDN}})"
+  #   # allowedGroups:
+  #   #   - "cn=dephealth-users,ou=groups,dc=example,dc=com"
 
 alerts:
   severityLabel: "severity"  # AlertManager label for severity
@@ -305,20 +320,21 @@ LOG_ADD_SOURCE="false"
 
 ## Required Metrics
 
-dephealth-ui requires metrics from services instrumented with [dephealth SDK](https://github.com/BigKAA/topologymetrics) (v0.4.1+):
+dephealth-ui requires metrics from services instrumented with [dephealth SDK](https://github.com/BigKAA/topologymetrics) (v0.4.0+):
 
 ### 1. `app_dependency_health` (Gauge)
 
 Health status of dependency endpoints (1=UP, 0=DOWN).
 
-**Required Labels:**
+**SDK Labels:**
 - `name` — service name
-- `namespace` — Kubernetes namespace
+- `group` — logical service group (required since SDK v0.5.0; dephealth-ui works without it)
 - `dependency` — logical dependency name
-- `type` — connection type (http, grpc, postgres, redis, etc.)
+- `type` — connection type (`http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap`)
 - `host` — target endpoint hostname
 - `port` — target endpoint port
-- `critical` — criticality flag (yes/no)
+- `critical` — criticality flag (`yes`/`no`)
+- `namespace` — added by Prometheus (not SDK); recommended for non-K8s deployments
 
 **Example:**
 ```prometheus
@@ -329,13 +345,13 @@ app_dependency_health{name="order-service",namespace="prod",dependency="postgres
 
 Health check latency in seconds with standard buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
-### 3. `app_dependency_status` (Enum)
+### 3. `app_dependency_status` (Gauge, enum pattern)
 
-Active state of a dependency (ok, degraded, down, etc.). Used for timeline event tracking and state transitions.
+Active status category of a dependency (`ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`). Exactly one series per endpoint has value `1`. Used for timeline event tracking and state transitions.
 
-### 4. `app_dependency_status_detail` (Info)
+### 4. `app_dependency_status_detail` (Gauge, info pattern)
 
-Info-pattern metric with detailed dependency description and metadata.
+Detailed status description. Always has value `1`, the `detail` label carries the reason (e.g., `http_503`, `connection_refused`).
 
 **See [docs/METRICS.md](./docs/METRICS.md) for complete specification.**
 
@@ -423,7 +439,7 @@ dephealth-ui/
 │   ├── server/               # HTTP server + routes
 │   ├── topology/             # Topology service (Prometheus queries)
 │   ├── alerts/               # AlertManager integration
-│   ├── auth/                 # Authentication (none/basic/oidc)
+│   ├── auth/                 # Authentication (none/basic/oidc/ldap)
 │   └── cache/                # In-memory cache with TTL
 ├── frontend/                  # Vite + Cytoscape.js SPA
 │   ├── src/                  # JavaScript modules (graph, sidebar, grouping, i18n, etc.)

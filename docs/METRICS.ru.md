@@ -28,30 +28,30 @@
 - `1` — зависимость здорова (успешно отвечает)
 - `0` — зависимость недоступна (не отвечает или проваливает health check)
 
-**Обязательные метки:**
+**Метки (SDK):**
 
-| Метка | Обязательна | Описание | Примеры значений |
-|-------|:-----------:|----------|------------------|
-| `name` | ✅ | Имя приложения (идентификатор сервиса) | `order-service`, `payment-api`, `user-backend` |
-| `namespace` | ✅ | Kubernetes namespace или логическая группа | `production`, `staging`, `team-alpha` |
-| `dependency` | ✅ | Логическое имя зависимости | `postgres-main`, `redis-cache`, `auth-service` |
-| `type` | ✅ | Протокол/тип подключения | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `mongodb`, `amqp`, `kafka` |
-| `host` | ✅ | Hostname/IP целевого endpoint'а | `pg-master.db.svc.cluster.local`, `10.0.1.5` |
-| `port` | ✅ | Порт целевого endpoint'а | `5432`, `6379`, `8080` |
-| `critical` | ✅ | Флаг критичности зависимости | `yes`, `no` |
+| Метка | Источник | Описание | Примеры значений |
+|-------|:--------:|----------|------------------|
+| `name` | SDK ✅ | Имя приложения (идентификатор сервиса) | `order-service`, `payment-api`, `user-backend` |
+| `group` | SDK ✅ | Логическая группа сервиса (обязательна с SDK v0.5.0). Активирует переключатель группировки в UI. dephealth-ui работает и без неё (fallback на группировку только по namespace). | `proxy-cluster-1`, `billing-team`, `infra-host1` |
+| `dependency` | SDK ✅ | Логическое имя зависимости | `postgres-main`, `redis-cache`, `auth-service` |
+| `type` | SDK ✅ | Протокол/тип подключения | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap` |
+| `host` | SDK ✅ | Hostname/IP целевого endpoint'а | `pg-master.db.svc.cluster.local`, `10.0.1.5` |
+| `port` | SDK ✅ | Порт целевого endpoint'а | `5432`, `6379`, `8080` |
+| `critical` | SDK ✅ | Флаг критичности зависимости | `yes`, `no` |
 
-**Опциональные метки:**
+**Дополнительные метки (не из SDK):**
 
-| Метка | Описание | Примеры значений |
-|-------|----------|------------------|
-| `isentry` | Отмечает сервис как точку входа для внешнего трафика. При значении `yes` узел отображается с бейджем точки входа (⬇) в UI. | `yes` |
-| `group` | Логическая группа сервиса (SDK v0.5.0+). Активирует переключатель группировки в UI. При отсутствии используется только группировка по namespace. | `proxy-cluster-1`, `infra-host1`, `payment-team` |
-| `role` | Роль инстанса (для реплицированных систем) | `primary`, `replica`, `standby` |
-| `shard` | Идентификатор шарда (для шардированных систем) | `shard-01`, `shard-02` |
-| `vhost` | AMQP virtual host | `/`, `/app` |
-| `pod` | Имя Kubernetes pod'а | `order-service-7d9f8b-xyz12` |
-| `instance` | Prometheus instance label | `10.244.1.5:9090` |
-| `job` | Prometheus job label | `order-service` |
+| Метка | Источник | Описание | Примеры значений |
+|-------|----------|----------|------------------|
+| `namespace` | Prometheus | Kubernetes namespace. Не является частью SDK — добавляется автоматически Prometheus при scrape pod'ов. Рекомендуется использовать и вне Kubernetes для единообразия. | `production`, `staging`, `team-alpha` |
+| `isentry` | Custom | Отмечает сервис как точку входа для внешнего трафика. Не является частью спецификации SDK. При значении `yes` узел отображается с бейджем точки входа в UI. Рекомендуется для dephealth-ui. Задаётся через custom labels SDK или переменную `DEPHEALTH_ISENTRY=yes` в uniproxy. | `yes` |
+| `role` | Custom | Роль инстанса (для реплицированных систем) | `primary`, `replica`, `standby` |
+| `shard` | Custom | Идентификатор шарда (для шардированных систем) | `shard-01`, `shard-02` |
+| `vhost` | Custom | AMQP virtual host | `/`, `/app` |
+| `pod` | Prometheus | Имя Kubernetes pod'а | `order-service-7d9f8b-xyz12` |
+| `instance` | Prometheus | Prometheus instance label | `10.244.1.5:9090` |
+| `job` | Prometheus | Prometheus job label | `order-service` |
 
 **Пример:**
 ```prometheus
@@ -89,6 +89,45 @@ app_dependency_latency_seconds_count{name="order-service",namespace="production"
 
 ---
 
+### 3. `app_dependency_status`
+
+**Тип:** Gauge (enum-паттерн)
+**Описание:** Активная категория статуса endpoint'а зависимости (SDK v0.4.0+). Ровно одна серия на endpoint имеет значение `1`, остальные — `0`.
+
+**Значения статуса:** `ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`
+
+**Дополнительная метка:** `status` — активная категория статуса.
+
+**Метки:** Те же, что и у `app_dependency_health` (все метки должны совпадать) + `status`.
+
+**Используется:** Endpoint событий timeline (`/api/v1/timeline/events`) для детектирования переходов состояний.
+
+**Пример:**
+```prometheus
+app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="ok"} 1
+app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="timeout"} 0
+```
+
+---
+
+### 4. `app_dependency_status_detail`
+
+**Тип:** Gauge (info-паттерн)
+**Описание:** Детальное описание статуса endpoint'а зависимости (SDK v0.4.0+). Значение всегда `1`. Метка `detail` содержит причину в человекочитаемом формате.
+
+**Дополнительная метка:** `detail` — строка с детальной причиной (например, `http_503`, `connection_refused`, `dns_not_found`).
+
+**Метки:** Те же, что и у `app_dependency_health` (все метки должны совпадать) + `detail`.
+
+**Используется:** Отображение деталей ребра в боковой панели.
+
+**Пример:**
+```prometheus
+app_dependency_status_detail{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",detail="connection_refused"} 1
+```
+
+---
+
 ## PromQL-запросы, используемые dephealth-ui
 
 Приложение выполняет следующие запросы к Prometheus/VictoriaMetrics:
@@ -122,6 +161,24 @@ histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 group by (instance, pod, job) (app_dependency_health{name="<service-name>"})
 ```
 **Назначение:** Отобразить все запущенные инстансы/pod'ы для выбранного сервиса в боковой панели.
+
+### 6. **Статус зависимости** — активная категория статуса для каждого ребра (SDK v0.4.0+)
+```promql
+app_dependency_status == 1
+```
+**Назначение:** Найти активную категорию статуса для каждого endpoint'а зависимости (ровно одна серия == 1 на ребро).
+
+### 7. **Детали статуса** — детальная информация о статусе для каждого ребра (SDK v0.4.0+)
+```promql
+app_dependency_status_detail == 1
+```
+**Назначение:** Получить детальное описание статуса для каждого endpoint'а зависимости.
+
+### 8. **Переходы состояний** — детектирование событий timeline за временной диапазон
+```promql
+app_dependency_status == 1  (через query_range API)
+```
+**Назначение:** Детектировать переходы состояний для endpoint'а событий timeline путём анализа изменений активного статуса во времени.
 
 ---
 
@@ -284,8 +341,8 @@ datasources:
 
 ## Чеклист проверки
 
-- Метрики `app_dependency_health` и `app_dependency_latency_seconds` экспортируются
-- Все обязательные метки присутствуют: `name`, `namespace`, `dependency`, `type`, `host`, `port`, `critical`
+- Метрики `app_dependency_health`, `app_dependency_latency_seconds`, `app_dependency_status` и `app_dependency_status_detail` экспортируются
+- Все обязательные метки SDK присутствуют: `name`, `group`, `dependency`, `type`, `host`, `port`, `critical`
 - Значения меток консистентны (одинаковые метки для метрик health + latency)
 - Значения health — строго `0` или `1` (не строки, не другие числа)
 - Histogram latency имеет стандартные buckets
@@ -295,7 +352,7 @@ datasources:
 **Тестовый запрос:**
 ```promql
 # Должен вернуть вашу топологию сервисов
-group by (name, namespace, dependency, type, host, port, critical, isentry) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
 ```
 
 ---

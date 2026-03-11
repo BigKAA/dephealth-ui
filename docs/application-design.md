@@ -21,23 +21,29 @@ The application consumes data from two sources:
 |--------|------|--------|-------------|
 | `app_dependency_health` | Gauge | `1` (healthy) / `0` (unhealthy) | Dependency state |
 | `app_dependency_latency_seconds` | Histogram | seconds | Dependency health check latency |
+| `app_dependency_status` | Gauge (enum) | `1` (active) / `0` (inactive) | Active status category per endpoint (SDK v0.4.0+) |
+| `app_dependency_status_detail` | Gauge (info) | `1` | Detailed status description in `detail` label (SDK v0.4.0+) |
 
 Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
+Status values: `ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`
+
 ### Labels (same for both metrics)
 
-| Label | Required | Description | Example |
-|-------|:--------:|-------------|---------|
-| `name` | yes | Application name (from SDK) | `uniproxy-01` |
-| `dependency` | yes | Logical dependency name | `postgres-main` |
-| `type` | yes | Connection type | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka` |
-| `host` | yes | Endpoint address | `pg-master.db.svc.cluster.local` |
-| `port` | yes | Endpoint port | `5432` |
-| `critical` | yes | Dependency criticality | `yes`, `no` |
-| `isentry` | no | Marks the service as an entry point | `yes` |
-| `role` | no | Instance role | `primary`, `replica` |
-| `shard` | no | Shard identifier | `shard-01` |
-| `vhost` | no | AMQP virtual host | `/` |
+| Label | Source | Description | Example |
+|-------|:------:|-------------|---------|
+| `name` | SDK ✅ | Application name (from SDK) | `uniproxy-01` |
+| `group` | SDK ✅ | Logical service group (required since SDK v0.5.0; dephealth-ui works without it) | `billing-team` |
+| `dependency` | SDK ✅ | Logical dependency name | `postgres-main` |
+| `type` | SDK ✅ | Connection type | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap` |
+| `host` | SDK ✅ | Endpoint address | `pg-master.db.svc.cluster.local` |
+| `port` | SDK ✅ | Endpoint port | `5432` |
+| `critical` | SDK ✅ | Dependency criticality | `yes`, `no` |
+| `namespace` | Prometheus | Kubernetes namespace (not part of SDK; added by Prometheus during scrape) | `production` |
+| `isentry` | Custom | Marks the service as an entry point (not part of SDK; recommended for dephealth-ui) | `yes` |
+| `role` | Custom | Instance role | `primary`, `replica` |
+| `shard` | Custom | Shard identifier | `shard-01` |
+| `vhost` | Custom | AMQP virtual host | `/` |
 
 ### Graph Model
 
@@ -93,7 +99,7 @@ Dependency nodes (non-service targets like databases, caches, message brokers) u
 
 - **Network isolation:** the application is deployed **separately** from the monitoring stack. Prometheus/VictoriaMetrics and AlertManager are in a different network, inaccessible from user browsers.
 - **Scale:** 100+ services with dephealth SDK, thousands of dependency edges.
-- **Authentication:** configurable — no auth (internal tool), Basic auth, or OIDC/SSO (Keycloak, LDAP).
+- **Authentication:** configurable — no auth (internal tool), Basic auth, OIDC/SSO (Keycloak), or LDAP (direct bind / search bind).
 
 **Consequence:** a pure SPA with Nginx proxying to Prometheus is **not possible**. A server-side backend is required to query Prometheus/AlertManager and deliver ready-to-use graph data to the frontend.
 
@@ -132,6 +138,7 @@ Combined application: Go backend + JS frontend, shipped as a single Docker image
 │  │  type: "none"  → open access   │ │  ← Configured via YAML/env
 │  │  type: "basic" → user/password │ │
 │  │  type: "oidc"  → SSO/Keycloak │ │
+│  │  type: "ldap"  → LDAP bind    │ │
 │  └────────────────────────────────┘ │
 └──────────┬──────────────┬───────────┘
            │              │
@@ -167,7 +174,7 @@ Combined application: Go backend + JS frontend, shipped as a single Docker image
 | **State computation** | Metrics + alerts correlation → OK / DEGRADED / DOWN for each node and edge |
 | **Caching** | In-memory cache with configurable TTL (default 15s). One query cycle to Prometheus serves all connected users |
 | **Grafana URL generation** | Dashboard URLs with correct query parameters from configuration |
-| **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation) |
+| **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation), LDAP (direct bind / search bind with login form) |
 | **Static file serving** | SPA assets embedded via Go `embed` package, served at `/` |
 | **Graph export** | Multi-format export (JSON, CSV, DOT, PNG, SVG) via `internal/export` package; Graphviz integration for image rendering |
 
@@ -335,7 +342,7 @@ cache:
   ttl: 15s
 
 auth:
-  type: "none"   # "none" | "basic" | "oidc"
+  type: "none"   # "none" | "basic" | "oidc" | "ldap"
 
 grafana:
   baseUrl: "https://grafana.example.com"

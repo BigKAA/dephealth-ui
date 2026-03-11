@@ -28,30 +28,30 @@ This document specifies:
 - `1` — dependency is healthy (responding successfully)
 - `0` — dependency is down (unreachable or failing health checks)
 
-**Required Labels:**
+**Labels (SDK):**
 
-| Label | Required | Description | Example Values |
-|-------|:--------:|-------------|----------------|
-| `name` | ✅ | Application name (service identifier) | `order-service`, `payment-api`, `user-backend` |
-| `namespace` | ✅ | Kubernetes namespace or logical grouping | `production`, `staging`, `team-alpha` |
-| `dependency` | ✅ | Logical name of the dependency | `postgres-main`, `redis-cache`, `auth-service` |
-| `type` | ✅ | Connection protocol/type | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `mongodb`, `amqp`, `kafka` |
-| `host` | ✅ | Target endpoint hostname/IP | `pg-master.db.svc.cluster.local`, `10.0.1.5` |
-| `port` | ✅ | Target endpoint port | `5432`, `6379`, `8080` |
-| `critical` | ✅ | Dependency criticality flag | `yes`, `no` |
+| Label | Source | Description | Example Values |
+|-------|:------:|-------------|----------------|
+| `name` | SDK ✅ | Application name (service identifier) | `order-service`, `payment-api`, `user-backend` |
+| `group` | SDK ✅ | Logical service group (required since SDK v0.5.0). Enables group dimension toggle in the UI. dephealth-ui works without it (falls back to namespace-only grouping). | `proxy-cluster-1`, `billing-team`, `infra-host1` |
+| `dependency` | SDK ✅ | Logical name of the dependency | `postgres-main`, `redis-cache`, `auth-service` |
+| `type` | SDK ✅ | Connection protocol/type | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap` |
+| `host` | SDK ✅ | Target endpoint hostname/IP | `pg-master.db.svc.cluster.local`, `10.0.1.5` |
+| `port` | SDK ✅ | Target endpoint port | `5432`, `6379`, `8080` |
+| `critical` | SDK ✅ | Dependency criticality flag | `yes`, `no` |
 
-**Optional Labels:**
+**Additional labels (not from SDK):**
 
-| Label | Description | Example Values |
-|-------|-------------|----------------|
-| `isentry` | Marks the service as an entry point for external traffic. When set to `yes`, the node is displayed with an entry point badge (⬇) in the UI. | `yes` |
-| `group` | Logical service group (SDK v0.5.0+). Enables group dimension toggle in the UI. When absent, namespace-only grouping is used. | `proxy-cluster-1`, `infra-host1`, `payment-team` |
-| `role` | Instance role (for replicated systems) | `primary`, `replica`, `standby` |
-| `shard` | Shard identifier (for sharded systems) | `shard-01`, `shard-02` |
-| `vhost` | AMQP virtual host | `/`, `/app` |
-| `pod` | Kubernetes pod name | `order-service-7d9f8b-xyz12` |
-| `instance` | Prometheus instance label | `10.244.1.5:9090` |
-| `job` | Prometheus job label | `order-service` |
+| Label | Source | Description | Example Values |
+|-------|--------|-------------|----------------|
+| `namespace` | Prometheus | Kubernetes namespace. Not part of SDK — added automatically by Prometheus when scraping pods. Recommended for non-Kubernetes deployments for consistency. | `production`, `staging`, `team-alpha` |
+| `isentry` | Custom | Marks the service as an entry point for external traffic. Not part of SDK spec. When set to `yes`, the node is displayed with an entry point badge in the UI. Recommended for dephealth-ui. Set via SDK custom labels or `DEPHEALTH_ISENTRY=yes` env var in uniproxy. | `yes` |
+| `role` | Custom | Instance role (for replicated systems) | `primary`, `replica`, `standby` |
+| `shard` | Custom | Shard identifier (for sharded systems) | `shard-01`, `shard-02` |
+| `vhost` | Custom | AMQP virtual host | `/`, `/app` |
+| `pod` | Prometheus | Kubernetes pod name | `order-service-7d9f8b-xyz12` |
+| `instance` | Prometheus | Prometheus instance label | `10.244.1.5:9090` |
+| `job` | Prometheus | Prometheus job label | `order-service` |
 
 **Example:**
 ```prometheus
@@ -89,6 +89,45 @@ app_dependency_latency_seconds_count{name="order-service",namespace="production"
 
 ---
 
+### 3. `app_dependency_status`
+
+**Type:** Gauge (enum pattern)
+**Description:** Active status category of a dependency endpoint (SDK v0.4.0+). Exactly one series per endpoint has value `1`, all others have value `0`.
+
+**Status values:** `ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`
+
+**Additional label:** `status` — the active status category.
+
+**Labels:** Same as `app_dependency_health` (all labels must match) + `status`.
+
+**Used by:** Timeline events endpoint (`/api/v1/timeline/events`) for state transition detection.
+
+**Example:**
+```prometheus
+app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="ok"} 1
+app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="timeout"} 0
+```
+
+---
+
+### 4. `app_dependency_status_detail`
+
+**Type:** Gauge (info pattern)
+**Description:** Detailed status description of a dependency endpoint (SDK v0.4.0+). Always has value `1`. The `detail` label carries the human-readable reason.
+
+**Additional label:** `detail` — detailed reason string (e.g., `http_503`, `connection_refused`, `dns_not_found`).
+
+**Labels:** Same as `app_dependency_health` (all labels must match) + `detail`.
+
+**Used by:** Edge sidebar detail display.
+
+**Example:**
+```prometheus
+app_dependency_status_detail{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",detail="connection_refused"} 1
+```
+
+---
+
 ## PromQL Queries Used by dephealth-ui
 
 The application executes the following queries against Prometheus/VictoriaMetrics:
@@ -122,6 +161,24 @@ histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 group by (instance, pod, job) (app_dependency_health{name="<service-name>"})
 ```
 **Purpose:** Display all running instances/pods for a selected service in the sidebar.
+
+### 6. **Dependency Status** — active status category per edge (SDK v0.4.0+)
+```promql
+app_dependency_status == 1
+```
+**Purpose:** Find the active status category for each dependency endpoint (exactly one series == 1 per edge).
+
+### 7. **Dependency Status Detail** — detailed status info per edge (SDK v0.4.0+)
+```promql
+app_dependency_status_detail == 1
+```
+**Purpose:** Retrieve the detailed status description for each dependency endpoint.
+
+### 8. **Status Transitions** — timeline event detection over a time range
+```promql
+app_dependency_status == 1  (via query_range API)
+```
+**Purpose:** Detect state transitions for the timeline events endpoint by analyzing changes in the active status over time.
 
 ---
 
@@ -284,8 +341,8 @@ datasources:
 
 ## Validation Checklist
 
-- Metrics `app_dependency_health` and `app_dependency_latency_seconds` are exposed
-- All required labels are present: `name`, `namespace`, `dependency`, `type`, `host`, `port`, `critical`
+- Metrics `app_dependency_health`, `app_dependency_latency_seconds`, `app_dependency_status`, and `app_dependency_status_detail` are exposed
+- All SDK-required labels are present: `name`, `group`, `dependency`, `type`, `host`, `port`, `critical`
 - Label values are consistent (same labels for health + latency metrics)
 - Health values are exactly `0` or `1` (not strings, not other numbers)
 - Latency histogram has standard buckets
@@ -295,7 +352,7 @@ datasources:
 **Test Query:**
 ```promql
 # Should return your service topology
-group by (name, namespace, dependency, type, host, port, critical, isentry) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
 ```
 
 ---

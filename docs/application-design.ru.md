@@ -21,23 +21,29 @@ dephealth-ui — веб-приложение для визуализации т�
 |---------|-----|----------|----------|
 | `app_dependency_health` | Gauge | `1` (здоров) / `0` (недоступен) | Состояние зависимости |
 | `app_dependency_latency_seconds` | Histogram | секунды | Latency health check зависимости |
+| `app_dependency_status` | Gauge (enum) | `1` (активен) / `0` (неактивен) | Активная категория статуса на endpoint (SDK v0.4.0+) |
+| `app_dependency_status_detail` | Gauge (info) | `1` | Детальное описание статуса в метке `detail` (SDK v0.4.0+) |
 
 Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
+Значения статуса: `ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`
+
 ### Labels (одинаковые для обеих метрик)
 
-| Label | Обязательный | Описание | Пример |
-|-------|:---:|----------|--------|
-| `name` | да | Имя приложения (из SDK) | `uniproxy-01` |
-| `dependency` | да | Логическое имя зависимости | `postgres-main` |
-| `type` | да | Тип подключения | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka` |
-| `host` | да | Адрес endpoint | `pg-master.db.svc.cluster.local` |
-| `port` | да | Порт endpoint | `5432` |
-| `critical` | да | Критичность зависимости | `yes`, `no` |
-| `isentry` | нет | Отмечает сервис как точку входа | `yes` |
-| `role` | нет | Роль экземпляра | `primary`, `replica` |
-| `shard` | нет | Идентификатор shard | `shard-01` |
-| `vhost` | нет | AMQP virtual host | `/` |
+| Label | Источник | Описание | Пример |
+|-------|:--------:|----------|--------|
+| `name` | SDK ✅ | Имя приложения (из SDK) | `uniproxy-01` |
+| `group` | SDK ✅ | Логическая группа сервиса (обязательна с SDK v0.5.0; dephealth-ui работает и без неё) | `billing-team` |
+| `dependency` | SDK ✅ | Логическое имя зависимости | `postgres-main` |
+| `type` | SDK ✅ | Тип подключения | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap` |
+| `host` | SDK ✅ | Адрес endpoint | `pg-master.db.svc.cluster.local` |
+| `port` | SDK ✅ | Порт endpoint | `5432` |
+| `critical` | SDK ✅ | Критичность зависимости | `yes`, `no` |
+| `namespace` | Prometheus | Kubernetes namespace (не часть SDK; добавляется Prometheus при scrape) | `production` |
+| `isentry` | Custom | Отмечает сервис как точку входа (не часть SDK; рекомендуется для dephealth-ui) | `yes` |
+| `role` | Custom | Роль экземпляра | `primary`, `replica` |
+| `shard` | Custom | Идентификатор shard | `shard-01` |
+| `vhost` | Custom | AMQP virtual host | `/` |
 
 ### Модель графа
 
@@ -93,7 +99,7 @@ Dependency-узлы (нецелевые сервисы — базы данных
 
 - **Сетевая изоляция:** приложение развёртывается **отдельно** от стека мониторинга. Prometheus/VictoriaMetrics и AlertManager находятся в другой сети, недоступной из браузеров пользователей.
 - **Масштаб:** 100+ сервисов с dephealth SDK, тысячи рёбер зависимостей.
-- **Аутентификация:** настраивается в конфигурации — без auth (внутренний инструмент), Basic auth или OIDC/SSO (Keycloak, LDAP).
+- **Аутентификация:** настраивается в конфигурации — без auth (внутренний инструмент), Basic auth, OIDC/SSO (Keycloak) или LDAP (direct bind / search bind).
 
 **Следствие:** чистое SPA-приложение с Nginx-проксированием к Prometheus **невозможно**. Необходим серверный backend, который обращается к Prometheus/AlertManager и отдаёт фронтенду готовые данные графа.
 
@@ -132,6 +138,7 @@ Dependency-узлы (нецелевые сервисы — базы данных
 │  │  type: "none"  → открытый      │ │  ← Настраивается через YAML/env
 │  │  type: "basic" → user/password │ │
 │  │  type: "oidc"  → SSO/Keycloak │ │
+│  │  type: "ldap"  → LDAP bind    │ │
 │  └────────────────────────────────┘ │
 └──────────┬──────────────┬───────────┘
            │              │
@@ -168,7 +175,7 @@ Dependency-узлы (нецелевые сервисы — базы данных
 | **Вычисление состояний** | Корреляция метрик + алертов → OK / DEGRADED / DOWN для каждого узла и ребра |
 | **Кэширование** | In-memory cache с настраиваемым TTL (по умолчанию 15с). Один цикл запросов к Prometheus обслуживает всех подключённых пользователей |
 | **Генерация Grafana URL** | Формирование URL dashboards с правильными query-параметрами из конфигурации |
-| **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation) |
+| **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation), LDAP (direct bind / search bind с формой логина) |
 | **Раздача static-файлов** | SPA-ассеты встроены через Go `embed` package, раздаются по `/` |
 | **Экспорт графа** | Мультиформатный экспорт (JSON, CSV, DOT, PNG, SVG) через пакет `internal/export`; интеграция с Graphviz для рендеринга изображений |
 
@@ -336,7 +343,7 @@ cache:
   ttl: 15s
 
 auth:
-  type: "none"   # "none" | "basic" | "oidc"
+  type: "none"   # "none" | "basic" | "oidc" | "ldap"
 
 grafana:
   baseUrl: "https://grafana.example.com"

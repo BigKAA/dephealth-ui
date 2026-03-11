@@ -32,15 +32,21 @@ This directory contains comprehensive documentation for **dephealth-ui** — a r
 **Metrics Required:**
 - `app_dependency_health` — Gauge (0/1) indicating dependency health status
 - `app_dependency_latency_seconds` — Histogram measuring health check latency
+- `app_dependency_status` — Gauge (enum pattern) with active status category (SDK v0.4.0+)
+- `app_dependency_status_detail` — Gauge (info pattern) with detailed status description (SDK v0.4.0+)
 
-**Mandatory Labels:**
+**SDK Labels (required):**
 - `name` — Service name
-- `namespace` — Kubernetes namespace
+- `group` — Logical service group (required since SDK v0.5.0; dephealth-ui works without it)
 - `dependency` — Logical dependency name
-- `type` — Connection type (http, grpc, postgres, redis, etc.)
+- `type` — Connection type (`http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap`)
 - `host` — Target endpoint hostname
 - `port` — Target endpoint port
-- `critical` — Criticality flag (yes/no)
+- `critical` — Criticality flag (`yes`/`no`)
+
+**Additional labels (not from SDK):**
+- `namespace` — Kubernetes namespace (added by Prometheus; recommended for non-K8s deployments)
+- `isentry` — Entry point marker (recommended for dephealth-ui)
 
 **Integration Flow:**
 ```

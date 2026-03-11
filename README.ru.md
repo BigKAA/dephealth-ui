@@ -1,6 +1,6 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.19.1-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.20.2-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
 [![Helm Chart](https://img.shields.io/badge/helm-0.10.0-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
@@ -82,7 +82,7 @@
 - Поддержка тёмной темы
 
 ✅ **Enterprise-ready**
-- Несколько режимов аутентификации (none, Basic, OIDC/SSO)
+- Несколько режимов аутентификации (none, Basic, OIDC/SSO, LDAP)
 - CORS для браузерных клиентов
 - Серверное кэширование (настраиваемый TTL)
 - Multi-arch Docker образы (amd64, arm64)
@@ -118,7 +118,7 @@
 │  │ In-memory Cache (TTL)        │   │
 │  └──────────────────────────────┘   │
 │  ┌──────────────────────────────┐   │
-│  │ Auth (none/basic/oidc)       │   │  ← Подключаемый
+│  │ Auth (none/basic/oidc/ldap)  │   │  ← Подключаемый
 │  └──────────────────────────────┘   │
 └──────────┬───────────────────────────┘
            │
@@ -224,7 +224,7 @@ cache:
   ttl: 15s  # Время жизни кэша топологии
 
 auth:
-  type: "none"  # Варианты: "none", "basic", "oidc"
+  type: "none"  # Варианты: "none", "basic", "oidc", "ldap"
 
   # Basic-аутентификация
   # basic:
@@ -238,6 +238,21 @@ auth:
   #   clientId: "dephealth-ui"
   #   clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
   #   redirectUrl: "https://dephealth.example.com/auth/callback"
+
+  # LDAP-аутентификация
+  # ldap:
+  #   url: "ldap://ldap.example.com:389"       # или ldaps://
+  #   startTLS: false
+  #   baseDN: "ou=people,dc=example,dc=com"
+  #   userFilter: "(uid={{.Username}})"
+  #   # Search bind (опциональный сервисный аккаунт):
+  #   # bindDN: "cn=readonly,dc=example,dc=com"
+  #   # bindPassword: "secret"
+  #   # Ограничение по группам (опционально):
+  #   # groupBaseDN: "ou=groups,dc=example,dc=com"
+  #   # groupFilter: "(member={{.UserDN}})"
+  #   # allowedGroups:
+  #   #   - "cn=dephealth-users,ou=groups,dc=example,dc=com"
 
 alerts:
   severityLabel: "severity"  # Метка AlertManager для severity
@@ -303,20 +318,21 @@ LOG_ADD_SOURCE="false"
 
 ## Необходимые метрики
 
-dephealth-ui требует метрики от сервисов, инструментированных [dephealth SDK](https://github.com/BigKAA/topologymetrics) (v0.4.1+):
+dephealth-ui требует метрики от сервисов, инструментированных [dephealth SDK](https://github.com/BigKAA/topologymetrics) (v0.4.0+):
 
 ### 1. `app_dependency_health` (Gauge)
 
 Состояние здоровья endpoint'ов зависимостей (1=UP, 0=DOWN).
 
-**Обязательные метки:**
+**Метки SDK:**
 - `name` — имя сервиса
-- `namespace` — Kubernetes namespace
+- `group` — логическая группа сервиса (обязательна с SDK v0.5.0; dephealth-ui работает и без неё)
 - `dependency` — логическое имя зависимости
-- `type` — тип соединения (http, grpc, postgres, redis и т.д.)
+- `type` — тип соединения (`http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap`)
 - `host` — hostname целевого endpoint'а
 - `port` — порт целевого endpoint'а
-- `critical` — флаг критичности (yes/no)
+- `critical` — флаг критичности (`yes`/`no`)
+- `namespace` — добавляется Prometheus (не SDK); рекомендуется использовать вне K8s для единообразия
 
 **Пример:**
 ```prometheus
@@ -327,13 +343,13 @@ app_dependency_health{name="order-service",namespace="prod",dependency="postgres
 
 Latency health check'ов в секундах со стандартными bucket'ами: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
-### 3. `app_dependency_status` (Enum)
+### 3. `app_dependency_status` (Gauge, enum-паттерн)
 
-Активное состояние зависимости (ok, degraded, down и т.д.). Используется для отслеживания переходов состояний на timeline.
+Активная категория статуса зависимости (`ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`). Ровно одна серия на endpoint имеет значение `1`. Используется для отслеживания переходов состояний на timeline.
 
-### 4. `app_dependency_status_detail` (Info)
+### 4. `app_dependency_status_detail` (Gauge, info-паттерн)
 
-Info-pattern метрика с детальным описанием зависимости и метаданными.
+Детальное описание статуса. Значение всегда `1`, метка `detail` содержит причину (например, `http_503`, `connection_refused`).
 
 **Полная спецификация:** [docs/METRICS.ru.md](./docs/METRICS.ru.md)
 
@@ -421,7 +437,7 @@ dephealth-ui/
 │   ├── server/               # HTTP-сервер + маршруты
 │   ├── topology/             # Сервис топологии (Prometheus-запросы)
 │   ├── alerts/               # Интеграция с AlertManager
-│   ├── auth/                 # Аутентификация (none/basic/oidc)
+│   ├── auth/                 # Аутентификация (none/basic/oidc/ldap)
 │   └── cache/                # In-memory кэш с TTL
 ├── frontend/                  # Vite + Cytoscape.js SPA
 │   ├── src/                  # JavaScript-модули (graph, sidebar, grouping, i18n и др.)
