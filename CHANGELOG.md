@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.20.1] - 2026-03-11
 
+### Added
+
+- **Favicon** — SVG favicon with orange topology graph icon (connected nodes)
+
 ### Fixed
 
 - **Prometheus URL path prefix** — preserve base path from Prometheus/VictoriaMetrics URL when building API query paths (e.g. multi-tenant VictoriaMetrics URLs like `/select/<id>/prometheus`)
