@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.20.1] - 2026-03-11
+## [0.20.2] - 2026-03-11
 
 ### Added
 
 - **Favicon** — SVG favicon with orange topology graph icon (connected nodes)
+
+## [0.20.1] - 2026-03-11
 
 ### Fixed
 
