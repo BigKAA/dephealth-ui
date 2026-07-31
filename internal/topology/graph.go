@@ -23,12 +23,6 @@ type GrafanaConfig struct {
 	LinksStatusDashUID    string
 }
 
-// depAlertKey maps alert labels (name + dependency name) to find the corresponding edge.
-type depAlertKey struct {
-	Name       string
-	Dependency string
-}
-
 // GraphBuilder constructs a TopologyResponse from Prometheus and AlertManager data.
 type GraphBuilder struct {
 	prom           PrometheusClient
@@ -166,7 +160,7 @@ func (b *GraphBuilder) buildGraph(
 	currentEdgeKeys map[EdgeKey]bool,
 	depStatus map[EdgeKey]string,
 	depStatusDetail map[EdgeKey]string,
-) ([]Node, []Edge, map[depAlertKey]string) {
+) ([]Node, []Edge, map[EdgeKey]string) {
 	// First pass: collect all known service names (sources that report metrics).
 	serviceNames := make(map[string]bool)
 	for _, e := range rawEdges {
@@ -190,31 +184,33 @@ func (b *GraphBuilder) buildGraph(
 	nodeOutgoingHealth := make(map[string][]edgeHealthInfo)
 	nodeIncomingHealth := make(map[string][]float64)
 
-	// Build unique edges keyed by {Name, Host, Port}.
+	// Build unique edges keyed by {Name, Dependency} — a real connection is
+	// identified by the dependency name, not by the transport endpoint.
 	edgeMap := make(map[EdgeKey]TopologyEdge)
 
 	// Reverse lookup: (name, dependency_name) → target node ID for alert matching.
-	depLookup := make(map[depAlertKey]string)
+	depLookup := make(map[EdgeKey]string)
 
 	// resolveTarget returns the target node ID for a dependency edge.
 	// If the dependency name matches a known service, link to that service node
-	// to build a connected (through) graph. Otherwise, use host:port to
-	// deduplicate dependency nodes that represent the same physical endpoint.
+	// to build a connected (through) graph. Otherwise, build a composite
+	// "source/dependency" node id: distinct dependencies (even those sharing the
+	// same host:port behind an ingress/proxy) must produce distinct nodes.
 	resolveTarget := func(e TopologyEdge) string {
 		if serviceNames[e.Dependency] {
 			return e.Dependency
 		}
-		return e.Host + ":" + e.Port
+		return e.Name + "/" + e.Dependency
 	}
 
 	for _, e := range rawEdges {
-		key := EdgeKey{Name: e.Name, Host: e.Host, Port: e.Port}
+		key := EdgeKey{Name: e.Name, Dependency: e.Dependency}
 		edgeMap[key] = e
 
 		depNodeID := resolveTarget(e)
 
 		// Build reverse lookup for alerts: maps (name, dependency) → target node ID.
-		depLookup[depAlertKey{Name: e.Name, Dependency: e.Dependency}] = depNodeID
+		depLookup[EdgeKey{Name: e.Name, Dependency: e.Dependency}] = depNodeID
 
 		// Register source node (service).
 		if _, ok := nodeMap[e.Name]; !ok {
@@ -545,7 +541,7 @@ func (b *GraphBuilder) linkGrafanaURL(dependency, host, port string) string {
 // enrichWithAlerts applies alert-based state overrides to edges and nodes,
 // computes alertCount and alertSeverity for nodes and edges,
 // and returns the list of topology-mapped AlertInfo entries.
-func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []alerts.Alert, depLookup map[depAlertKey]string) []AlertInfo {
+func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []alerts.Alert, depLookup map[EdgeKey]string) []AlertInfo {
 	if len(fetched) == 0 {
 		return []AlertInfo{}
 	}
@@ -597,7 +593,7 @@ func (b *GraphBuilder) enrichWithAlerts(nodes []Node, edges []Edge, fetched []al
 		// Translate alert labels (name, dependency_name) to edge via reverse lookup.
 		// depLookup maps (service, dependency) → target node ID (works for both
 		// dependency nodes and service-to-service edges).
-		alertKey := depAlertKey{Name: a.Service, Dependency: a.Dependency}
+		alertKey := EdgeKey{Name: a.Service, Dependency: a.Dependency}
 		targetNodeID, ok := depLookup[alertKey]
 		if !ok {
 			continue

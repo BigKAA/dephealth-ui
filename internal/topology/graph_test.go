@@ -111,14 +111,14 @@ func TestGraphBuilder_Build(t *testing.T) {
 			{Name: "svc-python", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:     1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}:          0,
-			{Name: "svc-python", Host: "pg-primary", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}:     1,
+			{Name: "svc-go", Dependency: "redis"}:        0,
+			{Name: "svc-python", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg-primary", Port: "5432"}:     0.0052,
-			{Name: "svc-go", Host: "redis", Port: "6379"}:          0.001,
-			{Name: "svc-python", Host: "pg-primary", Port: "5432"}: 0.003,
+			{Name: "svc-go", Dependency: "postgres"}:     0.0052,
+			{Name: "svc-go", Dependency: "redis"}:        0.001,
+			{Name: "svc-python", Dependency: "postgres"}: 0.003,
 		},
 	}
 
@@ -134,13 +134,13 @@ func TestGraphBuilder_Build(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// Nodes: svc-go, svc-python, pg-primary:5432, redis:6379 = 4
-	// (same host:port merges into one dependency node)
-	if len(resp.Nodes) != 4 {
-		t.Errorf("got %d nodes, want 4", len(resp.Nodes))
+	// Nodes: svc-go, svc-python, svc-go/postgres, svc-go/redis, svc-python/postgres = 5
+	// (composite "source/dependency" ids: distinct per service→dependency pair).
+	if len(resp.Nodes) != 5 {
+		t.Errorf("got %d nodes, want 5", len(resp.Nodes))
 	}
 
-	// Edges: svc-go→pg-primary:5432, svc-go→redis:6379, svc-python→pg-primary:5432 = 3
+	// Edges: svc-go→svc-go/postgres, svc-go→svc-go/redis, svc-python→svc-python/postgres = 3.
 	if len(resp.Edges) != 3 {
 		t.Errorf("got %d edges, want 3", len(resp.Edges))
 	}
@@ -149,8 +149,8 @@ func TestGraphBuilder_Build(t *testing.T) {
 	if resp.Meta.TTL != 15 {
 		t.Errorf("Meta.TTL = %d, want 15", resp.Meta.TTL)
 	}
-	if resp.Meta.NodeCount != 4 {
-		t.Errorf("Meta.NodeCount = %d, want 4", resp.Meta.NodeCount)
+	if resp.Meta.NodeCount != 5 {
+		t.Errorf("Meta.NodeCount = %d, want 5", resp.Meta.NodeCount)
 	}
 
 	// Find specific nodes by ID.
@@ -188,33 +188,33 @@ func TestGraphBuilder_Build(t *testing.T) {
 		t.Errorf("svc-python.State = %q, want %q", n.State, "ok")
 	}
 
-	// pg-primary:5432 — dependency node with 2 incoming healthy edges → ok.
-	if n, ok := nodeByID["pg-primary:5432"]; !ok {
-		t.Error("missing pg-primary:5432 node")
+	// svc-go/postgres — dependency node with 1 incoming healthy edge → ok.
+	if n, ok := nodeByID["svc-go/postgres"]; !ok {
+		t.Error("missing svc-go/postgres node")
 	} else {
 		if n.State != "ok" {
-			t.Errorf("pg-primary:5432.State = %q, want %q", n.State, "ok")
+			t.Errorf("svc-go/postgres.State = %q, want %q", n.State, "ok")
 		}
 		if n.Type != "postgres" {
-			t.Errorf("pg-primary:5432.Type = %q, want %q", n.Type, "postgres")
+			t.Errorf("svc-go/postgres.Type = %q, want %q", n.Type, "postgres")
 		}
 		if n.Label != "postgres" {
-			t.Errorf("pg-primary:5432.Label = %q, want %q", n.Label, "postgres")
+			t.Errorf("svc-go/postgres.Label = %q, want %q", n.Label, "postgres")
 		}
 		if n.Host != "pg-primary" {
-			t.Errorf("pg-primary:5432.Host = %q, want %q", n.Host, "pg-primary")
+			t.Errorf("svc-go/postgres.Host = %q, want %q", n.Host, "pg-primary")
 		}
 		if n.Port != "5432" {
-			t.Errorf("pg-primary:5432.Port = %q, want %q", n.Port, "5432")
+			t.Errorf("svc-go/postgres.Port = %q, want %q", n.Port, "5432")
 		}
 	}
 
-	// redis:6379 — dependency node with 1 incoming down edge → down.
-	if n, ok := nodeByID["redis:6379"]; !ok {
-		t.Error("missing redis:6379 node")
+	// svc-go/redis — dependency node with 1 incoming down edge → down.
+	if n, ok := nodeByID["svc-go/redis"]; !ok {
+		t.Error("missing svc-go/redis node")
 	} else {
 		if n.State != "down" {
-			t.Errorf("redis:6379.State = %q, want %q", n.State, "down")
+			t.Errorf("svc-go/redis.State = %q, want %q", n.State, "down")
 		}
 	}
 
@@ -228,28 +228,31 @@ func TestGraphBuilder_Build(t *testing.T) {
 	}
 
 	// Check critical flag on edges.
-	if e, ok := edgeByTarget["svc-go→pg-primary:5432"]; ok {
+	if e, ok := edgeByTarget["svc-go→svc-go/postgres"]; ok {
 		if !e.Critical {
-			t.Errorf("edge svc-go→pg-primary:5432 Critical = false, want true")
+			t.Errorf("edge svc-go→svc-go/postgres Critical = false, want true")
 		}
 	}
-	if e, ok := edgeByTarget["svc-go→redis:6379"]; ok {
+	if e, ok := edgeByTarget["svc-go→svc-go/redis"]; ok {
 		if e.Critical {
-			t.Errorf("edge svc-go→redis:6379 Critical = true, want false")
+			t.Errorf("edge svc-go→svc-go/redis Critical = true, want false")
 		}
 	}
 }
 
-func TestDepNodeDedup_SameEndpointMerges(t *testing.T) {
-	// Two services connecting to the same host:port (no group) produce one dep node.
+func TestDepNode_SameEndpointDifferentDependency_NotMerged(t *testing.T) {
+	// Two services connect to the same host:port but reference distinct
+	// dependency names. A real connection is identified by the dependency
+	// name, not the shared transport endpoint, so each pair must produce its
+	// own node — they must NOT be merged.
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
 			{Name: "svc-go", Dependency: "my-redis", Type: "redis", Host: "redis-host", Port: "6379"},
 			{Name: "svc-python", Dependency: "redis-cache", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "redis-host", Port: "6379"}:     1,
-			{Name: "svc-python", Host: "redis-host", Port: "6379"}: 0,
+			{Name: "svc-go", Dependency: "my-redis"}:     1,
+			{Name: "svc-python", Dependency: "redis-cache"}: 0,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -260,12 +263,12 @@ func TestDepNodeDedup_SameEndpointMerges(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// Nodes: svc-go, svc-python, redis-host:6379 = 3 (merged!)
-	if len(resp.Nodes) != 3 {
-		t.Errorf("got %d nodes, want 3 (same host:port merges)", len(resp.Nodes))
+	// Nodes: svc-go, svc-python, svc-go/my-redis, svc-python/redis-cache = 4 (NOT merged).
+	if len(resp.Nodes) != 4 {
+		t.Errorf("got %d nodes, want 4 (same host:port, different dependency → not merged)", len(resp.Nodes))
 	}
 
-	// Edges: 2 (each service has its own edge to the shared dep node)
+	// Edges: 2 (one per service→dependency pair).
 	if len(resp.Edges) != 2 {
 		t.Errorf("got %d edges, want 2", len(resp.Edges))
 	}
@@ -275,27 +278,32 @@ func TestDepNodeDedup_SameEndpointMerges(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	// redis-host:6379: 1 healthy + 1 down incoming → degraded.
-	depNode, ok := nodeByID["redis-host:6379"]
-	if !ok {
-		t.Fatal("missing redis-host:6379 node")
+	// Each dependency node has a single incoming edge, so it reflects its own health.
+	if dep, ok := nodeByID["svc-go/my-redis"]; !ok {
+		t.Fatal("missing svc-go/my-redis node")
+	} else if dep.State != "ok" {
+		t.Errorf("svc-go/my-redis.State = %q, want ok", dep.State)
 	}
-	if depNode.State != "degraded" {
-		t.Errorf("redis-host:6379.State = %q, want %q", depNode.State, "degraded")
+	if dep, ok := nodeByID["svc-python/redis-cache"]; !ok {
+		t.Fatal("missing svc-python/redis-cache node")
+	} else if dep.State != "down" {
+		t.Errorf("svc-python/redis-cache.State = %q, want down", dep.State)
 	}
 }
 
-func TestDepNodeDedup_DifferentGroupsMerge(t *testing.T) {
-	// Same host:port from different groups → single merged node.
-	// Physical endpoint identity is determined by host:port alone.
+func TestDepNode_SameDependencyDifferentService_NotMerged(t *testing.T) {
+	// Two services depend on the same dependency name ("postgres") reached via
+	// the same host:port from different groups. Because the dependency node id
+	// is composite ("source/dependency"), each service gets its own dep node
+	// with independent health.
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
 			{Name: "svc-a", Group: "cluster-1", Dependency: "postgres", Type: "postgres", Host: "postgresql.db.svc", Port: "5432"},
 			{Name: "svc-b", Group: "cluster-2", Dependency: "postgres", Type: "postgres", Host: "postgresql.db.svc", Port: "5432"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-a", Host: "postgresql.db.svc", Port: "5432"}: 1,
-			{Name: "svc-b", Host: "postgresql.db.svc", Port: "5432"}: 0,
+			{Name: "svc-a", Dependency: "postgres"}: 1,
+			{Name: "svc-b", Dependency: "postgres"}: 0,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -306,9 +314,9 @@ func TestDepNodeDedup_DifferentGroupsMerge(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// Nodes: svc-a, svc-b, postgresql.db.svc:5432 = 3 (merged!)
-	if len(resp.Nodes) != 3 {
-		t.Errorf("got %d nodes, want 3 (same host:port merges across groups)", len(resp.Nodes))
+	// Nodes: svc-a, svc-b, svc-a/postgres, svc-b/postgres = 4 (NOT merged).
+	if len(resp.Nodes) != 4 {
+		t.Errorf("got %d nodes, want 4 (composite dep node id, not merged)", len(resp.Nodes))
 	}
 
 	nodeByID := make(map[string]Node)
@@ -316,18 +324,85 @@ func TestDepNodeDedup_DifferentGroupsMerge(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	// postgresql.db.svc:5432: 1 healthy + 1 down → degraded.
-	depNode, ok := nodeByID["postgresql.db.svc:5432"]
-	if !ok {
-		t.Fatal("missing postgresql.db.svc:5432 node")
+	// Each dep node reflects its single incoming edge's health.
+	if dep, ok := nodeByID["svc-a/postgres"]; !ok {
+		t.Fatal("missing svc-a/postgres node")
+	} else if dep.State != "ok" {
+		t.Errorf("svc-a/postgres.State = %q, want ok", dep.State)
 	}
-	if depNode.State != "degraded" {
-		t.Errorf("postgresql.db.svc:5432.State = %q, want degraded", depNode.State)
+	if dep, ok := nodeByID["svc-b/postgres"]; !ok {
+		t.Fatal("missing svc-b/postgres node")
+	} else if dep.State != "down" {
+		t.Errorf("svc-b/postgres.State = %q, want down", dep.State)
+	}
+}
+
+func TestDepNode_SameHost_DifferentDependencies_NotCollapsed(t *testing.T) {
+	// Regression: a single service (nginx-back-app1) reaches four DISTINCT
+	// dependencies behind one shared ingress endpoint (same host:port, e.g. from
+	// a reverse proxy). Edges are keyed by (service, dependency), so each
+	// dependency must produce its own node and edge — they must NOT collapse.
+	const (
+		src  = "nginx-back-app1"
+		host = "smart.prod-dc-cloud2.passport.local"
+		port = "80"
+	)
+	deps := []string{"app-mkaddh-bpm", "app-mkaddh-order", "app-oasi-agr", "app-oasi-pkr"}
+
+	edges := make([]TopologyEdge, 0, len(deps))
+	health := make(map[EdgeKey]float64, len(deps))
+	avg := make(map[EdgeKey]float64, len(deps))
+	for _, d := range deps {
+		edges = append(edges, TopologyEdge{
+			Name: src, Group: "oasi", Dependency: d, Type: "http", Host: host, Port: port, Critical: true,
+		})
+		health[EdgeKey{Name: src, Dependency: d}] = 1
+		avg[EdgeKey{Name: src, Dependency: d}] = 0.01
+	}
+
+	mock := &mockPrometheusClient{edges: edges, health: health, avg: avg}
+	builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+	resp, err := builder.Build(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+
+	// 1 service node + 4 dependency nodes.
+	if len(resp.Nodes) != 5 {
+		t.Errorf("got %d nodes, want 5 (1 service + 4 distinct deps)", len(resp.Nodes))
+	}
+
+	// Exactly 4 edges from the service, one per dependency.
+	var out []Edge
+	for _, e := range resp.Edges {
+		if e.Source == src {
+			out = append(out, e)
+		}
+	}
+	if len(out) != 4 {
+		t.Fatalf("got %d edges from %s, want 4", len(out), src)
+	}
+
+	// Each edge targets a distinct composite "source/dependency" id, and each
+	// shares the same host:port — proving the shared endpoint was not used as the id.
+	seen := make(map[string]bool, len(out))
+	for _, e := range out {
+		if seen[e.Target] {
+			t.Errorf("duplicate edge target %q (deps must not collapse)", e.Target)
+		}
+		seen[e.Target] = true
+	}
+	for _, d := range deps {
+		id := src + "/" + d
+		if !seen[id] {
+			t.Errorf("missing expected composite target %q", id)
+		}
 	}
 }
 
 func TestDependencyNodeColoring(t *testing.T) {
-	// With host:port node IDs, each dep node state depends on incoming edge health.
+	// With composite "source/dependency" node ids, each dep node state depends
+	// on incoming edge health.
 	tests := []struct {
 		name      string
 		edges     []TopologyEdge
@@ -341,9 +416,9 @@ func TestDependencyNodeColoring(t *testing.T) {
 				{Name: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
 			},
 			health: map[EdgeKey]float64{
-				{Name: "svc-a", Host: "pg", Port: "5432"}: 1,
+				{Name: "svc-a", Dependency: "pg"}: 1,
 			},
-			depNodeID: "pg:5432",
+			depNodeID: "svc-a/pg",
 			wantState: "ok",
 		},
 		{
@@ -352,9 +427,9 @@ func TestDependencyNodeColoring(t *testing.T) {
 				{Name: "svc-a", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
 			},
 			health: map[EdgeKey]float64{
-				{Name: "svc-a", Host: "pg", Port: "5432"}: 0,
+				{Name: "svc-a", Dependency: "pg"}: 0,
 			},
-			depNodeID: "pg:5432",
+			depNodeID: "svc-a/pg",
 			wantState: "down",
 		},
 		{
@@ -363,9 +438,9 @@ func TestDependencyNodeColoring(t *testing.T) {
 				{Name: "svc-a", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
 			},
 			health: map[EdgeKey]float64{
-				{Name: "svc-a", Host: "redis", Port: "6379"}: 0,
+				{Name: "svc-a", Dependency: "redis"}: 0,
 			},
-			depNodeID: "redis:6379",
+			depNodeID: "svc-a/redis",
 			wantState: "down",
 		},
 	}
@@ -555,12 +630,12 @@ func TestBuildWithAlerts(t *testing.T) {
 			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
+			{Name: "svc-go", Dependency: "redis"}:    1,
 		},
 		avg: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    0.005,
-			{Name: "svc-go", Host: "redis", Port: "6379"}: 0.001,
+			{Name: "svc-go", Dependency: "postgres"}: 0.005,
+			{Name: "svc-go", Dependency: "redis"}:    0.001,
 		},
 	}
 
@@ -591,30 +666,30 @@ func TestBuildWithAlerts(t *testing.T) {
 		t.Errorf("Alerts[0].AlertName = %q, want %q", resp.Alerts[0].AlertName, "DependencyDown")
 	}
 
-	// Edge svc-go→pg:5432 should be overridden to "down".
+	// Edge svc-go→svc-go/postgres should be overridden to "down".
 	edgeByTarget := make(map[string]Edge)
 	for _, e := range resp.Edges {
 		edgeByTarget[e.Target] = e
 	}
 
-	pgEdge := edgeByTarget["pg:5432"]
+	pgEdge := edgeByTarget["svc-go/postgres"]
 	if pgEdge.State != "down" {
-		t.Errorf("pg:5432 edge State = %q, want %q", pgEdge.State, "down")
+		t.Errorf("svc-go/postgres edge State = %q, want %q", pgEdge.State, "down")
 	}
 	if pgEdge.Health != 0 {
-		t.Errorf("pg:5432 edge Health = %v, want 0", pgEdge.Health)
+		t.Errorf("svc-go/postgres edge Health = %v, want 0", pgEdge.Health)
 	}
 	if pgEdge.AlertCount != 1 {
-		t.Errorf("pg:5432 edge AlertCount = %d, want 1", pgEdge.AlertCount)
+		t.Errorf("svc-go/postgres edge AlertCount = %d, want 1", pgEdge.AlertCount)
 	}
 	if pgEdge.AlertSeverity != "critical" {
-		t.Errorf("pg:5432 edge AlertSeverity = %q, want %q", pgEdge.AlertSeverity, "critical")
+		t.Errorf("svc-go/postgres edge AlertSeverity = %q, want %q", pgEdge.AlertSeverity, "critical")
 	}
 
 	// redis edge should have no alerts.
-	redisEdge := edgeByTarget["redis:6379"]
+	redisEdge := edgeByTarget["svc-go/redis"]
 	if redisEdge.AlertCount != 0 {
-		t.Errorf("redis:6379 edge AlertCount = %d, want 0", redisEdge.AlertCount)
+		t.Errorf("svc-go/redis edge AlertCount = %d, want 0", redisEdge.AlertCount)
 	}
 
 	// svc-go: alert forces critical pg edge down → service is "degraded"
@@ -640,7 +715,7 @@ func TestBuildWithNilAlertManager(t *testing.T) {
 			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -667,8 +742,8 @@ func TestGraphBuilder_ConnectedGraph(t *testing.T) {
 			{Name: "uniproxy-02", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis.ns2.svc", Port: "6379", Critical: false},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "uniproxy-01", Host: "uniproxy-02.ns1.svc", Port: "8080"}: 1,
-			{Name: "uniproxy-02", Host: "redis.ns2.svc", Port: "6379"}:       1,
+			{Name: "uniproxy-01", Dependency: "uniproxy-02"}: 1,
+			{Name: "uniproxy-02", Dependency: "redis"}:       1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -679,7 +754,7 @@ func TestGraphBuilder_ConnectedGraph(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// Nodes: uniproxy-01, uniproxy-02, redis.ns2.svc:6379 = 3 (NOT 4!)
+	// Nodes: uniproxy-01, uniproxy-02, uniproxy-02/redis = 3 (NOT 4!)
 	if len(resp.Nodes) != 3 {
 		t.Errorf("got %d nodes, want 3 (uniproxy-02 should be a single service node)", len(resp.Nodes))
 		for _, n := range resp.Nodes {
@@ -699,9 +774,10 @@ func TestGraphBuilder_ConnectedGraph(t *testing.T) {
 		t.Errorf("uniproxy-02.Type = %q, want %q", n.Type, "service")
 	}
 
-	// No separate host:port node for uniproxy-02.
-	if _, ok := nodeByID["uniproxy-02.ns1.svc:8080"]; ok {
-		t.Error("unexpected separate dependency node uniproxy-02.ns1.svc:8080; should be merged into service node")
+	// No separate composite node for uniproxy-02 (it is a known service, so it
+	// connects into the service node rather than spawning uniproxy-01/uniproxy-02).
+	if _, ok := nodeByID["uniproxy-01/uniproxy-02"]; ok {
+		t.Error("unexpected separate dependency node uniproxy-01/uniproxy-02; should be merged into service node")
 	}
 
 	// Edge from uniproxy-01 should target the service node "uniproxy-02".
@@ -717,9 +793,9 @@ func TestGraphBuilder_ConnectedGraph(t *testing.T) {
 		}
 	}
 
-	// Edge from uniproxy-02 to redis should use host:port format.
-	if _, ok := edgeByKey["uniproxy-02→redis.ns2.svc:6379"]; !ok {
-		t.Error("missing edge uniproxy-02→redis.ns2.svc:6379")
+	// Edge from uniproxy-02 to redis targets the composite dep node "uniproxy-02/redis".
+	if _, ok := edgeByKey["uniproxy-02→uniproxy-02/redis"]; !ok {
+		t.Error("missing edge uniproxy-02→uniproxy-02/redis")
 	}
 }
 
@@ -731,8 +807,8 @@ func TestGraphBuilder_ConnectedGraphWithAlerts(t *testing.T) {
 			{Name: "svc-b", Namespace: "ns", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-a", Host: "svc-b.ns.svc", Port: "8080"}: 1,
-			{Name: "svc-b", Host: "pg", Port: "5432"}:           1,
+			{Name: "svc-a", Dependency: "svc-b"}:     1,
+			{Name: "svc-b", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -831,12 +907,12 @@ func TestBuildPartialData(t *testing.T) {
 			mock := &mockPrometheusClient{
 				edges: baseEdges,
 				health: map[EdgeKey]float64{
-					{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
-					{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
+					{Name: "svc-go", Dependency: "postgres"}: 1,
+					{Name: "svc-go", Dependency: "redis"}:    1,
 				},
 				avg: map[EdgeKey]float64{
-					{Name: "svc-go", Host: "pg", Port: "5432"}:    0.005,
-					{Name: "svc-go", Host: "redis", Port: "6379"}: 0.001,
+					{Name: "svc-go", Dependency: "postgres"}: 0.005,
+					{Name: "svc-go", Dependency: "redis"}:    0.001,
 				},
 				healthErr: tt.healthErr,
 				avgErr:    tt.avgErr,
@@ -882,7 +958,7 @@ func TestBuildPartialWithAlertFailure(t *testing.T) {
 			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -913,8 +989,8 @@ func TestAlertSeverityPriority(t *testing.T) {
 			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379", Critical: false},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
+			{Name: "svc-go", Dependency: "redis"}:    1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -966,7 +1042,7 @@ func TestAlertSeverityPriority(t *testing.T) {
 		edgeByKey[e.Source+"→"+e.Target] = e
 	}
 
-	pgEdge := edgeByKey["svc-go→pg:5432"]
+	pgEdge := edgeByKey["svc-go→svc-go/postgres"]
 	if pgEdge.AlertSeverity != "critical" {
 		t.Errorf("pg edge AlertSeverity = %q, want %q", pgEdge.AlertSeverity, "critical")
 	}
@@ -974,7 +1050,7 @@ func TestAlertSeverityPriority(t *testing.T) {
 		t.Errorf("pg edge AlertCount = %d, want 1", pgEdge.AlertCount)
 	}
 
-	redisEdge := edgeByKey["svc-go→redis:6379"]
+	redisEdge := edgeByKey["svc-go→svc-go/redis"]
 	if redisEdge.AlertSeverity != "warning" {
 		t.Errorf("redis edge AlertSeverity = %q, want %q", redisEdge.AlertSeverity, "warning")
 	}
@@ -993,8 +1069,8 @@ func TestStaleDetection_AllCurrent(t *testing.T) {
 			{Name: "svc-go", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
+			{Name: "svc-go", Dependency: "redis"}:    1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1030,7 +1106,7 @@ func TestStaleDetection_ServiceDisappears(t *testing.T) {
 		},
 		health: map[EdgeKey]float64{
 			// Only svc-python is current.
-			{Name: "svc-python", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-python", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1064,10 +1140,17 @@ func TestStaleDetection_ServiceDisappears(t *testing.T) {
 		t.Errorf("svc-python.State = %q, want %q", svcPy.State, "ok")
 	}
 
-	// pg:5432: has 1 stale incoming (svc-go) + 1 current incoming (svc-python) → not stale.
-	pgNode := nodeByID["pg:5432"]
-	if pgNode.Stale {
-		t.Errorf("pg:5432.Stale = true, want false (has current incoming edge from svc-python)")
+	// Under composite dep node ids, svc-go and svc-python each get their own
+	// postgres dependency node (postgres is not a known service).
+	// svc-go/postgres: only stale incoming (svc-go) → stale.
+	goPg := nodeByID["svc-go/postgres"]
+	if !goPg.Stale {
+		t.Errorf("svc-go/postgres.Stale = false, want true (only stale incoming edge from svc-go)")
+	}
+	// svc-python/postgres: only current incoming (svc-python) → not stale.
+	pyPg := nodeByID["svc-python/postgres"]
+	if pyPg.Stale {
+		t.Errorf("svc-python/postgres.Stale = true, want false (current incoming edge from svc-python)")
 	}
 
 	// Check stale edge properties.
@@ -1099,7 +1182,7 @@ func TestStaleDetection_PartialStale(t *testing.T) {
 		},
 		health: map[EdgeKey]float64{
 			// Only postgres is current.
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1125,13 +1208,13 @@ func TestStaleDetection_PartialStale(t *testing.T) {
 		t.Errorf("svc-go.State = %q, want %q", svcGo.State, "ok")
 	}
 
-	// redis:6379 — only stale incoming → fully stale.
-	redis := nodeByID["redis:6379"]
+	// svc-go/redis — only stale incoming → fully stale.
+	redis := nodeByID["svc-go/redis"]
 	if !redis.Stale {
-		t.Errorf("redis:6379.Stale = false, want true")
+		t.Errorf("svc-go/redis.Stale = false, want true")
 	}
 	if redis.State != "down" {
-		t.Errorf("redis:6379.State = %q, want %q", redis.State, "down")
+		t.Errorf("svc-go/redis.State = %q, want %q", redis.State, "down")
 	}
 }
 
@@ -1145,7 +1228,7 @@ func TestStaleDetection_ConnectedGraph(t *testing.T) {
 		},
 		health: map[EdgeKey]float64{
 			// svc-a's edge is still live.
-			{Name: "svc-a", Host: "svc-b.ns.svc", Port: "8080"}: 1,
+			{Name: "svc-a", Dependency: "svc-b"}: 1,
 			// svc-b's edge is gone (not in health).
 		},
 		avg: map[EdgeKey]float64{},
@@ -1178,9 +1261,9 @@ func TestStaleDetection_ConnectedGraph(t *testing.T) {
 		t.Errorf("svc-b.State = %q, want down", nodeByID["svc-b"].State)
 	}
 
-	// pg:5432 — only stale incoming → stale.
-	if !nodeByID["pg:5432"].Stale {
-		t.Errorf("pg:5432.Stale = false, want true")
+	// svc-b/postgres — only stale incoming → stale.
+	if !nodeByID["svc-b/postgres"].Stale {
+		t.Errorf("svc-b/postgres.Stale = false, want true")
 	}
 
 	// Edge svc-a → svc-b should use connected graph (target = "svc-b", not host:port).
@@ -1193,10 +1276,10 @@ func TestStaleDetection_ConnectedGraph(t *testing.T) {
 	} else if e.Stale {
 		t.Error("edge svc-a→svc-b should NOT be stale (current health exists)")
 	}
-	if e, ok := edgeByKey["svc-b→pg:5432"]; !ok {
-		t.Error("missing edge svc-b→pg:5432")
+	if e, ok := edgeByKey["svc-b→svc-b/postgres"]; !ok {
+		t.Error("missing edge svc-b→svc-b/postgres")
 	} else if !e.Stale {
-		t.Error("edge svc-b→pg:5432 should be stale")
+		t.Error("edge svc-b→svc-b/postgres should be stale")
 	}
 }
 
@@ -1207,7 +1290,7 @@ func TestStaleDetection_LookbackDisabled(t *testing.T) {
 			{Name: "svc-go", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1238,17 +1321,17 @@ func TestBuildWithDependencyStatus(t *testing.T) {
 			{Name: "svc-old", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    1,
-			{Name: "svc-go", Host: "redis", Port: "6379"}: 0,
-			{Name: "svc-old", Host: "pg", Port: "5432"}:   1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
+			{Name: "svc-go", Dependency: "redis"}:    0,
+			{Name: "svc-old", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 		depStatus: map[EdgeKey]string{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:    "ok",
-			{Name: "svc-go", Host: "redis", Port: "6379"}: "timeout",
+			{Name: "svc-go", Dependency: "postgres"}: "ok",
+			{Name: "svc-go", Dependency: "redis"}:    "timeout",
 		},
 		depDetail: map[EdgeKey]string{
-			{Name: "svc-go", Host: "redis", Port: "6379"}: "connection_refused",
+			{Name: "svc-go", Dependency: "redis"}: "connection_refused",
 		},
 	}
 
@@ -1263,8 +1346,8 @@ func TestBuildWithDependencyStatus(t *testing.T) {
 		edgeByKey[e.Source+"→"+e.Target] = e
 	}
 
-	// svc-go → pg:5432: has status=ok, no detail.
-	pgEdge := edgeByKey["svc-go→pg:5432"]
+	// svc-go → svc-go/postgres: has status=ok, no detail.
+	pgEdge := edgeByKey["svc-go→svc-go/postgres"]
 	if pgEdge.Status != "ok" {
 		t.Errorf("pg edge Status = %q, want ok", pgEdge.Status)
 	}
@@ -1272,8 +1355,8 @@ func TestBuildWithDependencyStatus(t *testing.T) {
 		t.Errorf("pg edge Detail = %q, want empty", pgEdge.Detail)
 	}
 
-	// svc-go → redis:6379: has status=timeout, detail=connection_refused.
-	redisEdge := edgeByKey["svc-go→redis:6379"]
+	// svc-go → svc-go/redis: has status=timeout, detail=connection_refused.
+	redisEdge := edgeByKey["svc-go→svc-go/redis"]
 	if redisEdge.Status != "timeout" {
 		t.Errorf("redis edge Status = %q, want timeout", redisEdge.Status)
 	}
@@ -1281,8 +1364,8 @@ func TestBuildWithDependencyStatus(t *testing.T) {
 		t.Errorf("redis edge Detail = %q, want connection_refused", redisEdge.Detail)
 	}
 
-	// svc-old → pg:5432: old SDK, no status/detail (backward compat).
-	oldPgEdge := edgeByKey["svc-old→pg:5432"]
+	// svc-old → svc-old/postgres: old SDK, no status/detail (backward compat).
+	oldPgEdge := edgeByKey["svc-old→svc-old/postgres"]
 	if oldPgEdge.Status != "" {
 		t.Errorf("old pg edge Status = %q, want empty", oldPgEdge.Status)
 	}
@@ -1297,7 +1380,7 @@ func TestBuildWithDependencyStatusQueryFailure(t *testing.T) {
 			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg:          map[EdgeKey]float64{},
 		depStatusErr: errors.New("metric not found"),
@@ -1371,10 +1454,10 @@ func TestGraphBuilder_Build_HistoryMode(t *testing.T) {
 			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg-primary", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg-primary", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg-primary", Port: "5432"}: 0.005,
+			{Name: "svc-go", Dependency: "postgres"}: 0.005,
 		},
 		historicalAlerts: []HistoricalAlert{
 			{AlertName: "DependencyDown", Service: "svc-go", Namespace: "default", Severity: "critical"},
@@ -1423,7 +1506,7 @@ func TestGraphBuilder_Build_HistoryMode_UsesHistoricalAlerts(t *testing.T) {
 			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 		historicalAlerts: []HistoricalAlert{
@@ -1454,7 +1537,7 @@ func TestGraphBuilder_Build_LiveMode_Meta(t *testing.T) {
 			{Name: "svc-go", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1483,8 +1566,8 @@ func TestGroupPropagation(t *testing.T) {
 			{Name: "svc-python", Namespace: "ns1", Group: "cluster-2", Dependency: "redis", Type: "redis", Host: "redis", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "pg", Port: "5432"}:        1,
-			{Name: "svc-python", Host: "redis", Port: "6379"}: 1,
+			{Name: "svc-go", Dependency: "postgres"}:     1,
+			{Name: "svc-python", Dependency: "redis"}:    1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1509,11 +1592,11 @@ func TestGroupPropagation(t *testing.T) {
 	}
 
 	// Dependency nodes should have group from the edge.
-	if nodeByID["pg:5432"].Group != "cluster-1" {
-		t.Errorf("pg:5432.Group = %q, want cluster-1", nodeByID["pg:5432"].Group)
+	if nodeByID["svc-go/postgres"].Group != "cluster-1" {
+		t.Errorf("svc-go/postgres.Group = %q, want cluster-1", nodeByID["svc-go/postgres"].Group)
 	}
-	if nodeByID["redis:6379"].Group != "cluster-2" {
-		t.Errorf("redis:6379.Group = %q, want cluster-2", nodeByID["redis:6379"].Group)
+	if nodeByID["svc-python/redis"].Group != "cluster-2" {
+		t.Errorf("svc-python/redis.Group = %q, want cluster-2", nodeByID["svc-python/redis"].Group)
 	}
 }
 
@@ -1524,7 +1607,7 @@ func TestGroupBackwardCompat(t *testing.T) {
 			{Name: "svc-old", Namespace: "default", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-old", Host: "pg", Port: "5432"}: 1,
+			{Name: "svc-old", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1548,9 +1631,9 @@ func TestGroupBackwardCompat(t *testing.T) {
 	if nodeByID["svc-old"].Namespace != "default" {
 		t.Errorf("svc-old.Namespace = %q, want default", nodeByID["svc-old"].Namespace)
 	}
-	// Dependency node should use host:port ID (no group).
-	if _, ok := nodeByID["pg:5432"]; !ok {
-		t.Error("missing pg:5432 node")
+	// Dependency node should use composite source/dependency ID (no group).
+	if _, ok := nodeByID["svc-old/postgres"]; !ok {
+		t.Error("missing svc-old/postgres node")
 	}
 }
 
@@ -1591,7 +1674,7 @@ func TestDepNamespaceResolution_FQDN(t *testing.T) {
 			{Name: "svc-go", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis.dephealth-redis.svc.cluster.local", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "redis.dephealth-redis.svc.cluster.local", Port: "6379"}: 1,
+			{Name: "svc-go", Dependency: "redis"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1607,7 +1690,7 @@ func TestDepNamespaceResolution_FQDN(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	depNode := nodeByID["redis.dephealth-redis.svc.cluster.local:6379"]
+	depNode := nodeByID["svc-go/redis"]
 	if depNode.Namespace != "dephealth-redis" {
 		t.Errorf("dep node Namespace = %q, want dephealth-redis", depNode.Namespace)
 	}
@@ -1621,7 +1704,7 @@ func TestDepNamespaceResolution_Inheritance(t *testing.T) {
 			{Name: "svc-go", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-go", Host: "redis-host", Port: "6379"}: 1,
+			{Name: "svc-go", Dependency: "redis"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1637,7 +1720,7 @@ func TestDepNamespaceResolution_Inheritance(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	depNode := nodeByID["redis-host:6379"]
+	depNode := nodeByID["svc-go/redis"]
 	if depNode.Namespace != "ns1" {
 		t.Errorf("dep node Namespace = %q, want ns1 (inherited)", depNode.Namespace)
 	}
@@ -1645,15 +1728,17 @@ func TestDepNamespaceResolution_Inheritance(t *testing.T) {
 
 func TestDepNamespaceResolution_MultiSource(t *testing.T) {
 	// Two services from different namespaces connect to the same host:port (no group).
-	// They merge into one dep node. Namespace is NOT inherited (ambiguous sources).
+	// Under composite "source/dependency" node ids, each service gets its own dep
+	// node (svc-a/redis and svc-b/redis) — they are NOT merged. Each dep node has a
+	// single source, so it inherits that source's namespace unambiguously.
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
 			{Name: "svc-a", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
 			{Name: "svc-b", Namespace: "ns2", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-a", Host: "redis-host", Port: "6379"}: 1,
-			{Name: "svc-b", Host: "redis-host", Port: "6379"}: 1,
+			{Name: "svc-a", Dependency: "redis"}: 1,
+			{Name: "svc-b", Dependency: "redis"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1664,9 +1749,9 @@ func TestDepNamespaceResolution_MultiSource(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// Nodes: svc-a, svc-b, redis-host:6379 = 3 (merged dep node).
-	if len(resp.Nodes) != 3 {
-		t.Errorf("got %d nodes, want 3", len(resp.Nodes))
+	// Nodes: svc-a, svc-b, svc-a/redis, svc-b/redis = 4 (NOT merged under composite ids).
+	if len(resp.Nodes) != 4 {
+		t.Errorf("got %d nodes, want 4", len(resp.Nodes))
 	}
 
 	nodeByID := make(map[string]Node)
@@ -1674,17 +1759,27 @@ func TestDepNamespaceResolution_MultiSource(t *testing.T) {
 		nodeByID[n.ID] = n
 	}
 
-	// redis-host:6379 is a merged node; bare-metal host has no FQDN namespace,
-	// and multiple sources from different namespaces → no single inherited namespace.
-	depNode, ok := nodeByID["redis-host:6379"]
+	// Each dep node inherits the namespace of its single source service.
+	depA, ok := nodeByID["svc-a/redis"]
 	if !ok {
-		t.Fatal("missing redis-host:6379 node")
+		t.Fatal("missing svc-a/redis node")
 	}
-	// Namespace may be inherited from the first edge's source if logic allows,
-	// but with ambiguous sources it could be either ns1 or empty.
-	// The key point is the node exists and is merged.
-	if depNode.State != "ok" {
-		t.Errorf("redis-host:6379.State = %q, want ok", depNode.State)
+	if depA.Namespace != "ns1" {
+		t.Errorf("svc-a/redis.Namespace = %q, want ns1 (inherited from svc-a)", depA.Namespace)
+	}
+	depB, ok := nodeByID["svc-b/redis"]
+	if !ok {
+		t.Fatal("missing svc-b/redis node")
+	}
+	if depB.Namespace != "ns2" {
+		t.Errorf("svc-b/redis.Namespace = %q, want ns2 (inherited from svc-b)", depB.Namespace)
+	}
+	// Each node exists and is healthy.
+	if depA.State != "ok" {
+		t.Errorf("svc-a/redis.State = %q, want ok", depA.State)
+	}
+	if depB.State != "ok" {
+		t.Errorf("svc-b/redis.State = %q, want ok", depB.State)
 	}
 }
 
@@ -1698,9 +1793,9 @@ func TestIsEntryFromLabel(t *testing.T) {
 			{Name: "svc-d", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "svc-a", Host: "svc-b.ns1.svc", Port: "8080"}: 1,
-			{Name: "svc-b", Host: "redis-host", Port: "6379"}:    1,
-			{Name: "svc-d", Host: "redis-host", Port: "6379"}:    1,
+			{Name: "svc-a", Dependency: "svc-b"}:    1,
+			{Name: "svc-b", Dependency: "redis"}:    1,
+			{Name: "svc-d", Dependency: "redis"}:    1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1737,11 +1832,17 @@ func TestIsEntryFromLabel(t *testing.T) {
 		t.Error("svc-d.IsEntry = true, want false")
 	}
 
-	// redis-host:6379: merged dep node (svc-b + svc-d connect to same host:port), not entry.
-	if n, ok := nodeByID["redis-host:6379"]; !ok {
-		t.Error("missing redis-host:6379 node")
+	// Dependency nodes are never entry points. Under composite ids svc-b/redis and
+	// svc-d/redis are distinct nodes (svc-b and svc-d each depend on redis).
+	if n, ok := nodeByID["svc-b/redis"]; !ok {
+		t.Error("missing svc-b/redis node")
 	} else if n.IsEntry {
-		t.Error("redis-host:6379.IsEntry = true, want false")
+		t.Error("svc-b/redis.IsEntry = true, want false")
+	}
+	if n, ok := nodeByID["svc-d/redis"]; !ok {
+		t.Error("missing svc-d/redis node")
+	} else if n.IsEntry {
+		t.Error("svc-d/redis.IsEntry = true, want false")
 	}
 }
 
@@ -1752,7 +1853,7 @@ func TestIsEntry_NoLabels(t *testing.T) {
 			{Name: "gateway", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
 		},
 		health: map[EdgeKey]float64{
-			{Name: "gateway", Host: "pg", Port: "5432"}: 1,
+			{Name: "gateway", Dependency: "postgres"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}
@@ -1771,26 +1872,25 @@ func TestIsEntry_NoLabels(t *testing.T) {
 }
 
 func TestEdgeDedup_DuplicateHostProducesOneEdge(t *testing.T) {
-	// When lookback returns both current and stale series that resolve to the
-	// same (Source, Target) pair (e.g. a service-to-service edge where the host
-	// changed), buildGraph must produce only one edge, preferring the non-stale one.
-	// Service-to-service edges target the service name, so different host:port
-	// values can still resolve to the same target.
-	currentKey := EdgeKey{Name: "svc-a", Host: "svc-b.ns.svc", Port: "8080"}
-	staleKey := EdgeKey{Name: "svc-a", Host: "svc-b-old.ns.svc", Port: "8080"}
+	// Edges are keyed by the logical (service, dependency) pair. When lookback
+	// returns two series for the same dependency reached via different hosts
+	// (e.g. a host label change), they collapse to a single EdgeKey, so only one
+	// edge must be produced. Since the dependency is reported as live by the
+	// health query, the surviving edge is not stale.
+	currentKey := EdgeKey{Name: "svc-a", Dependency: "svc-b"}
 
 	mock := &mockPrometheusClient{
 		lookbackEdges: []TopologyEdge{
 			// svc-a → svc-b via current host.
 			{Name: "svc-a", Namespace: "ns", Dependency: "svc-b", Type: "http", Host: "svc-b.ns.svc", Port: "8080", Critical: true},
-			// svc-a → svc-b via old host (stale).
+			// svc-a → svc-b via old host (same dependency name, different host).
 			{Name: "svc-a", Namespace: "ns", Dependency: "svc-b", Type: "http", Host: "svc-b-old.ns.svc", Port: "8080", Critical: true},
 			// svc-b is also a source so it's a known service name.
 			{Name: "svc-b", Namespace: "ns", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432", Critical: true},
 		},
 		health: map[EdgeKey]float64{
-			currentKey: 1, // only the current key appears in health
-			{Name: "svc-b", Host: "pg", Port: "5432"}: 1,
+			currentKey:                            1, // the dependency is reported as live
+			{Name: "svc-b", Dependency: "pg"}: 1,
 		},
 		avg: map[EdgeKey]float64{
 			currentKey: 0.003,
@@ -1803,7 +1903,7 @@ func TestEdgeDedup_DuplicateHostProducesOneEdge(t *testing.T) {
 		t.Fatalf("Build() error: %v", err)
 	}
 
-	// Count edges from svc-a to svc-b: should be exactly 1 (deduplicated).
+	// Count edges from svc-a to svc-b: should be exactly 1 (collapsed to one EdgeKey).
 	var svcAToB []Edge
 	for _, e := range resp.Edges {
 		if e.Source == "svc-a" && e.Target == "svc-b" {
@@ -1815,9 +1915,9 @@ func TestEdgeDedup_DuplicateHostProducesOneEdge(t *testing.T) {
 	}
 
 	edge := svcAToB[0]
-	// Non-stale edge should win.
+	// The dependency is live, so the edge must not be stale.
 	if edge.Stale {
-		t.Error("edge.Stale = true, want false (non-stale should win dedup)")
+		t.Error("edge.Stale = true, want false (dependency is live)")
 	}
 	if edge.State != "ok" {
 		t.Errorf("edge.State = %q, want %q", edge.State, "ok")
@@ -1832,15 +1932,14 @@ func TestEdgeDedup_DuplicateHostProducesOneEdge(t *testing.T) {
 	if svcB.Stale {
 		t.Error("svc-b node Stale = true, want false")
 	}
-
-	_ = staleKey // used for documentation clarity
 }
 
 func TestEdgeDedup_BothCurrentKeepsWorstHealth(t *testing.T) {
-	// When two non-stale edges map to the same (Source, Target) via connected graph
-	// (service-to-service with different host:port), the one with worse health should win.
-	key1 := EdgeKey{Name: "svc-a", Host: "svc-b.ns.svc", Port: "8080"}
-	key2 := EdgeKey{Name: "svc-a", Host: "svc-b.ns.svc", Port: "9090"}
+	// Two non-stale series for the same (service, dependency) reached via
+	// different host:port collapse into a single EdgeKey. The health map keeps
+	// the minimum (worst) value across instances, so the surviving edge carries
+	// the worst health.
+	key1 := EdgeKey{Name: "svc-a", Dependency: "svc-b"}
 
 	mock := &mockPrometheusClient{
 		edges: []TopologyEdge{
@@ -1850,9 +1949,8 @@ func TestEdgeDedup_BothCurrentKeepsWorstHealth(t *testing.T) {
 			{Name: "svc-b", Namespace: "ns", Dependency: "pg", Type: "postgres", Host: "pg", Port: "5432"},
 		},
 		health: map[EdgeKey]float64{
-			key1: 1,
-			key2: 0,
-			{Name: "svc-b", Host: "pg", Port: "5432"}: 1,
+			key1:                               0, // worst health wins (min across instances)
+			{Name: "svc-b", Dependency: "pg"}: 1,
 		},
 		avg: map[EdgeKey]float64{},
 	}

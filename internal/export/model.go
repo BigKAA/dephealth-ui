@@ -71,10 +71,16 @@ func ConvertTopology(resp *topology.TopologyResponse, scope string, filters map[
 	edges := make([]ExportEdge, 0, len(resp.Edges))
 	for _, e := range resp.Edges {
 		host, port := targetHostPort(e, nodeMap)
+		// Prefer the target node's logical label (dependency name) over the raw
+		// composite node id ("source/dependency").
+		dependency := e.Target
+		if t, ok := nodeMap[e.Target]; ok {
+			dependency = t.Label
+		}
 		edges = append(edges, ExportEdge{
 			Source:     e.Source,
 			Target:     e.Target,
-			Dependency: e.Target,
+			Dependency: dependency,
 			Type:       e.Type,
 			Host:       host,
 			Port:       port,

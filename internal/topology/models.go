@@ -92,10 +92,12 @@ type TopologyResponse struct {
 }
 
 // EdgeKey uniquely identifies an edge in the topology.
+// Edges are keyed by the logical (service, dependency) pair: a real connection is
+// identified by the dependency name, not by the transport endpoint, because several
+// distinct dependencies can share the same host:port (e.g. behind an ingress/proxy).
 type EdgeKey struct {
-	Name string
-	Host string
-	Port string
+	Name       string
+	Dependency string
 }
 
 // TopologyEdge represents a raw edge discovered from Prometheus metrics.

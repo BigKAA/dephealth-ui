@@ -273,9 +273,8 @@ func (c *prometheusClient) QueryStatusRange(ctx context.Context, start, end time
 	results := make([]RangeResult, 0, len(entries))
 	for _, entry := range entries {
 		key := EdgeKey{
-			Name: entry.Metric["name"],
-			Host: entry.Metric["host"],
-			Port: entry.Metric["port"],
+			Name:       entry.Metric["name"],
+			Dependency: entry.Metric["dependency"],
 		}
 		status := entry.Metric["status"]
 
@@ -461,9 +460,8 @@ func parseEdgeStringValues(results []promResult, label string) map[EdgeKey]strin
 	m := make(map[EdgeKey]string, len(results))
 	for _, r := range results {
 		key := EdgeKey{
-			Name: r.Metric["name"],
-			Host: r.Metric["host"],
-			Port: r.Metric["port"],
+			Name:       r.Metric["name"],
+			Dependency: r.Metric["dependency"],
 		}
 		if v := r.Metric[label]; v != "" {
 			m[key] = v
@@ -508,9 +506,8 @@ func parseEdgeValues(results []promResult) (map[EdgeKey]float64, error) {
 	m := make(map[EdgeKey]float64, len(results))
 	for _, r := range results {
 		key := EdgeKey{
-			Name: r.Metric["name"],
-			Host: r.Metric["host"],
-			Port: r.Metric["port"],
+			Name:       r.Metric["name"],
+			Dependency: r.Metric["dependency"],
 		}
 
 		var valStr string

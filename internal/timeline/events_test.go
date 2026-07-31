@@ -108,7 +108,7 @@ func TestQueryStatusTransitions_DetectsTransitions(t *testing.T) {
 	mock := &mockPromClient{
 		statusRange: []topology.RangeResult{
 			{
-				Key:    topology.EdgeKey{Name: "svc-go", Host: "pg", Port: "5432"},
+				Key:    topology.EdgeKey{Name: "svc-go", Dependency: "postgres"},
 				Status: "ok",
 				Values: []topology.TimeValue{
 					{Timestamp: base, Value: 1},
@@ -117,7 +117,7 @@ func TestQueryStatusTransitions_DetectsTransitions(t *testing.T) {
 				},
 			},
 			{
-				Key:    topology.EdgeKey{Name: "svc-go", Host: "pg", Port: "5432"},
+				Key:    topology.EdgeKey{Name: "svc-go", Dependency: "postgres"},
 				Status: "timeout",
 				Values: []topology.TimeValue{
 					{Timestamp: base, Value: 0},
@@ -163,7 +163,7 @@ func TestQueryStatusTransitions_NoTransitions(t *testing.T) {
 	mock := &mockPromClient{
 		statusRange: []topology.RangeResult{
 			{
-				Key:    topology.EdgeKey{Name: "svc-go", Host: "pg", Port: "5432"},
+				Key:    topology.EdgeKey{Name: "svc-go", Dependency: "postgres"},
 				Status: "ok",
 				Values: []topology.TimeValue{
 					{Timestamp: base, Value: 1},
@@ -231,7 +231,7 @@ func TestQueryStatusTransitions_Recovery(t *testing.T) {
 	mock := &mockPromClient{
 		statusRange: []topology.RangeResult{
 			{
-				Key:    topology.EdgeKey{Name: "svc-go", Host: "redis", Port: "6379"},
+				Key:    topology.EdgeKey{Name: "svc-go", Dependency: "redis"},
 				Status: "timeout",
 				Values: []topology.TimeValue{
 					{Timestamp: base, Value: 1},
@@ -239,7 +239,7 @@ func TestQueryStatusTransitions_Recovery(t *testing.T) {
 				},
 			},
 			{
-				Key:    topology.EdgeKey{Name: "svc-go", Host: "redis", Port: "6379"},
+				Key:    topology.EdgeKey{Name: "svc-go", Dependency: "redis"},
 				Status: "ok",
 				Values: []topology.TimeValue{
 					{Timestamp: base, Value: 0},
