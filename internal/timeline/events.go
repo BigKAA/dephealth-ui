@@ -99,9 +99,8 @@ func QueryStatusTransitions(ctx context.Context, prom topology.PrometheusClient,
 	// Each edge can have multiple series (one per status value), but only
 	// the one with value == 1 is "active" at any given time.
 	type edgeKey struct {
-		Name string
-		Host string
-		Port string
+		Name       string
+		Dependency string
 	}
 
 	// Build a map: edgeKey → timestamp → active status.
@@ -109,9 +108,8 @@ func QueryStatusTransitions(ctx context.Context, prom topology.PrometheusClient,
 
 	for _, r := range results {
 		ek := edgeKey{
-			Name: r.Key.Name,
-			Host: r.Key.Host,
-			Port: r.Key.Port,
+			Name:       r.Key.Name,
+			Dependency: r.Key.Dependency,
 		}
 
 		if _, ok := edgeStatusAtTime[ek]; !ok {

@@ -325,6 +325,18 @@ function renderDetails(data) {
 }
 
 /**
+ * For a composite dependency node id ("source/dependency"), return the bare
+ * dependency name. Service nodes and connected-graph targets (bare service
+ * names) contain no "/" and return null.
+ * @param {string} nodeId - Node ID
+ * @returns {string|null}
+ */
+function depNameFromNodeId(nodeId) {
+  const idx = nodeId.lastIndexOf('/');
+  return idx > 0 ? nodeId.slice(idx + 1) : null;
+}
+
+/**
  * Render related alerts section.
  * @param {string} nodeId - Node ID
  */
@@ -335,9 +347,17 @@ function renderAlerts(nodeId) {
     return;
   }
 
-  const nodeAlerts = topologyDataCache.alerts.filter(
-    (alert) => alert.service === nodeId || alert.dependency === nodeId
-  );
+  // Composite dependency node ids ("source/dependency") identify a single edge,
+  // so match the exact (service, dependency) alert pair. Bare ids (service nodes
+  // and connected-graph targets) keep matching by either service or dependency.
+  const depName = depNameFromNodeId(nodeId);
+  const nodeAlerts = depName
+    ? topologyDataCache.alerts.filter(
+        (alert) => alert.service === nodeId.slice(0, nodeId.lastIndexOf('/')) && alert.dependency === depName,
+      )
+    : topologyDataCache.alerts.filter(
+        (alert) => alert.service === nodeId || alert.dependency === nodeId,
+      );
 
   if (nodeAlerts.length === 0) {
     section.innerHTML = '';
@@ -733,8 +753,11 @@ function renderEdgeAlerts(source, target) {
     return;
   }
 
+  // The target may be a composite dependency node id ("source/dependency");
+  // alerts store the bare dependency name, so extract it for matching.
+  const depName = depNameFromNodeId(target) || target;
   const edgeAlerts = topologyDataCache.alerts.filter(
-    (alert) => alert.service === source && alert.dependency === target
+    (alert) => alert.service === source && alert.dependency === depName
   );
 
   if (edgeAlerts.length === 0) {
