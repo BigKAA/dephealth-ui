@@ -198,7 +198,7 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
 {
   "rootCauses": [
     {
-      "id": "postgres-main.db.svc:5432",
+      "id": "payment-api/postgres-main",
       "label": "postgres-main",
       "state": "down",
       "namespace": "production"
@@ -209,13 +209,14 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
       "service": "order-service",
       "namespace": "production",
       "dependsOn": "payment-api",
-      "rootCauses": ["postgres-main.db.svc:5432"]
+      "rootCauses": ["payment-api/postgres-main"]
     }
   ],
   "allFailures": [
     {
       "service": "payment-api",
-      "dependency": "postgres-main.db.svc:5432",
+      "dependency": "payment-api/postgres-main",
+      "dependencyLabel": "postgres-main",
       "health": 0,
       "critical": true
     }
@@ -224,8 +225,9 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
     {
       "affectedService": "order-service",
       "namespace": "production",
-      "dependsOn": "postgres-main",
-      "path": ["order-service", "payment-api", "postgres-main"],
+      "dependsOn": "payment-api/postgres-main",
+      "dependsOnLabel": "postgres-main",
+      "path": ["order-service", "payment-api", "payment-api/postgres-main"],
       "depth": 2
     }
   ],
@@ -243,7 +245,7 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | Dependency identifier (may include host:port) |
+| `id` | string | Dependency node ID in `{source}/{dependency}` format (e.g. `payment-api/postgres-main`) |
 | `label` | string | Human-readable label |
 | `state` | string | Current state (`down`, `degraded`, etc.) |
 | `namespace` | string | Kubernetes namespace |
@@ -252,10 +254,11 @@ Performs BFS cascade failure analysis across the dependency graph. Returns root 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `affectedService` | string | Service affected by the cascade |
+| `affectedService` | string | Affected service node ID |
 | `namespace` | string | Namespace of the affected service |
-| `dependsOn` | string | Terminal dependency (root cause) |
-| `path` | string[] | Full path from affected service to root cause |
+| `dependsOn` | string | Terminal dependency node ID (root cause) |
+| `dependsOnLabel` | string | Human-readable name of the terminal dependency (omitted if equal to `dependsOn`) |
+| `path` | string[] | Full path from affected service to root cause, as node IDs (joinable with `/api/v1/topology` node `id`) |
 | `depth` | int | Number of hops in the chain |
 
 ---
@@ -289,7 +292,7 @@ Returns cascade failure topology in [Grafana Node Graph panel](https://grafana.c
       "arc__unknown": 0
     },
     {
-      "id": "postgres-main",
+      "id": "payment-api/postgres-main",
       "title": "postgres-main",
       "subTitle": "production",
       "mainStat": "down",
@@ -301,9 +304,9 @@ Returns cascade failure topology in [Grafana Node Graph panel](https://grafana.c
   ],
   "edges": [
     {
-      "id": "order-service--postgres-main",
+      "id": "order-service--payment-api/postgres-main",
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "payment-api/postgres-main",
       "mainStat": ""
     }
   ]
@@ -450,7 +453,7 @@ Exports the topology graph in the specified format. Supports both data formats (
   "edges": [
     {
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "order-service/postgres-main",
       "dependency": "postgres-main",
       "type": "postgres",
       "host": "pg-master.db.svc",

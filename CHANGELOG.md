@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Edge and dependency node keying** — edges and dependency nodes are now keyed by the `(service, dependency)` pair instead of `host:port`, matching the `{source}/{dependency}` model introduced in v0.18.0. Distinct dependencies sharing one transport endpoint (e.g. behind an ingress/proxy) no longer collapse into a single node/edge.
+- **Frontend alert highlighting** — alerts in the sidebar now match composite dependency node IDs (`source/dependency`) by the exact `(service, dependency)` pair.
+- **Cascade graph dependency nodes** — `/api/v1/cascade-graph` now resolves state and namespace for dependency nodes correctly (previously fell back to `unknown` with no namespace) because node references now carry IDs.
+
+### Changed
+
+- **BREAKING: cascade-analysis node references** — in `/api/v1/cascade-analysis`, the `path`, `dependsOn`, `dependency` and `service` fields now carry node IDs (composite `{source}/{dependency}` for dependency nodes) instead of labels, making them joinable with `/api/v1/topology`. Readable names are still available via the new `dependsOnLabel` / `dependencyLabel` fields (and `RootCause.label`, unchanged).
+
 ## [0.20.2] - 2026-03-11
 
 ### Added

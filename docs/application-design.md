@@ -48,8 +48,8 @@ Status values: `ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `
 ### Graph Model
 
 - **Nodes** = Prometheus label `name` (application name from dephealth SDK)
-- **Edges** = combination `{name → dependency, type, host, port, critical}`
-- Each unique combination `{name, dependency, host, port}` = one directed edge
+- **Edges** = service → dependency relationships from the `dependency` label
+- Each unique pair `{name, dependency}` = one directed edge; `type`, `host`, `port`, `critical` are edge attributes (host/port carry the connection endpoint but do **not** identify the edge)
 - The `critical` flag determines edge visual thickness on the graph
 
 ### Entry Points

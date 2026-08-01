@@ -198,7 +198,7 @@ dephealth-ui предоставляет REST API для визуализации
 {
   "rootCauses": [
     {
-      "id": "postgres-main.db.svc:5432",
+      "id": "payment-api/postgres-main",
       "label": "postgres-main",
       "state": "down",
       "namespace": "production"
@@ -209,13 +209,14 @@ dephealth-ui предоставляет REST API для визуализации
       "service": "order-service",
       "namespace": "production",
       "dependsOn": "payment-api",
-      "rootCauses": ["postgres-main.db.svc:5432"]
+      "rootCauses": ["payment-api/postgres-main"]
     }
   ],
   "allFailures": [
     {
       "service": "payment-api",
-      "dependency": "postgres-main.db.svc:5432",
+      "dependency": "payment-api/postgres-main",
+      "dependencyLabel": "postgres-main",
       "health": 0,
       "critical": true
     }
@@ -224,8 +225,9 @@ dephealth-ui предоставляет REST API для визуализации
     {
       "affectedService": "order-service",
       "namespace": "production",
-      "dependsOn": "postgres-main",
-      "path": ["order-service", "payment-api", "postgres-main"],
+      "dependsOn": "payment-api/postgres-main",
+      "dependsOnLabel": "postgres-main",
+      "path": ["order-service", "payment-api", "payment-api/postgres-main"],
       "depth": 2
     }
   ],
@@ -243,7 +245,7 @@ dephealth-ui предоставляет REST API для визуализации
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `id` | string | Идентификатор зависимости (может включать host:port) |
+| `id` | string | ID dependency-узла в формате `{source}/{dependency}` (например, `payment-api/postgres-main`) |
 | `label` | string | Человекочитаемое имя |
 | `state` | string | Текущее состояние (`down`, `degraded` и т.д.) |
 | `namespace` | string | Kubernetes namespace |
@@ -252,10 +254,11 @@ dephealth-ui предоставляет REST API для визуализации
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `affectedService` | string | Затронутый сервис |
+| `affectedService` | string | ID узла затронутого сервиса |
 | `namespace` | string | Namespace затронутого сервиса |
-| `dependsOn` | string | Терминальная зависимость (первопричина) |
-| `path` | string[] | Полный путь от затронутого сервиса до первопричины |
+| `dependsOn` | string | ID узла терминальной зависимости (первопричина) |
+| `dependsOnLabel` | string | Человекочитаемое имя терминальной зависимости (пропускается, если совпадает с `dependsOn`) |
+| `path` | string[] | Полный путь от затронутого сервиса до первопричины в виде ID узлов (сопоставим с `id` узлов `/api/v1/topology`) |
 | `depth` | int | Количество хопов в цепочке |
 
 ---
@@ -289,7 +292,7 @@ dephealth-ui предоставляет REST API для визуализации
       "arc__unknown": 0
     },
     {
-      "id": "postgres-main",
+      "id": "payment-api/postgres-main",
       "title": "postgres-main",
       "subTitle": "production",
       "mainStat": "down",
@@ -301,9 +304,9 @@ dephealth-ui предоставляет REST API для визуализации
   ],
   "edges": [
     {
-      "id": "order-service--postgres-main",
+      "id": "order-service--payment-api/postgres-main",
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "payment-api/postgres-main",
       "mainStat": ""
     }
   ]
@@ -450,7 +453,7 @@ dephealth-ui предоставляет REST API для визуализации
   "edges": [
     {
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "order-service/postgres-main",
       "dependency": "postgres-main",
       "type": "postgres",
       "host": "pg-master.db.svc",
