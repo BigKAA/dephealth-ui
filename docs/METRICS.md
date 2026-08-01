@@ -185,7 +185,7 @@ app_dependency_status == 1  (via query_range API)
 ## Graph Model
 
 - **Nodes (Vertices):** Unique values of `name` label → represent services/applications
-- **Edges (Directed):** Unique combinations of `{name, namespace, group, dependency, type, host, port, critical, isentry}` → represent service→dependency connections
+- **Edges (Directed):** Each unique `(name, dependency)` pair = one service→dependency connection. The topology query groups by `{name, namespace, group, dependency, type, host, port, critical, isentry}`; `type`/`host`/`port`/`critical`/`isentry` are edge attributes, and the edge is identified by `(name, dependency)` alone (so several dependencies sharing one host:port behind an ingress stay separate)
 - **Edge Properties:**
   - **critical:** visual thickness (critical dependencies are displayed thicker) + cascade warning propagation (only `critical=yes` edges propagate failure warnings upstream)
   - **latency:** displayed as label on edge

@@ -48,8 +48,8 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 ### Модель графа
 
 - **Узлы (nodes)** = Prometheus label `name` (имя приложения из dephealth SDK)
-- **Рёбра (edges)** = комбинация `{name → dependency, type, host, port, critical}`
-- Каждая уникальная комбинация `{name, dependency, host, port}` = одно направленное ребро
+- **Рёбра (edges)** = связи «сервис → зависимость» из лейбла `dependency`
+- Каждая уникальная пара `{name, dependency}` = одно направленное ребро; `type`, `host`, `port`, `critical` — атрибуты ребра (host/port содержат endpoint подключения, но **не** идентифицируют ребро)
 - Флаг `critical` определяет визуальную толщину ребра на графе
 
 ### Точки входа (Entry Points)
