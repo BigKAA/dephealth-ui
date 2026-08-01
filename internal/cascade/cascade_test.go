@@ -621,3 +621,87 @@ func TestAnalyze_NonNilSlices(t *testing.T) {
 		t.Error("CascadeChains should not be nil")
 	}
 }
+
+// TestAnalyze_DepNodePathCarriesID verifies that cascade references carry node
+// IDs (not Labels) so they are joinable with /api/v1/topology. This matters for
+// dependency nodes whose ID (composite "source/dependency") differs from their
+// Label (bare dependency name).
+func TestAnalyze_DepNodePathCarriesID(t *testing.T) {
+	// order-service(ok/service) → payment-api/postgres-main(down/dep)
+	const (
+		depID    = "payment-api/postgres-main"
+		depLabel = "postgres-main"
+	)
+	nodes := []topology.Node{
+		{ID: "order-service", Label: "order-service", State: "ok", Type: "service", Namespace: "production"},
+		{ID: depID, Label: depLabel, State: "down", Type: "postgres", Namespace: "production"},
+	}
+	edges := []topology.Edge{
+		critEdge("order-service", depID, "postgres"),
+	}
+
+	result := Analyze(nodes, edges, Options{})
+
+	// Root cause: the dependency node, referenced by its composite ID.
+	if result.Summary.RootCauseCount != 1 {
+		t.Fatalf("expected 1 root cause, got %d", result.Summary.RootCauseCount)
+	}
+	if rc := result.RootCauses[0]; rc.ID != depID || rc.Label != depLabel {
+		t.Errorf("root cause = {ID: %q, Label: %q}, want {%q, %q}", rc.ID, rc.Label, depID, depLabel)
+	}
+
+	// The cascade chain path must carry the dependency node ID (composite),
+	// not the bare Label, so it joins with topology node IDs.
+	var chain *CascadeChain
+	for i := range result.CascadeChains {
+		if result.CascadeChains[i].AffectedService == "order-service" {
+			chain = &result.CascadeChains[i]
+			break
+		}
+	}
+	if chain == nil {
+		t.Fatal("missing cascade chain for order-service")
+	}
+	last := chain.Path[len(chain.Path)-1]
+	if last != depID {
+		t.Errorf("path tail = %q, want composite ID %q (not bare label %q)", last, depID, depLabel)
+	}
+	if chain.DependsOn != depID || chain.DependsOnLabel != depLabel {
+		t.Errorf("chain DependsOn = %q / DependsOnLabel = %q, want %q / %q",
+			chain.DependsOn, chain.DependsOnLabel, depID, depLabel)
+	}
+
+	// AffectedService references the dependency by ID, with a readable label.
+	// payment-api is itself down, so it is a root cause, not an affected service;
+	// the affected service is order-service (upstream, not down).
+	var as *AffectedService
+	for i := range result.AffectedServices {
+		if result.AffectedServices[i].Service == "order-service" {
+			as = &result.AffectedServices[i]
+			break
+		}
+	}
+	if as == nil {
+		t.Fatal("missing affected service order-service")
+	}
+	if as.DependsOn != depID || as.DependsOnLabel != depLabel {
+		t.Errorf("affected DependsOn = %q / DependsOnLabel = %q, want %q / %q",
+			as.DependsOn, as.DependsOnLabel, depID, depLabel)
+	}
+
+	// AllFailures: dependency referenced by ID + readable label.
+	var failure *Failure
+	for i := range result.AllFailures {
+		if result.AllFailures[i].Service == "order-service" {
+			failure = &result.AllFailures[i]
+			break
+		}
+	}
+	if failure == nil {
+		t.Fatal("missing failure for payment-api")
+	}
+	if failure.Dependency != depID || failure.DependencyLabel != depLabel {
+		t.Errorf("failure Dependency = %q / DependencyLabel = %q, want %q / %q",
+			failure.Dependency, failure.DependencyLabel, depID, depLabel)
+	}
+}

@@ -20,28 +20,37 @@ type RootCause struct {
 }
 
 // AffectedService represents a service impacted by a cascade failure.
+// Service references node IDs (joinable with /api/v1/topology); DependsOn is
+// the dependency node ID and DependsOnLabel its human-readable name.
 type AffectedService struct {
-	Service    string   `json:"service"`
-	Namespace  string   `json:"namespace"`
-	DependsOn  string   `json:"dependsOn"`
-	RootCauses []string `json:"rootCauses"`
+	Service        string   `json:"service"`
+	Namespace      string   `json:"namespace"`
+	DependsOn      string   `json:"dependsOn"`
+	DependsOnLabel string   `json:"dependsOnLabel,omitempty"`
+	RootCauses     []string `json:"rootCauses"`
 }
 
 // Failure represents a single failed dependency relationship.
+// Service is a node ID; Dependency is the dependency node ID and
+// DependencyLabel its human-readable name.
 type Failure struct {
-	Service    string `json:"service"`
-	Namespace  string `json:"namespace"`
-	Dependency string `json:"dependency"`
-	Type       string `json:"type"`
-	Host       string `json:"host"`
-	Port       string `json:"port"`
+	Service         string `json:"service"`
+	Namespace       string `json:"namespace"`
+	Dependency      string `json:"dependency"`
+	DependencyLabel string `json:"dependencyLabel,omitempty"`
+	Type            string `json:"type"`
+	Host            string `json:"host"`
+	Port            string `json:"port"`
 }
 
 // CascadeChain represents a path from an affected service to a root cause.
+// Path is a sequence of node IDs; DependsOn is the root-cause dependency node
+// ID and DependsOnLabel its human-readable name.
 type CascadeChain struct {
 	AffectedService string   `json:"affectedService"`
 	Namespace       string   `json:"namespace"`
 	DependsOn       string   `json:"dependsOn"`
+	DependsOnLabel  string   `json:"dependsOnLabel,omitempty"`
 	Path            []string `json:"path"`
 	Depth           int      `json:"depth"`
 }
@@ -214,7 +223,7 @@ func buildCascadeChains(affectedNodeID string, rootCauseSet map[string]bool, cas
 		path []string
 	}
 
-	queue := []pathItem{{id: affectedNodeID, path: []string{node.Label}}}
+	queue := []pathItem{{id: affectedNodeID, path: []string{node.ID}}}
 	visited := map[string]bool{affectedNodeID: true}
 
 	for len(queue) > 0 {
@@ -242,14 +251,15 @@ func buildCascadeChains(affectedNodeID string, rootCauseSet map[string]bool, cas
 			visited[targetID] = true
 			newPath := make([]string, len(current.path)+1)
 			copy(newPath, current.path)
-			newPath[len(current.path)] = target.Label
+			newPath[len(current.path)] = target.ID
 
 			if maxDepth > 0 && len(newPath)-1 >= maxDepth {
 				// Reached max depth — emit chain.
 				chains = append(chains, CascadeChain{
-					AffectedService: node.Label,
+					AffectedService: node.ID,
 					Namespace:       node.Namespace,
-					DependsOn:       target.Label,
+					DependsOn:       target.ID,
+					DependsOnLabel:  target.Label,
 					Path:            newPath,
 					Depth:           len(newPath) - 1,
 				})
@@ -258,9 +268,10 @@ func buildCascadeChains(affectedNodeID string, rootCauseSet map[string]bool, cas
 
 			if rootCauseSet[targetID] {
 				chains = append(chains, CascadeChain{
-					AffectedService: node.Label,
+					AffectedService: node.ID,
 					Namespace:       node.Namespace,
-					DependsOn:       target.Label,
+					DependsOn:       target.ID,
+					DependsOnLabel:  target.Label,
 					Path:            newPath,
 					Depth:           len(newPath) - 1,
 				})
@@ -351,22 +362,25 @@ func Analyze(nodes []topology.Node, edges []topology.Edge, opts Options) *Analys
 
 		// Find the direct dependency in the cascade chain.
 		dependsOn := ""
+		dependsOnLabel := ""
 		for _, edge := range adj.outgoing[nodeID] {
 			if !edge.Critical {
 				continue
 			}
 			target := nodeMap[edge.Target]
 			if target.State == "down" || target.State == "unknown" || cascadeSet[edge.Target] {
-				dependsOn = target.Label
+				dependsOn = target.ID
+				dependsOnLabel = target.Label
 				break
 			}
 		}
 
 		result.AffectedServices = append(result.AffectedServices, AffectedService{
-			Service:    n.Label,
-			Namespace:  n.Namespace,
-			DependsOn:  dependsOn,
-			RootCauses: rcList,
+			Service:        n.ID,
+			Namespace:      n.Namespace,
+			DependsOn:      dependsOn,
+			DependsOnLabel: dependsOnLabel,
+			RootCauses:     rcList,
 		})
 	}
 
@@ -382,12 +396,13 @@ func Analyze(nodes []topology.Node, edges []topology.Edge, opts Options) *Analys
 		source := nodeMap[edge.Source]
 
 		result.AllFailures = append(result.AllFailures, Failure{
-			Service:    source.Label,
-			Namespace:  source.Namespace,
-			Dependency: target.Label,
-			Type:       edge.Type,
-			Host:       target.Host,
-			Port:       target.Port,
+			Service:         source.ID,
+			Namespace:       source.Namespace,
+			Dependency:      target.ID,
+			DependencyLabel: target.Label,
+			Type:            edge.Type,
+			Host:            target.Host,
+			Port:            target.Port,
 		})
 	}
 
