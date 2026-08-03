@@ -1,0 +1,85 @@
+# Test topology — Namespace 2 (authentication scenarios)
+#
+# Five uniproxy instances exercising Bearer/Basic auth flows, including an
+# intentional wrong-token case (uniproxy-06 → uniproxy-05) so that auth_error
+# status is visible in the UI.
+#
+#   uniproxy-04 ──Bearer──► uniproxy-05 ◄──wrong token── uniproxy-06
+#        │                                          │
+#        └──► uniproxy-06 ──► uniproxy-07 ──► postgresql
+#                          ──Basic──► uniproxy-08 ──► postgresql
+
+instances:
+  - name: uniproxy-04
+    group: proxy-cluster-2
+    replicas: 2
+    connections:
+      - name: uniproxy-05
+        type: http
+        url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+        auth:
+          bearerToken: "test-auth-token-05"
+      - name: uniproxy-06
+        type: http
+        url: "http://uniproxy-06.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+
+  - name: uniproxy-05
+    group: proxy-cluster-2
+    replicas: 1
+    serverAuth:
+      method: bearer
+      token: "test-auth-token-05"
+      metricsMethod: "none"
+    connections: []
+
+  - name: uniproxy-06
+    group: proxy-cluster-2
+    replicas: 2
+    connections:
+      - name: uniproxy-07
+        type: http
+        url: "http://uniproxy-07.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+      - name: uniproxy-08
+        type: http
+        url: "http://uniproxy-08.dephealth-uniproxy-2.svc:8080"
+        critical: "no"
+        healthPath: "/"
+        auth:
+          basicUser: "monitor"
+          basicPass: "monitor-pass-08"
+      - name: uniproxy-05
+        type: http
+        url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
+        critical: "no"
+        healthPath: "/"
+        auth:
+          bearerToken: "wrong-token-intentional"
+
+  - name: uniproxy-07
+    group: proxy-cluster-2
+    replicas: 1
+    connections:
+      - name: postgresql
+        type: postgres
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"
+
+  - name: uniproxy-08
+    group: proxy-cluster-2
+    replicas: 1
+    serverAuth:
+      method: basic
+      username: "monitor"
+      password: "monitor-pass-08"
+      metricsMethod: "none"
+    connections:
+      - name: postgresql
+        type: postgres
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"

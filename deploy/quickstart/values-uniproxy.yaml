@@ -1,0 +1,31 @@
+# dephealth-uniproxy — Quickstart overrides
+#
+# Environment-agnostic overrides for the test environment guide.
+# No private registries, host-specific IPs, or domain names.
+#
+# Usage:
+#   helm upgrade --install uniproxy-ns1 deploy/helm/dephealth-uniproxy \
+#     -f deploy/quickstart/values-uniproxy.yaml \
+#     -f deploy/quickstart/instances/ns1.yaml \
+#     -n dephealth-uniproxy --create-namespace
+#
+#   helm upgrade --install uniproxy-ns2 deploy/helm/dephealth-uniproxy \
+#     -f deploy/quickstart/values-uniproxy.yaml \
+#     -f deploy/quickstart/instances/ns2.yaml \
+#     -n dephealth-uniproxy-2 --create-namespace
+#
+# Image:
+#   uniproxy is a custom image. Yandex Container Registry is publicly readable.
+#   If it is unavailable, build it from the uniproxy/ repo and push to your own
+#   registry, then set global.pushRegistry accordingly. See the "Container
+#   Images" section of docs/test-environment.md.
+
+global:
+  # Yandex Container Registry (publicly readable). Replace with your own
+  # registry if you build uniproxy locally.
+  pushRegistry: container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst
+
+image:
+  name: uniproxy
+  tag: v0.7.0
+  pullPolicy: IfNotPresent

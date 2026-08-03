@@ -18,7 +18,8 @@ This directory contains comprehensive documentation for **dephealth-ui** — a r
 | **[grafana-dashboards.md](./grafana-dashboards.md)** | Grafana dashboard integration, variables, auth, availability checking | DevOps, Operators |
 | **[graph-interactions.md](./graph-interactions.md)** | Graph mouse and keyboard interactions: selection, drag, camera controls | Users, Frontend developers |
 | **[DEPLOYMENT.md](../deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide using Helm | DevOps, SRE |
-| **[Test Environment](../deploy/README.md)** | Test environment setup, topology, and adaptation guide | DevOps, Contributors |
+| **[Test Environment Guide](./test-environment.md)** | **⭐ Portable** step-by-step guide to deploy the full test stack on any Kubernetes cluster | DevOps, New users |
+| **[Test Environment](../deploy/README.md)** | Home-lab-specific test environment setup, topology, and adaptation guide | DevOps, Contributors |
 
 ## Quick Start
 

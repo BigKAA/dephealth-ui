@@ -1,0 +1,31 @@
+# dephealth-infra — Quickstart overrides
+#
+# Environment-agnostic overrides for the test environment guide.
+# Unlike values-homelab.yaml, this file contains no private registries,
+# host-specific IPs, or domain names.
+#
+# Usage:
+#   helm upgrade --install dephealth-infra deploy/helm/dephealth-infra \
+#     -f deploy/quickstart/values-infra.yaml
+#
+# Images:
+#   PostgreSQL, Redis and 389ds are pulled from Docker Hub (public).
+#   grpc-stub is a custom image — see the "Container Images" section of
+#   docs/test-environment.md. If it is unavailable from the registry below,
+#   build it from topologymetrics/conformance/stubs/grpc-stub/ and push to
+#   your own registry, then set global.pushRegistry accordingly.
+
+global:
+  # Docker Hub for public base images (postgres, redis, 389ds).
+  imageRegistry: docker.io
+  # Registry for the custom grpc-stub image.
+  # Yandex Container Registry is publicly readable. Replace with your own
+  # registry if you build grpc-stub locally.
+  pushRegistry: container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst
+  # Empty string = use the cluster's default StorageClass.
+  storageClass: ""
+
+# Enable 389 Directory Server (LDAP) — required by the full test topology
+# (uniproxy-03 has an LDAP dependency).
+ds389:
+  enabled: true
