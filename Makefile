@@ -75,10 +75,15 @@ uniproxy-deploy:
 		-f $(UNIPROXY_CHART)/values-homelab.yaml \
 		-f $(UNIPROXY_CHART)/instances/ns2-homelab.yaml \
 		-n dephealth-uniproxy-2 --create-namespace
+	helm upgrade --install uniproxy-ns3 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns3-homelab.yaml \
+		-n dephealth-uniproxy-3 --create-namespace
 
 uniproxy-undeploy:
 	-helm uninstall uniproxy-ns1 -n dephealth-uniproxy
 	-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2
+	-helm uninstall uniproxy-ns3 -n dephealth-uniproxy-3
 
 # --- Host deployment (bare metal) ---
 
@@ -120,8 +125,8 @@ env-undeploy:
 	-$(MAKE) host-undeploy
 	-helm uninstall dephealth-infra
 	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
-		dephealth-389ds dephealth-uniproxy dephealth-uniproxy-2 dephealth-monitoring \
-		--ignore-not-found
+		dephealth-389ds dephealth-uniproxy dephealth-uniproxy-2 dephealth-uniproxy-3 \
+		dephealth-monitoring --ignore-not-found
 
 env-status:
 	@echo "=== dephealth-redis ==="
@@ -141,6 +146,9 @@ env-status:
 	@echo ""
 	@echo "=== dephealth-uniproxy-2 ==="
 	@kubectl get pods -n dephealth-uniproxy-2 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-uniproxy-3 (nginx proxy + backends) ==="
+	@kubectl get pods -n dephealth-uniproxy-3 2>/dev/null || echo "  namespace not found"
 	@echo ""
 	@echo "=== dephealth-monitoring ==="
 	@kubectl get pods -n dephealth-monitoring 2>/dev/null || echo "  namespace not found"

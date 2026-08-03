@@ -23,7 +23,39 @@ instances:
       method: bearer
       token: "test-auth-token-05"
       metricsMethod: "none"
-    connections: []
+    connections:
+      # Four services behind a single nginx reverse proxy (ns3). All four
+      # share the same host:port (the proxy) but route to different backends
+      # via the Host header (hostHeader -> req.Host). Mirrors the metrics
+      # shape of a service fronted by a shared proxy.
+      - name: uniproxy-09
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-09"
+      - name: uniproxy-10
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-10"
+      - name: uniproxy-11
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-11"
+      - name: uniproxy-12
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-12"
 
   - name: uniproxy-06
     group: proxy-cluster-2

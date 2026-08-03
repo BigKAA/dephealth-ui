@@ -74,6 +74,10 @@ spec:
             - name: {{ $envPrefix }}_HEALTH_PATH
               value: {{ .healthPath | quote }}
             {{- end }}
+            {{- if .hostHeader }}
+            - name: {{ $envPrefix }}_HOST_HEADER
+              value: {{ .hostHeader | quote }}
+            {{- end }}
             {{- if .checkInterval }}
             - name: {{ $envPrefix }}_CHECK_INTERVAL
               value: {{ .checkInterval | quote }}

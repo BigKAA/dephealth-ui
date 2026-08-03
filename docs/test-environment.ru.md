@@ -38,9 +38,9 @@ dephealth-ui — слой визуализации только для чтен�
 
 | Компонент | Helm-чарт | Назначение |
 | --------- | ---------- | ---------- |
-| **dephealth-infra** | `deploy/helm/dephealth-infra` | Реальные зависимости для тестовой топологии: PostgreSQL, Redis, gRPC-stub, LDAP (389ds) |
+| **dephealth-infra** | `deploy/helm/dephealth-infra` | Реальные зависимости для тестовой топологии: PostgreSQL, Redis, gRPC-stub, LDAP (389ds) и nginx reverse proxy для сценария с маршрутизацией по Host |
 | **dephealth-monitoring** | `deploy/helm/dephealth-monitoring` | VictoriaMetrics (хранилище метрик + скрейпер), VMAlert, AlertManager, Grafana |
-| **dephealth-uniproxy** | `deploy/helm/dephealth-uniproxy` | Восемь инстансов uniproxy в двух неймспейсах, образующих граф зависимостей |
+| **dephealth-uniproxy** | `deploy/helm/dephealth-uniproxy` | Двенадцать инстансов uniproxy в трёх неймспейсах, образующих граф зависимостей |
 | **dephealth-ui** | `deploy/helm/dephealth-ui` | Приложение визуализации (Go-бэкенд + встроенный SPA) |
 
 ---
@@ -82,6 +82,7 @@ dephealth-ui — слой визуализации только для чтен�
 | PostgreSQL | `postgres:17-alpine` |
 | Redis | `redis:7-alpine` |
 | 389ds (LDAP) | `389ds/dirsrv:3.1` |
+| nginx proxy | `nginx:1.27-alpine` |
 | VictoriaMetrics | `victoriametrics/victoria-metrics:v1.108.1` |
 | VMAlert | `victoriametrics/vmalert:v1.108.1` |
 | AlertManager | `prom/alertmanager:v0.28.1` |
@@ -171,7 +172,7 @@ Helm-чарт uniproxy проставляет оба автоматически 
 
 ### Шаг 3 — Инстансы uniproxy (тестовая топология)
 
-Разверните восемь инстансов uniproxy в двух неймспейсах. Они образуют граф
+Разверните двенадцать инстансов uniproxy в трёх неймспейсах. Они образуют граф
 зависимостей, который будет визуализировать dephealth-ui.
 
 ```bash
@@ -181,16 +182,23 @@ helm upgrade --install uniproxy-ns1 deploy/helm/dephealth-uniproxy \
   -f deploy/quickstart/instances/ns1.yaml \
   -n dephealth-uniproxy --create-namespace
 
-# Неймспейс 2 — пять инстансов (сценарии аутентификации)
+# Неймспейс 2 — пять инстансов (сценарии аутентификации + инициатор proxy)
 helm upgrade --install uniproxy-ns2 deploy/helm/dephealth-uniproxy \
   -f deploy/quickstart/values-uniproxy.yaml \
   -f deploy/quickstart/instances/ns2.yaml \
   -n dephealth-uniproxy-2 --create-namespace
+
+# Неймспейс 3 — четыре инстанса за nginx reverse proxy
+helm upgrade --install uniproxy-ns3 deploy/helm/dephealth-uniproxy \
+  -f deploy/quickstart/values-uniproxy.yaml \
+  -f deploy/quickstart/instances/ns3.yaml \
+  -n dephealth-uniproxy-3 --create-namespace
 ```
 
 ```bash
 kubectl get pods -n dephealth-uniproxy
 kubectl get pods -n dephealth-uniproxy-2
+kubectl get pods -n dephealth-uniproxy-3
 ```
 
 Метрики начнут появляться в VictoriaMetrics через ~15–30 секунд (один интервал
@@ -280,9 +288,21 @@ curl -s http://localhost:8080/api/v1/topology | jq '.nodes | length'
 ┌─ Неймспейс: dephealth-uniproxy-2 (сценарии auth) ───────────────────┐
 │                                                                     │
 │  uniproxy-04 ──Bearer──► uniproxy-05 ◄──wrong token── uniproxy-06   │
-│       │                                              │   │           │
+│       │                                  │  │  │  │   │           │
 │       └──► uniproxy-06 ──► uniproxy-07 ──► postgresql│   │           │
 │                          ──Basic──► uniproxy-08 ──► postgresql      │
+│                          │  │  │  (маршрутизация по Host)           │
+└──────────────────────────┼──┼──┼──┼─────────────────────────────────┘
+                           │  │  │
+              ┌────────────┘  │  └──────────┐ cross-namespace (один proxy)
+              ▼               ▼             ▼
+┌─ Неймспейс: dephealth-uniproxy-3 (reverse-proxy сценарий) ──────────┐
+│                                                                     │
+│                  nginx-proxy (один host:port)                        │
+│   ──Host: uniproxy-09──► uniproxy-09                                 │
+│   ──Host: uniproxy-10──► uniproxy-10                                 │
+│   ──Host: uniproxy-11──► uniproxy-11                                 │
+│   ──Host: uniproxy-12──► uniproxy-12                                 │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -298,6 +318,41 @@ curl -s http://localhost:8080/api/v1/topology | jq '.nodes | length'
   `auth_error` был виден в UI.
 - **Серверная аутентификация** (`uniproxy-05`, `uniproxy-08`) с открытым
   `/metrics`.
+- **Reverse proxy / маршрутизация по Host** (`uniproxy-05 → nginx-proxy →
+  uniproxy-09..12`): четыре зависимости с общим `host:port`, различаются
+  только заголовком `Host` (см. [Сценарий с proxy](#сценарий-с-proxy)).
+
+### Сценарий с proxy
+
+`uniproxy-05` (ns2) проверяет четыре сервиса, расположенные за одним nginx
+reverse proxy (`nginx-proxy`, ns3). Поскольку у всех четыре общая TCP-точка,
+в списке соединений используются `host`/`port` и поконнекционный `hostHeader`,
+а не отдельные `url`:
+
+```yaml
+# соединения uniproxy-05 (фрагмент) — deploy/quickstart/instances/ns2.yaml
+- name: uniproxy-09
+  type: http
+  host: "nginx-proxy.dephealth-uniproxy-3.svc"   # общий адрес для всех четырех
+  port: "80"
+  hostHeader: "uniproxy-09"                       # выбирает бэкенд на nginx
+  critical: "yes"
+  healthPath: "/"
+# ... uniproxy-10, uniproxy-11, uniproxy-12 отличаются только name + hostHeader
+```
+
+- `host`/`port` — адрес proxy, TCP-точка назначения каждой проверки.
+- `hostHeader` задаёт HTTP-заголовок `Host` исходящего запроса
+  (`DEPHEALTH_<NAME>_HOST_HEADER` → `req.Host` в SDK). nginx по входящему
+  `Host` выбирает один из четырёх бэкендов (`uniproxy-09`..`uniproxy-12`).
+- **Не** кладите `Host` в `auth.headers`: Go `net/http` игнорирует
+  `req.Header.Set("Host", ...)`; работает только `hostHeader` (устанавливающий
+  `req.Host`), а SDK запрещает совмещать оба варианта.
+
+Это воспроизводит реальную топологию, где общий ingress/proxy стоит перед
+несколькими приложениями: в метриках четыре серии имеют одинаковые `host:port`
+и различаются только меткой `dependency` — вид, показанный для `nginx-back-app1`
+в `tmp/metrics.txt`.
 
 ---
 

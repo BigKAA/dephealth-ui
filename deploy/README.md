@@ -66,7 +66,8 @@ deploy/
 │   └── dephealth-uniproxy/       # Test proxy instances
 │       ├── instances/
 │       │   ├── ns1-homelab.yaml  # NS1 topology (3 instances)
-│       │   └── ns2-homelab.yaml  # NS2 topology (5 instances, auth scenarios)
+│       │   ├── ns2-homelab.yaml  # NS2 topology (5 instances, auth scenarios)
+│       │   └── ns3-homelab.yaml  # NS3 topology (4 instances behind nginx-proxy)
 │       ├── values.yaml           # Default values
 │       └── values-homelab.yaml   # Home lab overrides
 └── k8s-dev/
@@ -92,7 +93,7 @@ Infrastructure services shared by test microservices.
 
 ### dephealth-uniproxy
 
-[uniproxy](https://github.com/BigKAA/uniproxy) test proxy instances built with [dephealth SDK](https://github.com/BigKAA/topologymetrics). Creates a multi-service topology across two namespaces.
+[uniproxy](https://github.com/BigKAA/uniproxy) test proxy instances built with [dephealth SDK](https://github.com/BigKAA/topologymetrics). Creates a multi-service topology across three namespaces.
 
 **Namespace 1** (`dephealth-uniproxy`):
 
@@ -107,10 +108,23 @@ Infrastructure services shared by test microservices.
 | Instance | Replicas | Dependencies | Auth |
 | ---------- | ---------- | ------------- | ------ |
 | uniproxy-04 | 2 | uniproxy-05 (Bearer), uniproxy-06 | Client auth |
-| uniproxy-05 | 1 | — | Server: Bearer token |
+| uniproxy-05 | 1 | uniproxy-09..12 (via nginx, Host header) | Server: Bearer token |
 | uniproxy-06 | 2 | uniproxy-07, uniproxy-08 (Basic), uniproxy-05 (wrong token) | Mixed auth |
 | uniproxy-07 | 1 | postgresql (critical) | No auth |
 | uniproxy-08 | 1 | postgresql (critical) | Server: Basic auth |
+
+**Namespace 3** (`dephealth-uniproxy-3`) — reverse-proxy scenario. Four leaf
+instances sit behind a single `nginx-proxy` (deployed by `dephealth-infra`).
+`uniproxy-05` reaches them via the same `host:port`, routing each request to a
+specific backend through the `Host` header (`hostHeader` → `req.Host`):
+
+| Instance | Replicas | Dependencies | Notes |
+| ---------- | ---------- | ------------- | ------- |
+| nginx-proxy | 1 | — | Reverse proxy, routes by `Host` header to 09..12 |
+| uniproxy-09 | 1 | — | Behind nginx-proxy, Host: `uniproxy-09` |
+| uniproxy-10 | 1 | — | Behind nginx-proxy, Host: `uniproxy-10` |
+| uniproxy-11 | 1 | — | Behind nginx-proxy, Host: `uniproxy-11` |
+| uniproxy-12 | 1 | — | Behind nginx-proxy, Host: `uniproxy-12` |
 
 ### dephealth-monitoring
 
@@ -170,11 +184,23 @@ The `deploy/docker/uniproxy-pr1/` directory contains a Docker Compose setup for 
 ┌─ NS: dephealth-uniproxy-2 ─────────────────────────────────────────────────┐   │
 │                                                                             │   │
 │  uniproxy-04 ──Bearer──► uniproxy-05 ◄──wrong token── uniproxy-06         │   │
-│       │                                                     │    │          │   │
+│       │                                  │  │  │  │        │    │          │   │
 │       └──critical──► uniproxy-06 ──► uniproxy-07 ──► postgresql │          │   │
 │                                      ──Basic──► uniproxy-08 ──► postgresql │   │
-│                                                                             │   │
-└─────────────────────────────────────────────────────────────────────────────┘   │
+│                                      │  │  │  (Host routing)               │   │
+└──────────────────────────────────────┼──┼──┼──┼─────────────────────────────┘   │
+                                       │  │  │                                     │
+                          ┌────────────┘  │  └──────────┐ cross-NS (one proxy)   │
+                          ▼               ▼             ▼                         │
+┌─ NS: dephealth-uniproxy-3 (reverse-proxy scenario) ───────────────────────────┐   │
+│                                                                               │   │
+│                    nginx-proxy (single host:port)                             │   │
+│   ──Host: uniproxy-09──► uniproxy-09                                          │   │
+│   ──Host: uniproxy-10──► uniproxy-10                                          │   │
+│   ──Host: uniproxy-11──► uniproxy-11                                          │   │
+│   ──Host: uniproxy-12──► uniproxy-12                                          │   │
+│                                                                               │   │
+└───────────────────────────────────────────────────────────────────────────────┘   │
                                                                                   │
 ┌─ Host: 192.168.218.168 (NS: hostpr1) ──────────────────────────────────────┐   │
 │                                                                             │   │

@@ -1,0 +1,27 @@
+# Homelab topology — Namespace 3 (reverse-proxy scenario)
+#
+# Four leaf instances behind a single nginx reverse proxy (deployed by the
+# dephealth-infra chart). The initiator is uniproxy-05 in ns2, which sets a
+# distinct `hostHeader` per connection so nginx routes each health check to
+# the matching backend. See the "Proxy scenario" section of deploy/README.md.
+
+instances:
+  - name: uniproxy-09
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-10
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-11
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-12
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []

@@ -109,6 +109,22 @@ ds389:
       cpu: 500m
       memory: 512Mi
 
+# --- Nginx reverse proxy (Host-header routing scenario) ---
+# Fronts four uniproxy instances (uniproxy-09..12) behind a single host:port.
+# The inbound Host header selects the backend via an nginx map.
+nginx:
+  enabled: false
+  namespace: dephealth-uniproxy-3
+  image: nginx
+  tag: "1.27-alpine"
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
 # --- Stubs ---
 stubs:
   httpStub:

@@ -7,6 +7,11 @@ global:
 ds389:
   enabled: true
 
+# Nginx reverse proxy for the Host-header routing scenario
+# (uniproxy-05 -> nginx-proxy -> uniproxy-09..12).
+nginx:
+  enabled: true
+
 dex:
   enabled: true
   issuer: "https://dex.kryukov.lan"

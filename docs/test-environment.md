@@ -37,9 +37,9 @@ the **scrape configuration** (covered below).
 
 | Component | Helm chart | Purpose |
 | --------- | ---------- | ------- |
-| **dephealth-infra** | `deploy/helm/dephealth-infra` | Real dependencies for the test topology: PostgreSQL, Redis, gRPC stub, LDAP (389ds) |
+| **dephealth-infra** | `deploy/helm/dephealth-infra` | Real dependencies for the test topology: PostgreSQL, Redis, gRPC stub, LDAP (389ds), and an nginx reverse proxy for the Host-routing scenario |
 | **dephealth-monitoring** | `deploy/helm/dephealth-monitoring` | VictoriaMetrics (metrics store + scraper), VMAlert, AlertManager, Grafana |
-| **dephealth-uniproxy** | `deploy/helm/dephealth-uniproxy` | Eight uniproxy instances across two namespaces forming a dependency graph |
+| **dephealth-uniproxy** | `deploy/helm/dephealth-uniproxy` | Twelve uniproxy instances across three namespaces forming a dependency graph |
 | **dephealth-ui** | `deploy/helm/dephealth-ui` | The visualization application (Go backend + embedded SPA) |
 
 ---
@@ -80,6 +80,7 @@ The environment mixes public images and three custom images.
 | PostgreSQL | `postgres:17-alpine` |
 | Redis | `redis:7-alpine` |
 | 389ds (LDAP) | `389ds/dirsrv:3.1` |
+| nginx proxy | `nginx:1.27-alpine` |
 | VictoriaMetrics | `victoriametrics/victoria-metrics:v1.108.1` |
 | VMAlert | `victoriametrics/vmalert:v1.108.1` |
 | AlertManager | `prom/alertmanager:v0.28.1` |
@@ -168,7 +169,7 @@ annotations (`/metrics` on `8080`).
 
 ### Step 3 — uniproxy instances (the test topology)
 
-Deploy the eight uniproxy instances across two namespaces. They form the
+Deploy the twelve uniproxy instances across three namespaces. They form the
 dependency graph that dephealth-ui will visualize.
 
 ```bash
@@ -178,16 +179,23 @@ helm upgrade --install uniproxy-ns1 deploy/helm/dephealth-uniproxy \
   -f deploy/quickstart/instances/ns1.yaml \
   -n dephealth-uniproxy --create-namespace
 
-# Namespace 2 — five instances (authentication scenarios)
+# Namespace 2 — five instances (authentication scenarios + proxy initiator)
 helm upgrade --install uniproxy-ns2 deploy/helm/dephealth-uniproxy \
   -f deploy/quickstart/values-uniproxy.yaml \
   -f deploy/quickstart/instances/ns2.yaml \
   -n dephealth-uniproxy-2 --create-namespace
+
+# Namespace 3 — four instances behind the nginx reverse proxy
+helm upgrade --install uniproxy-ns3 deploy/helm/dephealth-uniproxy \
+  -f deploy/quickstart/values-uniproxy.yaml \
+  -f deploy/quickstart/instances/ns3.yaml \
+  -n dephealth-uniproxy-3 --create-namespace
 ```
 
 ```bash
 kubectl get pods -n dephealth-uniproxy
 kubectl get pods -n dephealth-uniproxy-2
+kubectl get pods -n dephealth-uniproxy-3
 ```
 
 Metrics start appearing in VictoriaMetrics within ~15–30 seconds (one scrape
@@ -276,9 +284,21 @@ curl -s http://localhost:8080/api/v1/topology | jq '.nodes | length'
 ┌─ Namespace: dephealth-uniproxy-2 (auth scenarios) ──────────────────┐
 │                                                                     │
 │  uniproxy-04 ──Bearer──► uniproxy-05 ◄──wrong token── uniproxy-06   │
-│       │                                              │   │           │
+│       │                                  │  │  │  │   │           │
 │       └──► uniproxy-06 ──► uniproxy-07 ──► postgresql│   │           │
 │                          ──Basic──► uniproxy-08 ──► postgresql      │
+│                          │  │  │  (Host header routing)             │
+└──────────────────────────┼──┼──┼──┼─────────────────────────────────┘
+                           │  │  │
+              ┌────────────┘  │  └──────────┐ cross-namespace (one proxy)
+              ▼               ▼             ▼
+┌─ Namespace: dephealth-uniproxy-3 (reverse-proxy scenario) ───────────┐
+│                                                                     │
+│                  nginx-proxy (single host:port)                      │
+│   ──Host: uniproxy-09──► uniproxy-09                                 │
+│   ──Host: uniproxy-10──► uniproxy-10                                 │
+│   ──Host: uniproxy-11──► uniproxy-11                                 │
+│   ──Host: uniproxy-12──► uniproxy-12                                 │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -293,6 +313,41 @@ Highlights this topology exercises:
   **intentional wrong token** (`uniproxy-06 → uniproxy-05`) so an `auth_error`
   status is visible in the UI.
 - **Server-side auth** (`uniproxy-05`, `uniproxy-08`) with `/metrics` left open.
+- **Reverse-proxy / Host-header routing** (`uniproxy-05 → nginx-proxy →
+  uniproxy-09..12`): four dependencies share one `host:port` and are
+  distinguished only by their `Host` header (see [Proxy scenario](#proxy-scenario)).
+
+### Proxy scenario
+
+`uniproxy-05` (ns2) checks four services that all sit behind a single nginx
+reverse proxy (`nginx-proxy`, ns3). Because the four targets share the same
+TCP destination, the connection list uses `host`/`port` plus a per-connection
+`hostHeader` rather than distinct `url`s:
+
+```yaml
+# uniproxy-05 connections (excerpt) — deploy/quickstart/instances/ns2.yaml
+- name: uniproxy-09
+  type: http
+  host: "nginx-proxy.dephealth-uniproxy-3.svc"   # same destination for all four
+  port: "80"
+  hostHeader: "uniproxy-09"                       # selects the backend on nginx
+  critical: "yes"
+  healthPath: "/"
+# ... uniproxy-10, uniproxy-11, uniproxy-12 differ only in name + hostHeader
+```
+
+- `host`/`port` are the proxy address — the TCP destination of every check.
+- `hostHeader` sets the HTTP `Host` header on the outbound request
+  (`DEPHEALTH_<NAME>_HOST_HEADER` → `req.Host` in the SDK). nginx maps the
+  inbound `Host` to one of the four backends (`uniproxy-09`..`uniproxy-12`).
+- Do **not** put `Host` under `auth.headers`: Go's `net/http` ignores
+  `req.Header.Set("Host", ...)`; only `hostHeader` (which sets `req.Host`)
+  takes effect, and the SDK rejects combining the two.
+
+This mirrors real-world topology where a shared ingress/proxy front several
+apps: in the metrics the four series carry an identical `host:port` and differ
+only in the `dependency` label — the shape shown for `nginx-back-app1` in
+`tmp/metrics.txt`.
 
 ---
 
