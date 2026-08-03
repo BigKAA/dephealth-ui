@@ -1,8 +1,8 @@
 # dephealth-ui
 
-[![Version](https://img.shields.io/badge/version-0.20.2-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Version](https://img.shields.io/badge/version-0.21.0-blue.svg)](https://github.com/BigKAA/dephealth-ui)
 [![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
-[![Helm Chart](https://img.shields.io/badge/helm-0.10.0-0F1689.svg)](./deploy/helm/dephealth-ui)
+[![Helm Chart](https://img.shields.io/badge/helm-0.11.0-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
 
 **Real-time microservices topology and health visualization tool**
@@ -394,12 +394,12 @@ go build -o dephealth-ui ./cmd/dephealth-ui
 
 ```bash
 # Build multi-arch image
-make docker-build TAG=v0.19.0
+make docker-build TAG=v0.21.0
 
 # Or manually
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui:v0.19.0 \
+  -t container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui:v0.21.0 \
   --push .
 ```
 
@@ -423,6 +423,7 @@ npm test
 | **[METRICS.md](./docs/METRICS.md)** | Metrics format, required labels, PromQL queries |
 | **[API.md](./docs/API.md)** | REST API reference with all endpoints |
 | **[Helm Chart](./deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide |
+| **[Test Environment Guide](./docs/test-environment.md)** | **⭐ Portable** step-by-step guide to deploy the full test stack on any Kubernetes cluster |
 | **[Test Environment](./deploy/README.md)** | Test environment setup, topology, and adaptation guide |
 | **[Application Design](./docs/application-design.md)** | Architecture overview and design decisions |
 | **[Русская документация](./README.ru.md)** | Full Russian documentation |
