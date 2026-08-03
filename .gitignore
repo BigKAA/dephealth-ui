@@ -40,3 +40,5 @@ Thumbs.db
 # Config with secrets (keep example only)
 config.yaml
 config.local.yaml
+tmp/
+.zcode/
