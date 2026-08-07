@@ -193,14 +193,22 @@ func (b *GraphBuilder) buildGraph(
 
 	// resolveTarget returns the target node ID for a dependency edge.
 	// If the dependency name matches a known service, link to that service node
-	// to build a connected (through) graph. Otherwise, build a composite
-	// "source/dependency" node id: distinct dependencies (even those sharing the
-	// same host:port behind an ingress/proxy) must produce distinct nodes.
+	// to build a connected (through) graph. Otherwise, the node id is derived
+	// from the dependency identity (name + endpoint), NOT from the source
+	// service: a shared dependency (e.g. a single Hazelcast cluster that many
+	// services connect to) must collapse into one node so the graph reflects
+	// the real fan-in. Distinct dependencies that merely share a name (e.g. two
+	// different databases both called "postgres") stay separate because their
+	// host:port differs, and distinct dependencies behind the same ingress
+	// (same host:port, different names) also stay separate.
 	resolveTarget := func(e TopologyEdge) string {
 		if serviceNames[e.Dependency] {
 			return e.Dependency
 		}
-		return e.Name + "/" + e.Dependency
+		if e.Host != "" {
+			return e.Dependency + "/" + e.Host + ":" + e.Port
+		}
+		return e.Dependency
 	}
 
 	for _, e := range rawEdges {
