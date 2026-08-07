@@ -37,10 +37,10 @@
 
 ### Реестр контейнеров
 
-Тестовая среда загружает образы из приватного Harbor реестра. Вам нужен:
+Тестовая среда загружает образы из публичных реестров (Docker Hub). Вам нужен:
 
-- Собственный реестр контейнеров, или
-- Прямой доступ к Docker Hub (измените `values.yaml` для использования стандартных реестров)
+- Прямой доступ к Docker Hub (по умолчанию), или
+- Собственный реестр контейнеров (измените `values.yaml`, указав его)
 
 ---
 
@@ -254,9 +254,9 @@ make host-status        # Проверить контейнеры на bare meta
 
 ### 1. Реестр контейнеров
 
-**Релизный:** `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` (Yandex Container Registry)
+**Приложение (dev и релизы):** `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` (Yandex Container Registry)
 
-**Для разработки:** `harbor.kryukov.lan/library` (образы), `harbor.kryukov.lan/docker` (Docker Hub прокси)
+**Базовые образы:** загружаются напрямую из Docker Hub (`docker.io`)
 
 **Варианты:**
 

@@ -37,10 +37,10 @@ The test environment creates a realistic microservice topology with multiple nam
 
 ### Container Registry
 
-The test environment pulls images from a private Harbor registry. You need either:
+The test environment pulls images from public registries (Docker Hub). You need either:
 
-- Your own container registry, or
-- Direct access to Docker Hub (modify `values.yaml` to use default registries)
+- Direct access to Docker Hub (default), or
+- Your own container registry (modify `values.yaml` to point at it)
 
 ---
 
@@ -254,9 +254,9 @@ The `values-homelab.yaml` files contain environment-specific settings. To use yo
 
 ### 1. Container Registry
 
-**Release:** `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` (Yandex Container Registry)
+**Application (dev & release):** `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` (Yandex Container Registry)
 
-**Development:** `harbor.kryukov.lan/library` (images), `harbor.kryukov.lan/docker` (Docker Hub proxy)
+**Base images:** pulled directly from Docker Hub (`docker.io`)
 
 **Options:**
 

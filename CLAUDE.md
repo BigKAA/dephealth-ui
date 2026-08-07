@@ -33,16 +33,14 @@ Available tools: `kubectl`, `helm`, `docker`
 
 ### Container Registries
 
-**Release registry (Yandex Container Registry):**
-- `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` — release images
+**Application registry (Yandex Container Registry):**
+- `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` — both dev and release images
 - Authentication via `yc` credential helper (configured in `~/.docker/config.json`)
 - Use for all documentation examples and Helm chart defaults
 
-**Development registry (Harbor):**
-- `harbor.kryukov.lan/library` — dev/test images (homelab only)
-- `harbor.kryukov.lan/docker` — Docker Hub proxy
-- `harbor.kryukov.lan/mcr` — Microsoft Container Registry proxy
-- Admin: `admin` / `password`
+**Base images:**
+- Pulled directly from `docker.io` (Docker Hub) — no proxy registry required for building `dephealth-ui`
+- Override per-build with `make docker-build DOCKER_PROXY=<registry>` if a mirror is needed
 
 ## Git Workflow
 
@@ -73,7 +71,7 @@ Before creating a release tag, **always** perform these steps:
 
 ### Image tagging convention
 
-- **Development:** `vX.Y.Z-N` (e.g. `v0.11.4-1`, `v0.11.4-2`) — increment `-N` suffix for each build, push to Harbor
+- **Development:** `vX.Y.Z-N` (e.g. `v0.11.4-1`, `v0.11.4-2`) — increment `-N` suffix for each build, push to Yandex CR
 - **Release:** `vX.Y.Z` (e.g. `v0.11.5`) — drop the suffix, bump patch version, push to Yandex CR
 - **Minor version** (second digit) — only bump with explicit user approval
 

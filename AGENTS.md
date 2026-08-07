@@ -24,7 +24,7 @@ Prometheus/VictoriaMetrics (через topologymetrics) и AlertManager.
 - `make lint` — `golangci-lint run ./...` + `markdownlint '**/*.md'` (игнорирует node_modules)
 - Точечный Go-тест: `go test ./internal/topology/... -run TestName -v -race`
 - Dev-сервер фронтенда: `npm --prefix frontend run dev` (HMR); прод-сборка: `npm --prefix frontend run build`
-- Docker-образ для разработки → Harbor: `make docker-build TAG=vX.Y.Z`
+- Docker-образ для разработки → Yandex CR: `make docker-build TAG=vX.Y.Z-N`
 - Docker-образ релиза → Yandex CR (мульти-арх amd64+arm64): `make docker-release TAG=vX.Y.Z`
 
 ## Архитектура и каталоги
@@ -80,8 +80,8 @@ REST под `/api/v1/*` на chi-роутере. Auth middleware (`s.auth.Middle
 - Спрашивать пользователя перед коммитом. После коммита уточнять метод слияния (локальный
   merge или GitHub PR). Удалять ветки после слияния. Быстрые правки (опечатки) можно
   коммитить сразу в `master`.
-- Разработка и тестирование ведутся **в Docker или Kubernetes** (homelab-кластер + реестры
-  Harbor) — подробности по кластеру/реестрам см. в CLAUDE.md.
+- Разработка и тестирование ведутся **в Docker или Kubernetes** (homelab-кластер, образы
+  в Yandex CR) — подробности по кластеру/реестрам см. в CLAUDE.md.
 - Для схем в md файлах вместо txt использовать mermaid. За исключением иерархии
   файловых систем.
 - Выполнять `make lint` (Go + Markdown) перед завершением работы.
