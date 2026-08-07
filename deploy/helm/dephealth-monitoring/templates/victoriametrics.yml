@@ -1,0 +1,274 @@
+{{- if .Values.victoriametrics.enabled }}
+# --- RBAC for Kubernetes service discovery ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: victoriametrics
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: victoriametrics-sd
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: victoriametrics-sd
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: victoriametrics-sd
+subjects:
+  - kind: ServiceAccount
+    name: victoriametrics
+    namespace: {{ include "dephealth-monitoring.namespace" . }}
+---
+# --- ConfigMap: scrape config ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: victoriametrics-config
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 4 }}
+data:
+  scrape.yml: |
+    global:
+      scrape_interval: 15s
+      scrape_timeout: 10s
+
+    scrape_configs:
+      # --- Kubernetes pod auto-discovery ---
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+
+        relabel_configs:
+          # 1. Only scrape pods with prometheus.io/scrape=true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+
+          # 2. Only scrape pods with app.kubernetes.io/part-of=dephealth
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_part_of]
+            action: keep
+            regex: "dephealth"
+
+          # 3. Use scheme from annotation (default: http)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+
+          # 4. Use path from annotation (default: /metrics)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # 5. Use port from annotation
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+          # 6. Set namespace label from K8s metadata
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+
+          # 7. Set job label from app.kubernetes.io/name
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: job
+
+          # 8. Set service label (same as job)
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: service
+
+          # 9. Set pod label
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      # --- Annotation-based pod discovery (arbitrary namespaces) ---
+      {{- range .Values.victoriametrics.annotationScrape }}
+      - job_name: 'annotation-{{ . }}'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - '{{ . }}'
+        tls_config:
+          insecure_skip_verify: true
+
+        relabel_configs:
+          # 1. Only scrape pods with prometheus.io/scrape=true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+
+          # 2. Use scheme from annotation (default: http)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+
+          # 3. Use path from annotation (default: /metrics)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # 4. Use port from annotation
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+          # 5. Set namespace label from K8s metadata
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+
+          # 6. Set job label from app.kubernetes.io/name
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: job
+
+          # 7. Set service label (same as job)
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: service
+
+          # 8. Set pod label
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+      {{- end }}
+
+      # --- VictoriaMetrics self-monitoring (static) ---
+      - job_name: victoriametrics
+        static_configs:
+          - targets:
+              - localhost:8428
+
+      {{- range .Values.victoriametrics.externalTargets }}
+      # --- External target: {{ .jobName }} ---
+      - job_name: '{{ .jobName }}'
+        static_configs:
+          - targets:
+              - '{{ .target }}'
+            labels:
+              {{- range $key, $value := .labels }}
+              {{ $key }}: '{{ $value }}'
+              {{- end }}
+        {{- if .metricsPath }}
+        metrics_path: '{{ .metricsPath }}'
+        {{- end }}
+        {{- if .scrapeInterval }}
+        scrape_interval: {{ .scrapeInterval }}
+        {{- end }}
+      {{- end }}
+---
+# --- StatefulSet ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: victoriametrics
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 4 }}
+spec:
+  serviceName: victoriametrics
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 8 }}
+    spec:
+      serviceAccountName: victoriametrics
+      containers:
+        - name: victoriametrics
+          image: {{ include "dephealth-monitoring.image" (dict "registry" .Values.global.imageRegistry "image" .Values.victoriametrics.image "tag" .Values.victoriametrics.tag) }}
+          args:
+            - -storageDataPath=/data
+            - -retentionPeriod={{ .Values.victoriametrics.retentionPeriod }}
+            - -promscrape.config=/config/scrape.yml
+            - -httpListenAddr=:8428
+          ports:
+            - containerPort: 8428
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8428
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8428
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.victoriametrics.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: victoriametrics-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.victoriametrics.storage }}
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoriametrics
+  namespace: {{ include "dephealth-monitoring.namespace" . }}
+  labels:
+    {{- include "dephealth-monitoring.labels" . | nindent 4 }}
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dephealth-monitoring.selectorLabels" (dict "name" "victoriametrics") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8428
+      targetPort: 8428
+{{- end }}

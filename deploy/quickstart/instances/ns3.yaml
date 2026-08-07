@@ -1,0 +1,37 @@
+# Test topology — Namespace 3 (reverse-proxy scenario)
+#
+# Four leaf uniproxy instances reachable through a single nginx reverse proxy.
+# All four share the same TCP destination (nginx-proxy), so in the metrics
+# they appear as four dependencies with an identical host:port but different
+# `dependency` names — exactly the shape of a service behind a shared proxy.
+#
+# The initiator lives in ns2 (uniproxy-05) and routes each request to a
+# specific backend by setting `hostHeader`, which uniproxy maps to the HTTP
+# `Host` header on the outbound check. nginx selects the backend upstream via
+# that Host. See the "Proxy scenario" section of docs/test-environment.md.
+#
+#   nginx-proxy (Host: uniproxy-09) ──► uniproxy-09
+#   nginx-proxy (Host: uniproxy-10) ──► uniproxy-10
+#   nginx-proxy (Host: uniproxy-11) ──► uniproxy-11
+#   nginx-proxy (Host: uniproxy-12) ──► uniproxy-12
+
+instances:
+  - name: uniproxy-09
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-10
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-11
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []
+
+  - name: uniproxy-12
+    group: proxy-cluster-3
+    replicas: 1
+    connections: []

@@ -1,0 +1,40 @@
+# dephealth-uniproxy — default values
+#
+# Usage:
+#   helm install dephealth-uniproxy-ns1 deploy/helm/dephealth-uniproxy/ \
+#     -f deploy/helm/dephealth-uniproxy/values-homelab.yaml \
+#     -f deploy/helm/dephealth-uniproxy/instances/ns1-homelab.yaml \
+#     -n dephealth-uniproxy --create-namespace
+
+global:
+  pushRegistry: ""
+
+image:
+  name: uniproxy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Check interval in seconds (passed as DEPHEALTH_CHECK_INTERVAL env var).
+checkInterval: "10"
+
+# Global check timeout in seconds (passed as DEPHEALTH_TIMEOUT env var).
+# Empty string means SDK default.
+timeout: ""
+
+# Timeout in seconds for recursive HTTP detail fetch (passed as DEPHEALTH_FETCH_TIMEOUT).
+# Used by GET /?detail=true&depth=N to fetch downstream uniproxy responses.
+fetchTimeout: "5"
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+probes:
+  readinessDelay: 5
+  livenessDelay: 5
+
+instances: []

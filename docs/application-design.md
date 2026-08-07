@@ -1,135 +1,226 @@
-# dephealth-ui — Описание приложения
+# dephealth-ui — Application Design
 
-## Назначение
+**Language:** English | [Русский](./application-design.ru.md)
 
-dephealth-ui — веб-приложение для визуализации топологии микросервисов и состояния их зависимостей в реальном времени. Отображает направленный граф сервисов с цветовой индикацией состояний (OK, DEGRADED, DOWN), значениями latency на связях и ссылками на dashboards в Grafana.
+---
 
-## Источники данных
+## Purpose
 
-Приложение получает данные из двух источников:
+dephealth-ui is a web application for visualizing microservice topologies and monitoring dependency health in real-time. It displays a directed service graph with color-coded states (OK, DEGRADED, DOWN, Unknown), latency values on edges, and links to Grafana dashboards.
 
-- **Prometheus / VictoriaMetrics** — метрики, собираемые проектом [topologymetrics](https://github.com/BigKAA/topologymetrics) (dephealth SDK)
-- **AlertManager** — активные алерты по зависимостям
+## Data Sources
 
-### Метрики topologymetrics
+The application consumes data from two sources:
 
-| Метрика | Тип | Значения | Описание |
-|---------|-----|----------|----------|
-| `app_dependency_health` | Gauge | `1` (здоров) / `0` (недоступен) | Состояние зависимости |
-| `app_dependency_latency_seconds` | Histogram | секунды | Latency health check зависимости |
+- **Prometheus / VictoriaMetrics** — metrics collected by the [topologymetrics](https://github.com/BigKAA/topologymetrics) project (dephealth SDK)
+- **AlertManager** — active dependency alerts (optional; if not configured, alert-related UI elements are hidden)
+
+### topologymetrics Metrics
+
+| Metric | Type | Values | Description |
+|--------|------|--------|-------------|
+| `app_dependency_health` | Gauge | `1` (healthy) / `0` (unhealthy) | Dependency state |
+| `app_dependency_latency_seconds` | Histogram | seconds | Dependency health check latency |
+| `app_dependency_status` | Gauge (enum) | `1` (active) / `0` (inactive) | Active status category per endpoint (SDK v0.4.0+) |
+| `app_dependency_status_detail` | Gauge (info) | `1` | Detailed status description in `detail` label (SDK v0.4.0+) |
 
 Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
-### Labels (одинаковые для обеих метрик)
+Status values: `ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`
 
-| Label | Обязательный | Описание | Пример |
-|-------|:---:|----------|--------|
-| `dependency` | да | Логическое имя зависимости | `postgres-main` |
-| `type` | да | Тип подключения | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka` |
-| `host` | да | Адрес endpoint | `pg-master.db.svc.cluster.local` |
-| `port` | да | Порт endpoint | `5432` |
-| `role` | нет | Роль экземпляра | `primary`, `replica` |
-| `shard` | нет | Идентификатор shard | `shard-01` |
-| `vhost` | нет | AMQP virtual host | `/` |
+### Labels (same for both metrics)
 
-### Модель графа
+| Label | Source | Description | Example |
+|-------|:------:|-------------|---------|
+| `name` | SDK ✅ | Application name (from SDK) | `uniproxy-01` |
+| `group` | SDK ✅ | Logical service group (required since SDK v0.5.0; dephealth-ui works without it) | `billing-team` |
+| `dependency` | SDK ✅ | Logical dependency name | `postgres-main` |
+| `type` | SDK ✅ | Connection type | `http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap` |
+| `host` | SDK ✅ | Endpoint address | `pg-master.db.svc.cluster.local` |
+| `port` | SDK ✅ | Endpoint port | `5432` |
+| `critical` | SDK ✅ | Dependency criticality | `yes`, `no` |
+| `namespace` | Prometheus | Kubernetes namespace (not part of SDK; added by Prometheus during scrape) | `production` |
+| `isentry` | Custom | Marks the service as an entry point (not part of SDK; recommended for dephealth-ui) | `yes` |
+| `role` | Custom | Instance role | `primary`, `replica` |
+| `shard` | Custom | Shard identifier | `shard-01` |
+| `vhost` | Custom | AMQP virtual host | `/` |
 
-- **Узлы (nodes)** = Prometheus label `job` (имя сервиса из scrape config)
-- **Рёбра (edges)** = комбинация `{job → dependency, type, host, port}`
-- Каждая уникальная комбинация `{job, dependency, host, port}` = одно направленное ребро
+### Graph Model
 
-### Правила алертов (из Helm chart topologymetrics)
+- **Nodes** = Prometheus label `name` (application name from dephealth SDK)
+- **Edges** = service → dependency relationships from the `dependency` label
+- Each unique pair `{name, dependency}` = one directed edge; `type`, `host`, `port`, `critical` are edge attributes (host/port carry the connection endpoint but do **not** identify the edge)
+- The `critical` flag determines edge visual thickness on the graph
 
-| Алерт | Условие | Severity |
-|-------|---------|----------|
-| `DependencyDown` | Все endpoints зависимости = 0 в течение 1 мин | critical |
-| `DependencyDegraded` | Смешанные значения 0 и 1 для одной зависимости в течение 2 мин | warning |
-| `DependencyHighLatency` | P99 > 1с в течение 5 мин | warning |
-| `DependencyFlapping` | >4 смены состояния за 15 мин | info |
-| `DependencyAbsent` | Метрики отсутствуют полностью в течение 5 мин | warning |
+### Entry Points
+
+Entry points are the first services receiving external traffic in the topology (e.g., API gateways, frontend backends). They are marked with a blue badge (⬇) on the graph and labeled "Entry Point" in the sidebar.
+
+**How entry points work:**
+
+- Entry points are determined by an **explicit `isentry` label** on dephealth SDK metrics — there is no automatic detection
+- Set `isentry=yes` label in the dephealth SDK, or set `DEPHEALTH_ISENTRY=yes` environment variable in uniproxy
+- If no services have the `isentry` label, no nodes are marked as entry points
+- The `isentry` label is included in the PromQL `group by` clause to propagate through topology queries
+
+**Frontend display:**
+
+- Entry point nodes show a blue ⬇ badge in the bottom-right corner
+- The sidebar displays an "Entry Point" indicator for these nodes
+- The graph legend includes an entry point icon
+
+### Dependency Node Identification
+
+Dependency nodes (non-service targets like databases, caches, message brokers) use a composite ID format:
+
+- **Node ID:** `{source_name}/{dependency_name}` (e.g., `order-service/postgres-main`)
+- **Node label:** logical dependency name (e.g., `postgres-main`, `ldap`, `redis`)
+- **`host` and `port` fields:** contain the actual connection endpoint, displayed as a secondary line in the UI
+
+**Key behavior:**
+
+- Each `(source, dependency)` pair creates a **separate** dependency node — there is no deduplication by `host:port`
+- If two services depend on the same database (`host:port`), they produce separate graph nodes (e.g., `order-service/postgres-main` and `payment-api/postgres-main`)
+- If a dependency name matches a known service name, the dependency links to that service node instead (building a connected service-to-service graph)
+
+### Alert Rules (from topologymetrics Helm chart)
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| `DependencyDown` | All dependency endpoints = 0 for 1 min | critical |
+| `DependencyDegraded` | Mixed 0 and 1 values for a dependency for 2 min | warning |
+| `DependencyHighLatency` | P99 > 1s for 5 min | warning |
+| `DependencyFlapping` | >4 state changes in 15 min | info |
+| `DependencyAbsent` | Metrics completely absent for 5 min | warning |
 
 ---
 
-## Ограничения развёртывания
+## Deployment Constraints
 
-- **Сетевая изоляция:** приложение развёртывается **отдельно** от стека мониторинга. Prometheus/VictoriaMetrics и AlertManager находятся в другой сети, недоступной из браузеров пользователей.
-- **Масштаб:** 100+ сервисов с dephealth SDK, тысячи рёбер зависимостей.
-- **Аутентификация:** настраивается в конфигурации — без auth (внутренний инструмент), Basic auth или OIDC/SSO (Keycloak, LDAP).
+- **Network isolation:** the application is deployed **separately** from the monitoring stack. Prometheus/VictoriaMetrics and AlertManager are in a different network, inaccessible from user browsers.
+- **Scale:** 100+ services with dephealth SDK, thousands of dependency edges.
+- **Authentication:** configurable — no auth (internal tool), Basic auth, OIDC/SSO (Keycloak), or LDAP (direct bind / search bind).
 
-**Следствие:** чистое SPA-приложение с Nginx-проксированием к Prometheus **невозможно**. Необходим серверный backend, который обращается к Prometheus/AlertManager и отдаёт фронтенду готовые данные графа.
+**Consequence:** a pure SPA with Nginx proxying to Prometheus is **not possible**. A server-side backend is required to query Prometheus/AlertManager and deliver ready-to-use graph data to the frontend.
 
 ---
 
-## Архитектура
+## Architecture
 
-Комбинированное приложение: Go backend + JS frontend, поставляется как единый Docker-образ.
+Combined application: Go backend + JS frontend, shipped as a single Docker image.
 
 ```
 ┌─────────────────────┐
-│  Браузер (JS SPA)   │  ← Cytoscape.js, получает готовый JSON-граф
-│  Cytoscape.js       │  ← Не знает про PromQL, не обращается к Prometheus
+│  Browser (JS SPA)   │  ← Cytoscape.js, receives ready JSON graph
+│  Cytoscape.js       │  ← No PromQL knowledge, no Prometheus access
 └────────┬────────────┘
          │ HTTPS (JSON REST API)
          ▼
 ┌─────────────────────────────────────┐
-│  dephealth-ui (Go binary)           │  ← Единый binary, единый Docker image
+│  dephealth-ui (Go binary)           │  ← Single binary, single Docker image
 │                                     │
 │  ┌─ HTTP Server ──────────────────┐ │
-│  │  GET /              → SPA      │ │  ← Раздаёт встроенные static-файлы
-│  │  GET /api/v1/topology → handler│ │  ← Готовый граф топологии
-│  │  GET /api/v1/alerts   → handler│ │  ← Агрегированные алерты
-│  │  GET /api/v1/config   → handler│ │  ← Конфигурация для фронтенда
+│  │  GET /              → SPA      │ │  ← Serves embedded static files
+│  │  GET /api/v1/topology → handler│ │  ← Ready topology graph
+│  │  GET /api/v1/alerts   → handler│ │  ← Aggregated alerts
+│  │  GET /api/v1/config   → handler│ │  ← Frontend configuration
+│  │  GET /api/v1/export/* → handler│ │  ← Graph export (JSON/CSV/DOT/PNG/SVG)
 │  └────────────────────────────────┘ │
 │                                     │
 │  ┌─ Topology Service ─────────────┐ │
-│  │  Запросы к Prometheus/VM API   │ │  ← Серверная сторона
-│  │  Запросы к AlertManager API v2 │ │
-│  │  Построение графа              │ │  ← Вычисление OK/DEGRADED/DOWN
-│  │  Кэширование (15-60с TTL)     │ │  ← Один запрос обслуживает всех
+│  │  Prometheus/VM API queries     │ │  ← Server-side
+│  │  AlertManager API v2 queries   │ │
+│  │  Graph construction            │ │  ← OK/DEGRADED/DOWN computation
+│  │  Caching (15-60s TTL)         │ │  ← One query cycle serves all users
 │  └────────────────────────────────┘ │
 │                                     │
 │  ┌─ Auth Module (pluggable) ──────┐ │
-│  │  type: "none"  → открытый      │ │  ← Настраивается через YAML/env
+│  │  type: "none"  → open access   │ │  ← Configured via YAML/env
 │  │  type: "basic" → user/password │ │
 │  │  type: "oidc"  → SSO/Keycloak │ │
+│  │  type: "ldap"  → LDAP bind    │ │
 │  └────────────────────────────────┘ │
 └──────────┬──────────────┬───────────┘
            │              │
            ▼              ▼
 ┌──────────────────┐ ┌────────────────┐
 │ VictoriaMetrics  │ │  AlertManager  │
-│ (отдельная сеть) │ │ (отдельная     │
-│                  │ │  сеть)         │
+│ (separate net)   │ │ (separate net) │
 └──────────────────┘ └────────────────┘
 ```
 
 ---
 
-## Стек технологий
+## Tech Stack
 
-| Компонент | Выбор | Обоснование |
-|-----------|-------|-------------|
-| **Backend** | Go (`net/http` + `chi`) | Единый binary; официальная библиотека Prometheus client; минимальный Docker-образ (~15-20MB); соответствует K8s-экосистеме |
-| **Frontend** | Vanilla JS + Vite | Компактное SPA; Cytoscape.js работает нативно; минимальный bundle; при росте — миграция на React |
-| **Визуализация графа** | Cytoscape.js + cytoscape-dagre | Нативные постоянные подписи на рёбрах; CSS-подобные стили; `cy.batch()` для эффективного обновления; богатая экосистема layout |
-| **Layout** | dagre | Оптимален для DAG-подобной топологии; быстрый; чистый hierarchical рендеринг |
-| **Сборка frontend** | Vite | Быстрый dev server, оптимальный build, HMR |
-| **Контейнеризация** | Docker (multi-stage) + Helm chart | Единый образ: Go binary со встроенными SPA static-файлами |
+| Component | Choice | Rationale |
+|-----------|--------|-----------|
+| **Backend** | Go (`net/http` + `chi`) | Single binary; official Prometheus client library; minimal Docker image (~15-20MB); fits K8s ecosystem |
+| **Frontend** | Vanilla JS + Vite | Compact SPA; Cytoscape.js works natively; minimal bundle; can migrate to React if needed |
+| **Graph visualization** | Cytoscape.js + dagre + fcose | Native persistent edge labels; CSS-like styles; `cy.batch()` for efficient updates; rich layout ecosystem |
+| **Layout** | dagre (flat) / fcose (grouped) | dagre — optimal for DAG-like topology in flat mode; fcose — force-directed layout for dimension grouping (namespace or group) with compound nodes |
+| **Frontend build** | Vite | Fast dev server, optimal builds, HMR |
+| **Containerization** | Docker (multi-stage) + Helm chart | Single image: Go binary with embedded SPA static files |
 
 ---
 
-## Backend: зоны ответственности
+## Backend Responsibilities
 
-| Ответственность | Детали |
-|-----------------|--------|
-| **Запросы к Prometheus** | `app_dependency_health`, latency histogram через `prometheus/client_golang/api/v1` |
-| **Запросы к AlertManager** | `GET /api/v2/alerts` с фильтрами, стандартный HTTP client |
-| **Построение графа** | Узлы из label `job`, рёбра из labels `dependency/type/host/port` |
-| **Вычисление состояний** | Корреляция метрик + алертов → OK / DEGRADED / DOWN для каждого узла и ребра |
-| **Кэширование** | In-memory cache с настраиваемым TTL (по умолчанию 15с). Один цикл запросов к Prometheus обслуживает всех подключённых пользователей |
-| **Генерация Grafana URL** | Формирование URL dashboards с правильными query-параметрами из конфигурации |
-| **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation) |
-| **Раздача static-файлов** | SPA-ассеты встроены через Go `embed` package, раздаются по `/` |
+| Responsibility | Details |
+|----------------|---------|
+| **Prometheus queries** | `app_dependency_health`, latency histogram via `prometheus/client_golang/api/v1` |
+| **AlertManager queries** | `GET /api/v2/alerts` with filters, standard HTTP client |
+| **Graph construction** | Nodes from label `name`, edges from labels `dependency/type/host/port/critical` |
+| **State computation** | Metrics + alerts correlation → OK / DEGRADED / DOWN for each node and edge |
+| **Caching** | In-memory cache with configurable TTL (default 15s). One query cycle to Prometheus serves all connected users |
+| **Grafana URL generation** | Dashboard URLs with correct query parameters from configuration |
+| **Auth middleware** | Pluggable: none (passthrough), Basic (bcrypt), OIDC (redirect flow + token validation), LDAP (direct bind / search bind with login form) |
+| **Static file serving** | SPA assets embedded via Go `embed` package, served at `/` |
+| **Graph export** | Multi-format export (JSON, CSV, DOT, PNG, SVG) via `internal/export` package; Graphviz integration for image rendering |
+
+---
+
+## State Model
+
+dephealth-ui uses a 4-state model for both nodes and edges:
+
+| State | Color | Description |
+|-------|-------|-------------|
+| **ok** | Green (`#4caf50`) | All dependencies healthy |
+| **degraded** | Yellow (`#ff9800`) | Some dependencies unhealthy, service still alive |
+| **down** | Red (`#f44336`) | Service unavailable (all edges stale or truly down) |
+| **unknown** | Gray (`#9e9e9e`) | No data available (no edges, or all edges stale) |
+
+### Service Node State (Backend)
+
+The backend computes service node state in `calcServiceNodeState()` based on outgoing edge health:
+
+- **No edges** → `unknown`
+- **Any edge with health=0** → `degraded`
+- **All edges healthy (health=1)** → `ok`
+
+> **Important:** `calcServiceNodeState` never returns `"down"`. The backend only assigns `ok`, `degraded`, or `unknown` to service nodes. The `down` state for service nodes is set only when **all** outgoing edges are stale (metrics disappeared), handled by the stale detection logic.
+
+### Dependency Node State (Backend)
+
+Dependency nodes derive state from incoming edges:
+
+- **All incoming edges stale** → `down` (with `stale=true`)
+- **Mixed stale/live** → state from non-stale edges only
+- **health=1** → `ok`
+- **health=0** → `down`
+
+### Edge State
+
+| Condition | State |
+|-----------|-------|
+| health=1 | `ok` |
+| health=0 | `down` |
+| Stale (metrics disappeared) | `unknown` |
+
+### Frontend State Extensions
+
+The frontend extends the state model with cascade warnings (see [Cascade Warnings](#cascade-warnings)). Nodes receiving cascade propagation show a `⚠ N` badge and appear in the virtual `warning` filter state.
 
 ---
 
@@ -137,7 +228,7 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
 ### `GET /api/v1/topology`
 
-Возвращает полный граф топологии с предвычисленными состояниями:
+Returns the full topology graph with pre-computed states:
 
 ```json
 {
@@ -147,25 +238,29 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
       "label": "Order Service",
       "state": "ok",
       "type": "service",
+      "isEntry": true,
       "dependencyCount": 3,
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-job=order-service"
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service"
     },
     {
-      "id": "postgres-main",
+      "id": "order-service/postgres-main",
       "label": "postgres-main",
       "state": "degraded",
-      "type": "postgres"
+      "type": "postgres",
+      "host": "pg-host",
+      "port": "5432"
     }
   ],
   "edges": [
     {
       "source": "order-service",
-      "target": "postgres-main",
+      "target": "order-service/postgres-main",
       "latency": "5.2ms",
       "latencyRaw": 0.0052,
       "health": 1,
       "state": "ok",
-      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-job=order-service&var-dep=postgres-main"
+      "critical": true,
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-host&var-port=5432"
     }
   ],
   "alerts": [
@@ -187,11 +282,48 @@ Histogram buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
 
 ### `GET /api/v1/config`
 
-Возвращает конфигурацию, необходимую фронтенду (Grafana base URL, настройки отображения).
+Returns configuration needed by the frontend (Grafana base URL, dashboard UIDs, display settings).
+
+```json
+{
+  "grafana": {
+    "baseUrl": "https://grafana.example.com",
+    "dashboards": {
+      "serviceStatus": "dephealth-service-status",
+      "linkStatus": "dephealth-link-status",
+      "serviceList": "dephealth-service-list",
+      "servicesStatus": "dephealth-services-status",
+      "linksStatus": "dephealth-links-status"
+    }
+  },
+  "cache": { "ttl": 15 },
+  "auth": { "type": "oidc" },
+  "alerts": {
+    "enabled": true,
+    "severityLevels": [
+      {"value": "critical", "color": "#f44336"},
+      {"value": "warning", "color": "#ff9800"},
+      {"value": "info", "color": "#2196f3"}
+    ]
+  }
+}
+```
+
+The `alerts.enabled` field indicates whether AlertManager is configured. When `false`, the frontend hides all alert-related UI elements (see [Optional AlertManager](#optional-alertmanager)).
+
+**Dashboards:**
+
+| UID | Purpose | Query parameters |
+|-----|---------|------------------|
+| `serviceStatus` | Single service status | `?var-service=<name>` |
+| `linkStatus` | Single dependency status | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
+| `serviceList` | All services list | — |
+| `servicesStatus` | All services overview | — |
+| `linksStatus` | All links overview | — |
 
 ---
 
-## Конфигурация приложения
+## Application Configuration
 
 ```yaml
 # dephealth-ui.yaml
@@ -201,133 +333,415 @@ server:
 datasources:
   prometheus:
     url: "http://victoriametrics.monitoring.svc:8428"
-    # или внешний: "https://vm.example.com"
-    # опциональная Basic auth для самого Prometheus:
     # username: "reader"
     # password: "secret"
   alertmanager:
-    url: "http://alertmanager.monitoring.svc:9093"
+    url: "http://alertmanager.monitoring.svc:9093"  # optional; leave empty to disable alerts
 
 cache:
   ttl: 15s
 
 auth:
-  type: "none"   # "none" | "basic" | "oidc"
-  # basic:
-  #   users:
-  #     - username: admin
-  #       passwordHash: "$2a$..."
-  # oidc:
-  #   issuer: "https://keycloak.example.com/realms/infra"
-  #   clientId: "dephealth-ui"
-  #   clientSecret: "..."
-  #   redirectUrl: "https://dephealth.example.com/auth/callback"
+  type: "none"   # "none" | "basic" | "oidc" | "ldap"
 
 grafana:
   baseUrl: "https://grafana.example.com"
   dashboards:
     serviceStatus: "dephealth-service-status"
     linkStatus: "dephealth-link-status"
+    serviceList: "dephealth-service-list"
+    servicesStatus: "dephealth-services-status"
+    linksStatus: "dephealth-links-status"
+
+topology:
+  lookback: "0"  # "0" = disabled, "1h", "6h", "24h"
 ```
 
 ---
 
-## Frontend: поведение
+## Frontend Behavior
 
-Frontend — тонкий слой визуализации. Вся трансформация данных происходит на backend.
+The frontend is a thin visualization layer. All data transformation happens on the backend.
 
-### Основной цикл
+### Main Loop
 
-1. Frontend запрашивает `GET /api/v1/topology` с интервалом, указанным в `meta.ttl`
-2. Получает готовый JSON с узлами, рёбрами, алертами и meta-информацией
-3. Обновляет граф Cytoscape.js через `cy.batch()` (эффективное массовое обновление)
+1. Frontend requests `GET /api/v1/topology` at the interval specified in `meta.ttl`
+2. Receives ready JSON with nodes, edges, alerts, and meta information
+3. Updates the Cytoscape.js graph via `cy.batch()` (efficient batch update)
 
-### Визуализация
+### Visualization
 
-- **Узлы:** цвет зависит от `state` — зелёный (OK), жёлтый (DEGRADED), красный (DOWN)
-- **Рёбра:** направленные стрелки с постоянными подписями latency; цвет ребра по `state`
-- **Клик по узлу/ребру:** открывает соответствующий Grafana dashboard (`grafanaUrl`)
-- **Layout:** dagre (hierarchical, направление `LR` или `TB`)
+- **Nodes:** color depends on `state` — green (OK), yellow (DEGRADED), red (DOWN), gray (Unknown/stale); dynamic size based on label length; colored namespace stripe
+- **Edges:** directed arrows with persistent latency labels; edge color by `state`; edge thickness by `critical` (critical = thicker)
+- **Stale nodes:** gray background (`#9e9e9e`), dashed border, hidden latency; tooltip "Metrics disappeared"
+- **Click on node/edge:** opens sidebar with details (state, namespace, instances, edges, alerts) and Grafana dashboard links
+- **Context menu (right-click):** Open in Grafana, Copy Grafana URL, Show Details
+- **Layout:** dagre (flat mode, LR/TB) or fcose (dimension grouping mode)
+
+![Context menu on a service node](./images/context-menu-grafana.png)
+
+### Visual Grouping (Dimensions)
+
+Grouping visually combines services into Cytoscape.js compound nodes by a selected **dimension**:
+- **Namespace** — Kubernetes namespace (default, available for all services)
+- **Group** — logical group label from SDK v0.5.0+ (`group` label on metrics)
+
+A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The choice is persisted in `localStorage` and reflected in the URL (`?dimension=group` or `?dimension=namespace`).
+
+**Group dimension details:**
+- Service nodes display a colored stripe and `gr: <group>` label when in group mode
+- Dependency nodes (Redis, PostgreSQL, etc.) do not have a `group` label — they show no stripe in group mode
+- The filter dropdown switches between "Namespace" and "Group" values depending on the active dimension
+- The namespace/group legend panel updates to show the active dimension's values and colors
+- If no nodes in the topology have a `group` field, the toggle is hidden and namespace mode is used automatically
+
+**Modes:**
+- **Flat mode (dagre):** all nodes displayed at the same level, dagre layout
+- **Grouped mode (fcose):** nodes grouped in dimension containers, fcose layout
+
+**Collapse/Expand:**
+- Double-click on a group or "Expand" button in sidebar → collapse/expand
+- Collapsed group shows: worst child state, service count, total alerts
+- Edges between collapsed groups are automatically aggregated (showing count `×N`)
+- Collapse/expand state is persisted in `localStorage`
+- During data refresh (auto-refresh) — collapsed groups remain collapsed
+
+**Click-to-expand navigation:**
+- In collapsed group sidebar — clickable service list with colored state indicators
+- Click on a service → group expands → camera centers on selected service → sidebar shows service details
+- In edge sidebar — click on a node from a collapsed group also expands and navigates to the original service
+
+![Main view with collapsed namespaces](./images/dephealth-main-view.png)
+
+![Collapsed namespace sidebar with clickable services](./images/sidebar-collapsed-namespace.png)
+
+### Sidebar
+
+Three types of sidebars:
+
+**1. Node Sidebar** — on clicking a service node:
+- Basic info (state, type, namespace, group)
+- Active alerts (with severity)
+- Instance list (pod name, IP:port) — for service nodes
+- Connected edges (incoming/outgoing with latency and navigation)
+- "Open in Grafana" button (opens serviceStatus dashboard)
+- **Grafana Dashboards** section — links to all dashboards with context-aware query parameters
+
+![Node sidebar with alerts and Grafana links](./images/sidebar-grafana-section.png)
+
+![Stale/unknown node sidebar](./images/sidebar-stale-node.png)
+
+**2. Edge Sidebar** — on clicking an edge:
+- State, type, latency, criticality
+- Active alerts for this link
+- Connected nodes (source/target) with clickable navigation
+- "Open in Grafana" button (opens linkStatus dashboard)
+- Grafana Dashboards section
+
+![Edge sidebar with alerts and connected nodes](./images/sidebar-edge-details.png)
+
+**3. Collapsed Namespace Sidebar** — on clicking a collapsed namespace:
+- Worst state, service count, total alerts
+- Clickable service list with colored state dots and "Go to node →" arrow
+- "Expand namespace" button
+
+### Optional AlertManager
+
+AlertManager is an optional data source. When `datasources.alertmanager.url` is empty (or not configured), the application operates without alert data.
+
+**Config API:** `GET /api/v1/config` returns `alerts.enabled: false` when AlertManager URL is not configured, and `alerts.enabled: true` when it is.
+
+**Frontend behavior when AlertManager is disabled (`alerts.enabled: false`):**
+
+- Alerts button in the toolbar is visually disabled (grayed out, `cursor: not-allowed`) with a tooltip "Connect AlertManager"
+- Clicking the disabled alerts button does not open the alert drawer
+- Alert badges are not displayed on graph nodes and edges
+- Alert sections are hidden in node and edge sidebars
+- Alert counters are hidden in the status bar
+- Alert data is not fetched from the server
+
+When AlertManager is configured (`alerts.enabled: true`), all alert features function normally as described throughout this document.
+
+> **Note:** Historical alerts (in History Mode) are retrieved from Prometheus via the `ALERTS` metric, not from AlertManager. History mode is not affected by this setting.
+
+### Internationalization (i18n)
+
+The frontend supports EN and RU. Language toggle button in the toolbar. All UI elements, filters, legend, status bar, sidebar, and context menu are localized. Language is saved in `localStorage`.
+
+| EN | RU |
+|----|----|
+| ![UI in English](./images/dephealth-main-view.png) | ![UI in Russian](./images/dephealth-russian-ui.png) |
+
+### Cascade Warnings
+
+Cascade warnings visualize failure propagation through critical dependencies. When a service goes down, all upstream services that critically depend on it (directly or transitively) receive cascade warning indicators showing the root cause.
+
+**Key principle:** Only edges with `critical=true` propagate cascade warnings. Non-critical dependency failures do not trigger cascade propagation.
+
+#### Algorithm
+
+Cascade computation runs entirely on the frontend (`cascade.js`) after each data refresh:
+
+**Phase 1 — Find root causes** (`findRealRootCauses`):
+For each `down` service node, trace downstream through critical edges to find the actual unavailable dependency (the terminal root cause). Example: if `A(down) → B(critical) → C(unknown)`, the root cause is `C`, not `A`.
+
+**Phase 2 — BFS upstream** (`computeCascadeWarnings`):
+From each `down` service node, BFS upstream through incoming critical edges. Each upstream node (that is not itself `down`) receives cascade warning data referencing the real root cause(s).
+
+```
+fetchTopology() → renderGraph() → computeCascadeWarnings(cy) → updateBadges()
+```
+
+#### Node Data Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `cascadeCount` | number | Count of distinct root-cause sources affecting this node |
+| `cascadeSources` | string[] | Array of root-cause node IDs |
+| `inCascadeChain` | boolean | `true` for nodes in the failure chain (down + root causes) — used by filter system |
+
+#### Visual Representation
+
+- **Cascade badge:** `⚠ N` pill-shaped badge on the top-left corner of affected nodes (N = number of root cause sources)
+- **Tooltip:** shows "Cascade warning: ↳ service-name (state)" for each root cause source
+- **Down nodes** do not show cascade badges (they are the root cause, not a warning recipient)
+
+![Topology with cascade warning badges on upstream nodes](./images/cascade-warnings-main.png)
+
+![Tooltip showing cascade warning root cause](./images/cascade-warning-tooltip.png)
+
+#### State Filters
+
+The state filter bar includes the virtual `warning` state alongside backend states:
+
+![State filter chips: ok, degraded, down, unknown, warning](./images/state-filters.png)
+
+#### Filter Integration
+
+The filter system includes a virtual `warning` state (not a backend state):
+
+- A node matches `warning` if `cascadeCount > 0` and `state !== 'down'`
+- Nodes with `inCascadeChain=true` also match the `warning` filter (shows the full failure chain)
+
+**Pass 1.5 — Degraded/down chain visibility:**
+When `degraded` or `down` state filter is active, the filter system also reveals downstream non-ok dependencies so the user can see WHY a node is degraded or down.
 
 ---
 
-## Развёртывание
+## History Mode
+
+History mode enables time-travel through the topology graph, allowing users to view the dependency state at any point in the past.
+
+### Architecture
+
+```
+Browser                          Go Backend                    VictoriaMetrics
+  │                                  │                              │
+  │  /api/v1/topology?time=T         │                              │
+  ├─────────────────────────────────►│  query(promql, at=T)         │
+  │                                  ├─────────────────────────────►│
+  │                                  │  /api/v1/query?time=T        │
+  │  {meta: {isHistory:true, time:T}}│◄─────────────────────────────┤
+  │◄─────────────────────────────────┤                              │
+  │                                  │                              │
+  │  /api/v1/timeline/events         │  query_range(start,end,step) │
+  │  ?start=S&end=E                  │                              │
+  ├─────────────────────────────────►├─────────────────────────────►│
+  │  [{timestamp,service,kind}]      │◄─────────────────────────────┤
+  │◄─────────────────────────────────┤  detect transitions          │
+```
+
+**Backend:**
+- All Prometheus queries accept an optional `time` parameter. When set, the Prometheus `/api/v1/query?time=<unix_ts>` parameter is used instead of the current time
+- Historical alerts are reconstructed from the `ALERTS{alertstate="firing"}` metric at the requested timestamp (AlertManager is not queried for historical data)
+- Historical requests bypass the in-memory cache entirely (no Get, no Set)
+- The `lookback` window is applied relative to `opts.Time` for stale node detection
+- The `/api/v1/timeline/events` endpoint uses `query_range` to detect `app_dependency_status` transitions over a time window, with auto-calculated step size
+
+**Frontend:**
+- Timeline panel: bottom panel with time range presets (1h–90d), custom datetime inputs, and a range slider
+- Time scale: major/minor ticks with formatted time labels (adaptive intervals from 10 min to 14 days depending on range); anti-overlap label suppression; responsive via ResizeObserver
+- Event markers: colored markers on the slider showing state transitions (red=degradation, green=recovery, orange=change)
+- URL synchronization: `?time=`, `?from=`, `?to=` query parameters are maintained via `history.replaceState()` for shareable links
+- Grafana links: in history mode, all Grafana dashboard URLs include `&from=<ts-1h>&to=<ts+1h>` (Unix ms) to navigate to the relevant time window
+- Auto-refresh is paused in history mode and resumed when returning to live mode
+
+### User Flow
+
+1. Click the History button (clock icon) in the toolbar
+2. Select a time range via preset buttons or custom datetime inputs
+3. Slider appears with event markers; drag to select a point in time
+4. Graph updates on slider release showing the historical topology state
+5. Click an event marker to snap to that specific transition
+6. Copy the URL to share the historical view with colleagues
+7. Click "Live" to return to real-time mode
+
+---
+
+## PromQL Queries (executed on the backend)
+
+```promql
+# All topology edges (instant)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
+
+# All edges within lookback window (for stale node retention)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry) (last_over_time(app_dependency_health[LOOKBACK]))
+
+# Current state of all dependencies
+app_dependency_health
+
+# Average latency
+rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])
+
+# P99 latency
+histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
+
+# Degraded: some endpoints up, some down
+(count by (name, namespace, dependency, type) (app_dependency_health == 0) > 0)
+and
+(count by (name, namespace, dependency, type) (app_dependency_health == 1) > 0)
+```
+
+> **Note:** The `group` label is optional. When present (SDK v0.5.0+), it enables the group dimension toggle in the UI. When absent, the system falls back to namespace-only grouping.
+
+### Stale Node Retention (lookback window)
+
+When a service stops sending metrics (crash, scale-down, network issues), its time series become "stale" in Prometheus after ~5 minutes and disappear from instant queries. By default, this causes the node to vanish from the topology graph.
+
+The **lookback window** feature (`topology.lookback`) retains disappeared nodes on the graph with `state="unknown"` for a configurable duration.
+
+**How it works:**
+
+1. **Topology query** uses `last_over_time(metric[LOOKBACK])` — returns ALL edges seen in the lookback window (current + stale)
+2. **Health query** uses an instant query — returns ONLY current edges (live time series)
+3. Edges present in topology but NOT in health → marked as **stale** (`state="unknown"`, `Stale=true`)
+4. Nodes where ALL edges are stale → `state="unknown"`; mixed nodes use non-stale edges for state calculation
+
+**Frontend visualization:**
+- Stale nodes: gray background (`#9e9e9e`), dashed border
+- Stale edges: gray dashed lines, latency hidden
+- Tooltip shows "Metrics disappeared" / "Метрики пропали"
+
+**Configuration:** `topology.lookback` (default: `0` = disabled). Recommended values: `1h`, `6h`, `24h`. Minimum: `1m`. Env: `DEPHEALTH_TOPOLOGY_LOOKBACK`.
+
+Compatible with both Prometheus and VictoriaMetrics (`last_over_time()` is supported by both).
+
+---
+
+## Graph Export
+
+The export feature allows users to download the topology graph in multiple formats for external analysis, documentation, or sharing.
+
+### Supported Formats
+
+| Format | Type | Description |
+|--------|------|-------------|
+| **JSON** | Data | Structured export with nodes, edges, and metadata (version, timestamp, scope, filters) |
+| **CSV** | Data | ZIP archive containing `nodes.csv` + `edges.csv` with UTF-8 BOM |
+| **DOT** | Data | Graphviz DOT language with namespace/group subgraph clusters and status colors |
+| **PNG** | Image | Graphviz-rendered raster image with configurable DPI (scale 1–4) |
+| **SVG** | Image | Graphviz-rendered vector image |
+
+### Architecture
+
+Export uses a dual-path approach:
+
+- **"Current view"** (frontend): `cy.png()` and `cy.svg()` — captures the exact Cytoscape.js canvas as the user sees it, preserving layout, zoom, and collapsed groups
+- **"Full graph"** (backend): `GET /api/v1/export/{format}` — generates a complete, server-side representation of the topology via the `internal/export` package and Graphviz
+
+```
+┌────────────────────────────────────────┐
+│  Export Modal (frontend)               │
+│                                        │
+│  Format: [PNG] [SVG] [JSON] [CSV] [DOT]│
+│  Scope:  ○ Current view  ○ Full graph  │
+│                                        │
+│  Current view + PNG/SVG                │
+│    → cy.png({full:true, scale:2})      │
+│    → cy.svg({full:true})               │
+│                                        │
+│  Full graph + any format               │
+│    → fetch /api/v1/export/{format}     │
+│    → Blob → download                   │
+└──────────────────┬─────────────────────┘
+                   │ (backend formats)
+                   ▼
+┌────────────────────────────────────────┐
+│  Export Handler (Go backend)           │
+│                                        │
+│  TopologyResponse                      │
+│    → ConvertTopology() → ExportData    │
+│    → ExportJSON / ExportCSV / ExportDOT│
+│    → RenderDOT (png/svg via Graphviz)  │
+└──────────────────┬─────────────────────┘
+                   │ (PNG/SVG only)
+                   ▼
+┌────────────────────────────────────────┐
+│  Graphviz CLI (dot -Tpng/-Tsvg)       │
+│  Installed in Docker image (Alpine)    │
+└────────────────────────────────────────┘
+```
+
+### Backend Export Package (`internal/export/`)
+
+| File | Purpose |
+|------|---------|
+| `model.go` | `ExportData`, `ExportNode`, `ExportEdge` structs; `ConvertTopology()` converter |
+| `json.go` | `ExportJSON()` — indented JSON serialization |
+| `csv.go` | `ExportCSV()` — ZIP archive with `nodes.csv` + `edges.csv` |
+| `dot.go` | `ExportDOT()` — Graphviz DOT with clusters, colors, shapes |
+| `render.go` | `RenderDOT()` — invokes `dot` CLI with 10s timeout; `GraphvizAvailable()` check |
+
+### Graphviz Integration
+
+The Docker image includes the Alpine `graphviz` package (~55–65 MB) for server-side rendering. The `dot` layout engine is used for all graph rendering. If Graphviz is not installed, PNG/SVG exports return HTTP 503; other formats (JSON, CSV, DOT) work without Graphviz.
+
+---
+
+## Deployment
 
 ### Docker
 
 Multi-stage build:
-1. **Stage 1 (frontend):** Node.js + Vite → собирает SPA в `dist/`
-2. **Stage 2 (backend):** Go → компилирует binary со встроенными static-файлами из Stage 1
-3. **Stage 3 (runtime):** Минимальный образ (scratch / distroless) с единственным binary
+1. **Stage 1 (frontend):** Node.js + Vite → builds SPA into `dist/`
+2. **Stage 2 (backend):** Go → compiles binary with embedded static files from Stage 1
+3. **Stage 3 (runtime):** Alpine-based image with Graphviz for graph export rendering
 
-Результат: Docker-образ ~15-20MB.
+Result: Docker image ~80 MB (Graphviz adds ~55–65 MB to the base image).
 
 ### Helm Chart
 
-- Deployment с одним контейнером
-- ConfigMap для `dephealth-ui.yaml`
-- Secret для auth credentials (basic passwords, OIDC client secret)
-- Service (ClusterIP или LoadBalancer)
-- HTTPRoute (Gateway API) для внешнего доступа
-- Опциональный Certificate (cert-manager) для TLS
+- Deployment with one container
+- ConfigMap for `dephealth-ui.yaml`
+- Secret for auth credentials (basic passwords, OIDC client secret)
+- Service (ClusterIP or LoadBalancer)
+- HTTPRoute (Gateway API) for external access
+- Optional Certificate (cert-manager) for TLS
 
-### Конфигурация через environment
+### Environment Variable Override
 
-Все параметры из YAML можно переопределить через переменные окружения:
+All YAML parameters can be overridden via environment variables:
 - `DEPHEALTH_SERVER_LISTEN`
 - `DEPHEALTH_DATASOURCES_PROMETHEUS_URL`
 - `DEPHEALTH_DATASOURCES_ALERTMANAGER_URL`
 - `DEPHEALTH_CACHE_TTL`
 - `DEPHEALTH_AUTH_TYPE`
 - `DEPHEALTH_GRAFANA_BASEURL`
+- `DEPHEALTH_TOPOLOGY_LOOKBACK`
 
 ---
 
-## PromQL-запросы (выполняются на backend)
+## Grafana Integration
 
-```promql
-# Все рёбра топологии
-group by (job, dependency, type, host, port) (app_dependency_health)
+dephealth-ui generates direct links to Grafana dashboards from service nodes, dependency edges, and cascade analysis panels. At startup, the application validates dashboard availability via the Grafana API (`/api/health` and `/api/dashboards/uid/{uid}`) and hides links to dashboards that are not found.
 
-# Текущее состояние всех зависимостей
-app_dependency_health
+Authentication supports three methods with priority: **Service Account Token** > **Basic Auth** > **None**.
 
-# Средняя latency
-rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])
+For full details on dashboard variables, URL generation, authentication configuration, and security recommendations, see [Grafana Dashboard Integration](./grafana-dashboards.md).
 
-# P99 latency
-histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
+## See Also
 
-# Degraded: часть endpoints up, часть down
-(count by (job, namespace, dependency, type) (app_dependency_health == 0) > 0)
-and
-(count by (job, namespace, dependency, type) (app_dependency_health == 1) > 0)
-```
-
----
-
-## Оценка трудозатрат
-
-| Компонент | Дни |
-|-----------|-----|
-| Go: проект, HTTP server, конфигурация | 1-2 |
-| Go: Prometheus API client + построение графа | 3-4 |
-| Go: AlertManager API client + вычисление состояний | 2-3 |
-| Go: кэширование | 1 |
-| Go: Auth middleware (none + basic + OIDC) | 2-3 |
-| Frontend: Vite + Cytoscape.js + рендеринг графа | 3-4 |
-| Frontend: переход в Grafana по клику | 1 |
-| Docker multi-stage build + Helm chart | 1-2 |
-| Тестирование (Go unit + frontend) | 1-2 |
-| **Итого** | **15-22** |
-
----
-
-## Фазы разработки
-
-1. **Фаза 1:** Go-проект + Prometheus API client + построение графа + базовый HTTP API
-2. **Фаза 2:** Frontend (Vite + Cytoscape.js) + рендеринг графа из API
-3. **Фаза 3:** AlertManager интеграция + вычисление состояний (OK/DEGRADED/DOWN)
-4. **Фаза 4:** Auth middleware (none + basic), кэширование, конфигурация
-5. **Фаза 5:** Docker multi-stage build + Helm chart + развёртывание в тестовый кластер
-6. **Фаза 6:** OIDC auth, доработки (тёмная тема, адаптивная вёрстка, обработка ошибок)
+- [REST API Reference](./API.md) — All endpoints and response formats
+- [Metrics Specification](./METRICS.md) — Required metrics and integration guide
+- [Grafana Dashboards](./grafana-dashboards.md) — Dashboard integration and availability checking
+- [Deployment Guide](../deploy/helm/dephealth-ui/README.md) — Kubernetes & Helm

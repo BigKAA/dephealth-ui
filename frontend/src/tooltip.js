@@ -1,0 +1,227 @@
+import { t } from './i18n.js';
+import { STATUS_COLORS, STATUS_LABELS } from './graph.js';
+import { escapeHtml } from './utils.js';
+
+/**
+ * Initialize tooltip functionality for the graph.
+ * Shows tooltips on hover for nodes and edges.
+ * @param {cytoscape.Core} cy - Cytoscape instance
+ */
+export function initTooltip(cy) {
+  const tooltip = document.getElementById('graph-tooltip');
+  if (!tooltip) {
+    console.warn('Tooltip element not found');
+    return;
+  }
+
+  let hideTimeout = null;
+  let showTimeout = null;
+
+  /**
+   * Schedule tooltip display after a delay.
+   * @param {string} html - HTML content for tooltip
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   */
+  function scheduleShowTooltip(html, x, y) {
+    cancelShow();
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      hideTimeout = null;
+    }
+    showTimeout = setTimeout(() => {
+      showTimeout = null;
+      tooltip.innerHTML = html;
+      tooltip.classList.remove('hidden');
+
+      // Position tooltip near cursor, adjust for viewport bounds
+      const rect = tooltip.getBoundingClientRect();
+      const containerRect = cy.container().getBoundingClientRect();
+
+      let left = x + 12;
+      let top = y + 12;
+
+      // Adjust if tooltip would overflow right edge
+      if (left + rect.width > containerRect.right) {
+        left = x - rect.width - 12;
+      }
+
+      // Adjust if tooltip would overflow bottom edge
+      if (top + rect.height > containerRect.bottom) {
+        top = y - rect.height - 12;
+      }
+
+      tooltip.style.left = `${left - containerRect.left}px`;
+      tooltip.style.top = `${top - containerRect.top}px`;
+    }, 2500);
+  }
+
+  /**
+   * Cancel pending show.
+   */
+  function cancelShow() {
+    if (showTimeout) {
+      clearTimeout(showTimeout);
+      showTimeout = null;
+    }
+  }
+
+  /**
+   * Hide tooltip with a small delay.
+   */
+  function hideTooltip() {
+    cancelShow();
+    hideTimeout = setTimeout(() => {
+      tooltip.classList.add('hidden');
+    }, 100);
+  }
+
+  /**
+   * Format state value with capitalized first letter.
+   * @param {string} state
+   * @returns {string}
+   */
+  function formatState(state) {
+    if (!state) return 'unknown';
+    return state.charAt(0).toUpperCase() + state.slice(1);
+  }
+
+  // Node hover
+  cy.on('mouseover', 'node', (evt) => {
+    const node = evt.target;
+    const data = node.data();
+    const renderedPos = evt.renderedPosition || evt.cyRenderedPosition;
+
+    let html = `<div class="tooltip-title">${escapeHtml(data.label || data.id)}</div>`;
+
+    // State
+    html += `<div class="tooltip-row">
+      <span class="tooltip-label">${t('tooltip.state')}</span>
+      <span class="tooltip-value">${escapeHtml(formatState(data.state))}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
+    </div>`;
+
+    // Type
+    if (data.type) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.type')}</span>
+        <span class="tooltip-value">${escapeHtml(data.type)}</span>
+      </div>`;
+    }
+
+    // Group (if available in node data)
+    if (data.group) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.group')}</span>
+        <span class="tooltip-value">${escapeHtml(data.group)}</span>
+      </div>`;
+    }
+
+    // Namespace (if available in node data)
+    if (data.namespace) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.namespace')}</span>
+        <span class="tooltip-value">${escapeHtml(data.namespace)}</span>
+      </div>`;
+    }
+
+    // Alert count
+    if (data.alertCount && data.alertCount > 0) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.alerts')}</span>
+        <span class="tooltip-value">${data.alertCount}</span>
+      </div>`;
+    }
+
+    // Cascade warning sources
+    const cascadeSources = data.cascadeSources;
+    if (cascadeSources && cascadeSources.length > 0 && data.state !== 'down') {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.cascadeWarning')}</span>
+      </div>`;
+      for (const src of cascadeSources) {
+        const srcNode = cy.getElementById(src);
+        const srcLabel = srcNode.length > 0 ? (srcNode.data('label') || srcNode.data('name') || src) : src;
+        const srcState = srcNode.length > 0 ? formatState(srcNode.data('state')) : '';
+        const display = srcState ? `${escapeHtml(srcLabel)} (${escapeHtml(srcState)})` : escapeHtml(srcLabel);
+        html += `<div class="tooltip-row">
+          <span class="tooltip-value">${t('tooltip.cascadeSource', { service: display })}</span>
+        </div>`;
+      }
+    }
+
+    scheduleShowTooltip(html, renderedPos.x, renderedPos.y);
+  });
+
+  // Edge hover
+  cy.on('mouseover', 'edge', (evt) => {
+    const edge = evt.target;
+    const data = edge.data();
+    const renderedPos = evt.renderedPosition || evt.cyRenderedPosition;
+
+    const sourceLabel = edge.source().data('label') || edge.source().id();
+    const targetLabel = edge.target().data('label') || edge.target().id();
+
+    let html = `<div class="tooltip-title">${escapeHtml(sourceLabel)} → ${escapeHtml(targetLabel)}</div>`;
+
+    // Latency (hide for stale edges)
+    if (data.latency && !data.stale) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.latency')}</span>
+        <span class="tooltip-value">${escapeHtml(data.latency)}</span>
+      </div>`;
+    }
+
+    // State
+    html += `<div class="tooltip-row">
+      <span class="tooltip-label">${t('tooltip.state')}</span>
+      <span class="tooltip-value">${escapeHtml(formatState(data.state))}${data.stale ? ` (${t('state.unknown.detail')})` : ''}</span>
+    </div>`;
+
+    // Status (SDK v0.4.1, non-ok only)
+    if (data.status && data.status !== 'ok') {
+      const color = STATUS_COLORS[data.status] || '#999';
+      const label = STATUS_LABELS[data.status] || data.status;
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.status')}</span>
+        <span class="tooltip-value" style="color:${escapeHtml(color)};font-weight:bold">${escapeHtml(label)}</span>
+      </div>`;
+    }
+
+    // Detail (SDK v0.4.1, non-ok only)
+    if (data.detail && data.status && data.status !== 'ok') {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.detail')}</span>
+        <span class="tooltip-value"><code>${escapeHtml(data.detail)}</code></span>
+      </div>`;
+    }
+
+    // Critical flag
+    if (data.critical) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.critical')}</span>
+        <span class="tooltip-value">${t('tooltip.yes')}</span>
+      </div>`;
+    }
+
+    // Alert count
+    if (data.alertCount && data.alertCount > 0) {
+      html += `<div class="tooltip-row">
+        <span class="tooltip-label">${t('tooltip.alerts')}</span>
+        <span class="tooltip-value">${data.alertCount}</span>
+      </div>`;
+    }
+
+    scheduleShowTooltip(html, renderedPos.x, renderedPos.y);
+  });
+
+  // Hide tooltip on mouseout
+  cy.on('mouseout', 'node,edge', () => {
+    hideTooltip();
+  });
+
+  // Also hide tooltip when panning/zooming
+  cy.on('pan zoom', () => {
+    cancelShow();
+    tooltip.classList.add('hidden');
+  });
+}

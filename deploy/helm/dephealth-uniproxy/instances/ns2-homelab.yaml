@@ -1,0 +1,106 @@
+instances:
+  - name: uniproxy-04
+    group: proxy-cluster-2
+    replicas: 2
+    connections:
+      - name: uniproxy-05
+        type: http
+        url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+        auth:
+          bearerToken: "test-auth-token-05"
+      - name: uniproxy-06
+        type: http
+        url: "http://uniproxy-06.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+
+  - name: uniproxy-05
+    group: proxy-cluster-2
+    replicas: 1
+    serverAuth:
+      method: bearer
+      token: "test-auth-token-05"
+      metricsMethod: "none"
+    connections:
+      # Four services behind a single nginx reverse proxy (ns3). All four
+      # share the same host:port (the proxy) but route to different backends
+      # via the Host header (hostHeader -> req.Host). Mirrors the metrics
+      # shape of a service fronted by a shared proxy.
+      - name: uniproxy-09
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-09"
+      - name: uniproxy-10
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-10"
+      - name: uniproxy-11
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-11"
+      - name: uniproxy-12
+        type: http
+        host: "nginx-proxy.dephealth-uniproxy-3.svc"
+        port: "80"
+        critical: "yes"
+        healthPath: "/"
+        hostHeader: "uniproxy-12"
+
+  - name: uniproxy-06
+    group: proxy-cluster-2
+    replicas: 2
+    connections:
+      - name: uniproxy-07
+        type: http
+        url: "http://uniproxy-07.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+      - name: uniproxy-08
+        type: http
+        url: "http://uniproxy-08.dephealth-uniproxy-2.svc:8080"
+        critical: "no"
+        healthPath: "/"
+        auth:
+          basicUser: "monitor"
+          basicPass: "monitor-pass-08"
+      - name: uniproxy-05
+        type: http
+        url: "http://uniproxy-05.dephealth-uniproxy-2.svc:8080"
+        critical: "no"
+        healthPath: "/"
+        auth:
+          bearerToken: "wrong-token-intentional"
+
+  - name: uniproxy-07
+    group: proxy-cluster-2
+    replicas: 1
+    connections:
+      - name: postgresql
+        type: postgres
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"
+
+  - name: uniproxy-08
+    group: proxy-cluster-2
+    replicas: 1
+    serverAuth:
+      method: basic
+      username: "monitor"
+      password: "monitor-pass-08"
+      metricsMethod: "none"
+    connections:
+      - name: postgresql
+        type: postgres
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"

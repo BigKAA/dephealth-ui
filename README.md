@@ -1,0 +1,502 @@
+# dephealth-ui
+
+[![Version](https://img.shields.io/badge/version-0.21.0-blue.svg)](https://github.com/BigKAA/dephealth-ui)
+[![Go Version](https://img.shields.io/badge/go-1.25-00ADD8.svg)](https://golang.org/)
+[![Helm Chart](https://img.shields.io/badge/helm-0.11.0-0F1689.svg)](./deploy/helm/dephealth-ui)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
+
+**Real-time microservices topology and health visualization tool**
+
+**Language:** English | [Русский](./README.ru.md)
+
+---
+
+## Overview
+
+**dephealth-ui** is a web application for visualizing microservice topologies and monitoring dependency health in real-time. It displays an interactive directed graph showing service states (OK, DEGRADED, DOWN), connection latency, and provides direct links to Grafana dashboards.
+
+The application consumes metrics collected by the [dephealth SDK](https://github.com/BigKAA/topologymetrics) from Prometheus/VictoriaMetrics and correlates them with AlertManager alerts to provide a unified health view.
+
+![Tree view](./docs/images/tree-view-eng.png)
+
+![Topology graph with collapsed namespaces, alert badges, and namespace colors](./docs/images/dephealth-main-view.png)
+
+![Node detail sidebar with alerts, instances, edges, and Grafana links](./docs/images/sidebar-grafana-section.png)
+
+![Collapsed namespace sidebar with clickable service list](./docs/images/sidebar-collapsed-namespace.png)
+
+## Features
+
+✅ **Real-time Topology Visualization**
+- Interactive node-graph diagram with Cytoscape.js
+- ELK layered layout engine for flat and grouped modes
+- Color-coded node states (green=OK, yellow=DEGRADED, red=DOWN, gray=Unknown/stale)
+- Dynamic node sizing based on label length
+- Stale node retention with configurable lookback window
+- Position persistence in localStorage with Reset Layout button
+
+✅ **Focus Mode**
+- Highlight connected elements on node selection
+- Three modes: 1-hop neighbors, downstream dependencies, upstream dependencies
+- Dim unrelated nodes and edges for clarity
+
+✅ **Namespace Grouping**
+- Group services by Kubernetes namespace into compound nodes
+- Collapse/expand namespace groups (double-click or sidebar button)
+- Collapsed nodes show worst state, service count, and alert badges
+- Aggregated edges between collapsed namespaces
+- Click-to-expand navigation from collapsed sidebar to individual services
+- Deterministic namespace color palette with WCAG-compliant contrast
+- Collapse/expand state persisted in localStorage
+
+✅ **Cascade Warnings & State Model**
+- 4-state model: OK, DEGRADED, DOWN, UNKNOWN with precise calculation rules
+- Cascade failure propagation visualization through critical dependencies
+- Automatic root cause detection via BFS algorithm
+- Cascade warning badges (`⚠ N`) on affected upstream nodes with tooltip showing root causes
+- Smart filtering with virtual "warning" state and degraded/down chain visibility
+
+✅ **Timeline & Historical Queries**
+- Historical topology snapshots at any point in time
+- Timeline events endpoint for state transition tracking
+
+✅ **Comprehensive Monitoring**
+- Service health status with alert counts
+- Edge latency display (average P99 percentile)
+- Critical dependency highlighting (thicker edges)
+- Active AlertManager alert integration
+- ETag/304 caching for efficient data transfer
+
+✅ **Rich UI Features**
+- Smart search with fuzzy matching
+- Multi-filter support (namespace, type, state, service)
+- Alert drawer with severity-based grouping
+- Node detail sidebar with instance information, connected edges, and Grafana dashboard links
+- Edge detail sidebar with state, latency, alerts, connected nodes, and Grafana links
+- Collapsed namespace sidebar with clickable service list and expand button
+- Grafana integration: context menu, sidebar links to all 8 dashboards with context-aware parameters
+- Context menu (right-click) on nodes/edges: Open in Grafana, Copy URL, Show Details
+- Internationalization (i18n): English and Russian
+- Namespace color coding with deterministic palette
+- Legend, namespace legend, statistics
+- Export to JSON, CSV, DOT, PNG, SVG
+- Keyboard shortcuts and fullscreen mode
+- Dark theme support
+
+✅ **Enterprise-Ready**
+- Multiple authentication modes (none, Basic, OIDC/SSO, LDAP)
+- CORS support for browser-based clients
+- Server-side caching (configurable TTL)
+- Multi-architecture Docker images (amd64, arm64)
+- Kubernetes-native with Helm chart
+- Gateway API and Ingress support
+
+## Architecture
+
+```
+┌─────────────────────┐
+│  Browser (SPA)      │  ← Cytoscape.js + ELK + Vite
+│  Vanilla JS         │
+└──────────┬──────────┘
+           │ HTTPS (REST API)
+           ▼
+┌──────────────────────────────────────┐
+│  dephealth-ui (Go)                   │  ← Single binary
+│  ┌──────────────────────────────┐   │
+│  │ REST API                     │   │
+│  │ /api/v1/topology             │   │  GET — topology graph
+│  │ /api/v1/alerts               │   │  GET — active alerts
+│  │ /api/v1/instances            │   │  GET — service instances
+│  │ /api/v1/config               │   │  GET — frontend config
+│  │ /api/v1/cascade-analysis     │   │  GET — cascade failure analysis
+│  │ /api/v1/cascade-graph        │   │  GET — cascade graph (Grafana)
+│  │ /api/v1/timeline/events      │   │  GET — state transitions
+│  │ /api/v1/export/{format}      │   │  GET — data export
+│  │ /healthz, /readyz            │   │  Health probes
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │ Topology Service             │   │  ← PromQL queries
+│  │ Alert Aggregation            │   │  ← AlertManager API
+│  │ In-memory Cache (TTL)        │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │ Auth (none/basic/oidc/ldap)  │   │  ← Pluggable
+│  └──────────────────────────────┘   │
+└──────────┬───────────────────────────┘
+           │
+           ▼
+┌──────────────────────────────────┐
+│ Prometheus/VictoriaMetrics       │  ← app_dependency_health
+│ AlertManager                     │  ← app_dependency_latency_seconds
+│                                  │  ← app_dependency_status
+│                                  │  ← app_dependency_status_detail
+└──────────────────────────────────┘
+```
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Backend** | Go 1.25 (net/http + chi router) |
+| **Frontend** | Vanilla JS + Vite + Cytoscape.js + Tom Select |
+| **Visualization** | Cytoscape.js + ELK layered layout |
+| **Container** | Docker (multi-stage, multi-arch) |
+| **Orchestration** | Kubernetes (Helm 3) |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Kubernetes cluster with Gateway API or Ingress controller
+- Prometheus/VictoriaMetrics with [dephealth SDK](https://github.com/BigKAA/topologymetrics) metrics
+- AlertManager (optional, for alert integration)
+- Helm 3.0+
+
+### Installation
+
+#### 1. Add Helm Repository (if published)
+
+```bash
+# If using a Helm repository
+helm repo add dephealth https://charts.dephealth.io
+helm repo update
+```
+
+#### 2. Install with Helm
+
+**Using Gateway API:**
+```bash
+helm install dephealth-ui ./deploy/helm/dephealth-ui \
+  --set route.enabled=true \
+  --set route.hostname=dephealth.example.com \
+  --set tls.enabled=true \
+  --set tls.issuerName=letsencrypt-prod \
+  --set config.datasources.prometheus.url=http://victoriametrics:8428 \
+  --set config.datasources.alertmanager.url=http://alertmanager:9093 \
+  -n dephealth-ui --create-namespace
+```
+
+**Using Ingress:**
+```bash
+helm install dephealth-ui ./deploy/helm/dephealth-ui \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set ingress.hostname=dephealth.example.com \
+  --set ingress.tls.enabled=true \
+  --set ingress.tls.certManager.enabled=true \
+  --set ingress.tls.certManager.issuerName=letsencrypt-prod \
+  --set config.datasources.prometheus.url=http://victoriametrics:8428 \
+  -n dephealth-ui --create-namespace
+```
+
+#### 3. Access the UI
+
+Open your browser and navigate to:
+```
+https://dephealth.example.com
+```
+
+---
+
+## Configuration
+
+### Application Config
+
+Create `config.yaml`:
+
+```yaml
+server:
+  listen: ":8080"
+
+datasources:
+  prometheus:
+    url: "http://victoriametrics.monitoring.svc:8428"
+    # Optional: Basic auth for Prometheus
+    # username: "reader"
+    # password: "secret"
+  alertmanager:
+    url: "http://alertmanager.monitoring.svc:9093"
+
+topology:
+  lookback: 0  # Stale node retention window (e.g. "5m", "1h"); 0 = disabled
+
+cache:
+  ttl: 15s  # Cache duration for topology data
+
+auth:
+  type: "none"  # Options: "none", "basic", "oidc", "ldap"
+
+  # Basic authentication
+  # basic:
+  #   users:
+  #     - username: admin
+  #       passwordHash: "$2a$10$..."  # bcrypt hash
+
+  # OIDC authentication
+  # oidc:
+  #   issuer: "https://dex.example.com"
+  #   clientId: "dephealth-ui"
+  #   clientSecret: "ZGVwaGVhbHRoLXVpLXNlY3JldA"
+  #   redirectUrl: "https://dephealth.example.com/auth/callback"
+
+  # LDAP authentication
+  # ldap:
+  #   url: "ldap://ldap.example.com:389"       # or ldaps://
+  #   startTLS: false
+  #   baseDN: "ou=people,dc=example,dc=com"
+  #   userFilter: "(uid={{.Username}})"
+  #   # Search bind (optional service account):
+  #   # bindDN: "cn=readonly,dc=example,dc=com"
+  #   # bindPassword: "secret"
+  #   # Group restrictions (optional):
+  #   # groupBaseDN: "ou=groups,dc=example,dc=com"
+  #   # groupFilter: "(member={{.UserDN}})"
+  #   # allowedGroups:
+  #   #   - "cn=dephealth-users,ou=groups,dc=example,dc=com"
+
+alerts:
+  severityLabel: "severity"  # AlertManager label for severity
+  severityLevels:            # Severity levels with colors
+    - value: "critical"
+      color: "#f44336"
+    - value: "warning"
+      color: "#ff9800"
+    - value: "info"
+      color: "#2196f3"
+
+grafana:
+  baseUrl: "https://grafana.example.com"
+  # Optional: authentication for Grafana API
+  # token: "glsa_..."              # API key or service account token
+  # username: "admin"              # Basic auth
+  # password: "secret"             # Basic auth
+  dashboards:
+    serviceStatus: "dephealth-service-status"
+    linkStatus: "dephealth-link-status"
+    serviceList: "dephealth-service-list"
+    servicesStatus: "dephealth-services-status"
+    linksStatus: "dephealth-links-status"
+    cascadeOverview: "dephealth-cascade-overview"
+    rootCause: "dephealth-root-cause"
+    connectionDiagnostics: "dephealth-connection-diagnostics"
+
+log:
+  format: "json"          # "json" or "text"
+  level: "info"           # "debug", "info", "warn", "error"
+  timeFormat: "rfc3339nano"
+  addSource: false        # Include source file/line in log entries
+  # Custom key names (optional, defaults to slog standard)
+  # timeKey: "time"
+  # levelKey: "level"
+  # messageKey: "msg"
+  # sourceKey: "source"
+```
+
+### Environment Variables
+
+All configuration can be overridden via environment variables:
+
+```bash
+DEPHEALTH_SERVER_LISTEN=":8080"
+DEPHEALTH_DATASOURCES_PROMETHEUS_URL="http://victoriametrics:8428"
+DEPHEALTH_DATASOURCES_ALERTMANAGER_URL="http://alertmanager:9093"
+DEPHEALTH_TOPOLOGY_LOOKBACK="5m"
+DEPHEALTH_CACHE_TTL="15s"
+DEPHEALTH_AUTH_TYPE="none"
+DEPHEALTH_ALERTS_SEVERITYLABEL="severity"
+DEPHEALTH_GRAFANA_BASEURL="https://grafana.example.com"
+DEPHEALTH_GRAFANA_TOKEN="glsa_..."
+DEPHEALTH_GRAFANA_USERNAME="admin"
+DEPHEALTH_GRAFANA_PASSWORD="secret"
+LOG_FORMAT="json"
+LOG_LEVEL="info"
+LOG_TIME_FORMAT="rfc3339nano"
+LOG_ADD_SOURCE="false"
+```
+
+---
+
+## Required Metrics
+
+dephealth-ui requires metrics from services instrumented with [dephealth SDK](https://github.com/BigKAA/topologymetrics) (v0.4.0+):
+
+### 1. `app_dependency_health` (Gauge)
+
+Health status of dependency endpoints (1=UP, 0=DOWN).
+
+**SDK Labels:**
+- `name` — service name
+- `group` — logical service group (required since SDK v0.5.0; dephealth-ui works without it)
+- `dependency` — logical dependency name
+- `type` — connection type (`http`, `grpc`, `tcp`, `postgres`, `mysql`, `redis`, `amqp`, `kafka`, `ldap`)
+- `host` — target endpoint hostname
+- `port` — target endpoint port
+- `critical` — criticality flag (`yes`/`no`)
+- `namespace` — added by Prometheus (not SDK); recommended for non-K8s deployments
+
+**Example:**
+```prometheus
+app_dependency_health{name="order-service",namespace="prod",dependency="postgres-main",type="postgres",host="pg.svc",port="5432",critical="yes"} 1
+```
+
+### 2. `app_dependency_latency_seconds` (Histogram)
+
+Health check latency in seconds with standard buckets: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0`
+
+### 3. `app_dependency_status` (Gauge, enum pattern)
+
+Active status category of a dependency (`ok`, `timeout`, `connection_error`, `dns_error`, `auth_error`, `tls_error`, `unhealthy`, `error`). Exactly one series per endpoint has value `1`. Used for timeline event tracking and state transitions.
+
+### 4. `app_dependency_status_detail` (Gauge, info pattern)
+
+Detailed status description. Always has value `1`, the `detail` label carries the reason (e.g., `http_503`, `connection_refused`).
+
+**See [docs/METRICS.md](./docs/METRICS.md) for complete specification.**
+
+---
+
+## Development
+
+### Local Development
+
+#### Prerequisites
+
+- Go 1.25+
+- Node.js 22+
+- Docker (optional)
+
+#### Build Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev  # Development server with HMR
+# or
+npm run build  # Production build
+```
+
+#### Build Backend
+
+```bash
+go mod download
+go build -o dephealth-ui ./cmd/dephealth-ui
+```
+
+#### Run Locally
+
+```bash
+./dephealth-ui -config config.yaml
+```
+
+### Docker Build
+
+```bash
+# Build multi-arch image
+make docker-build TAG=v0.21.0
+
+# Or manually
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui:v0.21.0 \
+  --push .
+```
+
+### Testing
+
+```bash
+# Backend tests
+go test ./... -v -race
+
+# Frontend tests
+cd frontend
+npm test
+```
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[METRICS.md](./docs/METRICS.md)** | Metrics format, required labels, PromQL queries |
+| **[API.md](./docs/API.md)** | REST API reference with all endpoints |
+| **[Helm Chart](./deploy/helm/dephealth-ui/README.md)** | Kubernetes deployment guide |
+| **[Test Environment Guide](./docs/test-environment.md)** | **⭐ Portable** step-by-step guide to deploy the full test stack on any Kubernetes cluster |
+| **[Test Environment](./deploy/README.md)** | Test environment setup, topology, and adaptation guide |
+| **[Application Design](./docs/application-design.md)** | Architecture overview and design decisions |
+| **[Русская документация](./README.ru.md)** | Full Russian documentation |
+
+---
+
+## Project Structure
+
+```
+dephealth-ui/
+├── cmd/dephealth-ui/          # Application entry point
+├── internal/                  # Go packages
+│   ├── config/               # Configuration handling
+│   ├── server/               # HTTP server + routes
+│   ├── topology/             # Topology service (Prometheus queries)
+│   ├── alerts/               # AlertManager integration
+│   ├── auth/                 # Authentication (none/basic/oidc/ldap)
+│   └── cache/                # In-memory cache with TTL
+├── frontend/                  # Vite + Cytoscape.js SPA
+│   ├── src/                  # JavaScript modules (graph, sidebar, grouping, i18n, etc.)
+│   ├── public/               # Static assets
+│   └── index.html            # SPA entry point
+├── deploy/                    # Deployment manifests
+│   ├── docker/               # Bare metal Docker Compose
+│   └── helm/                 # Helm charts
+│       ├── dephealth-ui/     # Application chart
+│       ├── dephealth-infra/  # Test infrastructure
+│       ├── dephealth-uniproxy/  # Universal test proxy instances
+│       └── dephealth-monitoring/  # Monitoring stack
+├── docs/                      # Documentation
+└── test/                      # Test helpers and fixtures
+```
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes using [Conventional Commits](https://www.conventionalcommits.org/)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+**Commit Format:**
+```
+<type>(<scope>): <subject>
+
+Types: feat, fix, docs, style, refactor, test, chore
+```
+
+---
+
+## License
+
+Apache License 2.0 - see [LICENSE](./LICENSE) for details.
+
+---
+
+## Support
+
+- **Issues:** [GitHub Issues](https://github.com/BigKAA/dephealth-ui/issues)
+- **Documentation:** [docs/](./docs/)
+- **dephealth SDK:** [topologymetrics](https://github.com/BigKAA/topologymetrics)
+
+---
+
+## Related Projects
+
+- [dephealth SDK](https://github.com/BigKAA/topologymetrics) — Instrumentation library for Go, Python, Java, .NET
+- [uniproxy](https://github.com/BigKAA/uniproxy) — Universal test proxy for dependency health monitoring
+- [VictoriaMetrics](https://victoriametrics.com/) — High-performance Prometheus-compatible TSDB
+- [Cytoscape.js](https://js.cytoscape.org/) — Graph visualization library
+
+---
+
+**Built with ❤️ for microservices observability**

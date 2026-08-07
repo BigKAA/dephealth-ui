@@ -1,0 +1,162 @@
+# dephealth-ui — default values
+
+global:
+  # Registry for the application image (e.g. "container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst")
+  pushRegistry: ""
+  # Target namespace
+  namespace: dephealth-ui
+  # Gateway API configuration
+  gateway:
+    name: gateway
+    namespace: default
+
+image:
+  name: dephealth-ui
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# ServiceAccount configuration
+serviceAccount:
+  # Create a dedicated ServiceAccount for the application
+  create: true
+  # Name of the ServiceAccount (defaults to "dephealth-ui")
+  name: ""
+  # Additional annotations (e.g. for IAM role binding)
+  annotations: {}
+
+# Pod-level security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+# Container-level security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+probes:
+  readinessDelay: 5
+  livenessDelay: 5
+
+# HTTPRoute (Gateway API)
+route:
+  enabled: false
+  hostname: dephealth.example.com
+
+# TLS via cert-manager (for HTTPRoute)
+tls:
+  enabled: false
+  issuerName: ""
+  issuerKind: ClusterIssuer
+
+# Ingress (alternative to HTTPRoute)
+ingress:
+  enabled: false
+  className: ""  # e.g. "nginx", "traefik", or "" for default
+  hostname: dephealth.example.com
+  annotations: {}
+    # Example annotations:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  tls:
+    enabled: false
+    # Option 1: Use existing secret (set secretName)
+    secretName: ""
+    # Option 2: Generate via cert-manager (set certManager.enabled: true)
+    certManager:
+      enabled: false
+      issuerName: ""
+      issuerKind: ClusterIssuer
+
+# Custom CA certificate for OIDC issuer TLS verification
+# The CA is mounted and set via SSL_CERT_FILE env var
+customCA:
+  enabled: false
+  # Name of ConfigMap or Secret in the SAME namespace containing the CA cert
+  configMapName: ""
+  key: "ca.crt"
+
+# Grafana authentication for dashboard availability checking at startup.
+# Credentials are injected via env vars from a Kubernetes Secret.
+grafanaSecret:
+  enabled: false
+  secretName: ""       # Name of existing K8s Secret
+  tokenKey: "token"
+  usernameKey: "username"
+  passwordKey: "password"
+
+# LDAP bind password from Kubernetes Secret
+ldapSecret:
+  enabled: false
+  secretName: ""
+  bindPasswordKey: "bindPassword"
+
+# Application configuration (rendered as config.yaml in ConfigMap)
+config:
+  server:
+    listen: ":8080"
+  datasources:
+    prometheus:
+      url: "http://victoriametrics:8428"
+    alertmanager:
+      url: ""
+  topology:
+    # Lookback window for stale node retention.
+    # Services that disappear within this window are shown as "unknown" instead of vanishing.
+    # Set to "0" to disable (default). Recommended: "1h".
+    lookback: "0"
+  cache:
+    ttl: 15s
+  auth:
+    type: "none"
+    secureCookie: false  # set to true when app is behind HTTPS
+    ldap:
+      url: ""
+      startTLS: false
+      insecureSkipVerify: false
+      bindDN: ""
+      # bindPassword: set via ldapSecret or env var
+      baseDN: ""
+      userFilter: "(uid={{.Username}})"
+      attributes:
+        displayName: "displayName"
+        email: "mail"
+      groupBaseDN: ""
+      groupFilter: ""
+      allowedGroups: []
+  grafana:
+    baseUrl: ""
+    dashboards:
+      cascadeOverview: "dephealth-cascade-overview"
+      rootCause: "dephealth-root-cause"
+      serviceStatus: "dephealth-service-status"
+      linkStatus: "dephealth-link-status"
+      serviceList: "dephealth-service-list"
+      servicesStatus: "dephealth-services-status"
+      linksStatus: "dephealth-links-status"
+      connectionDiagnostics: "dephealth-connection-diagnostics"
+  log:
+    format: "json"        # "text" or "json"
+    level: "info"         # "debug", "info", "warn", "error"
+    timeFormat: "rfc3339nano"  # "rfc3339", "rfc3339nano", "unix", "unixmilli"
+    addSource: false
+    # Custom JSON key names (empty = slog defaults: time, level, msg, source)
+    timeKey: ""
+    levelKey: ""
+    messageKey: ""
+    sourceKey: ""

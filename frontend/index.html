@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>dephealth-ui</title>
+</head>
+<body>
+  <header id="header">
+    <span class="header-title" data-i18n="header.title">dephealth-ui</span>
+    <div class="toolbar">
+      <button id="btn-alerts" data-i18n-title="toolbar.alerts" title="Active alerts" aria-label="Active alerts">
+        <i class="bi bi-bell" aria-hidden="true"></i>
+        <span id="alert-badge" class="header-badge hidden">0</span>
+      </button>
+      <button id="btn-filter" data-i18n-title="toolbar.filter" title="Toggle filters" aria-label="Toggle filters"><i class="bi bi-funnel" aria-hidden="true"></i></button>
+      <button id="btn-search" data-i18n-title="toolbar.search" title="Search nodes" aria-label="Search nodes"><i class="bi bi-search" aria-hidden="true"></i></button>
+      <button id="btn-refresh" data-i18n-title="toolbar.refresh" title="Refresh now" aria-label="Refresh now"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+      <button id="btn-auto-refresh" class="active" data-i18n-title="toolbar.autoRefresh" title="Toggle auto-refresh" aria-label="Toggle auto-refresh"><i class="bi bi-play-circle" aria-hidden="true"></i></button>
+      <button id="btn-fit" data-i18n-title="toolbar.fit" title="Fit graph to screen" aria-label="Fit graph to screen"><i class="bi bi-arrows-fullscreen" aria-hidden="true"></i></button>
+      <button id="btn-history" data-i18n-title="toolbar.history" title="History mode" aria-label="History mode"><i class="bi bi-clock-history" aria-hidden="true"></i></button>
+      <button id="btn-theme" data-i18n-title="toolbar.theme" title="Toggle dark/light theme" aria-label="Toggle dark/light theme"><i class="bi bi-moon" aria-hidden="true"></i></button>
+      <button id="btn-lang" title="Language" data-i18n-title="toolbar.language" aria-label="Language"><span id="lang-label">EN</span></button>
+    </div>
+    <div id="user-info" class="hidden">
+      <span id="user-name"></span>
+      <button id="btn-logout" data-i18n-title="toolbar.logout" title="Logout" aria-label="Logout"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></button>
+    </div>
+  </header>
+
+  <div id="connection-banner" class="hidden">
+    <span id="banner-message">Connection lost. Retrying in <span id="banner-countdown">5</span>s...</span>
+    <button id="btn-retry-now" data-i18n="banner.retry">Retry now</button>
+  </div>
+
+  <div id="filter-panel" class="hidden">
+    <div class="filter-column" id="filter-namespace">
+      <span class="filter-label" data-i18n="filter.namespace">Namespace</span>
+      <select id="namespace-select" placeholder="All namespaces"></select>
+    </div>
+    <div class="filter-column" id="filter-type">
+      <span class="filter-label" data-i18n="filter.type">Type</span>
+      <select id="type-select" multiple placeholder="All types"></select>
+    </div>
+    <div class="filter-column" id="filter-state">
+      <span class="filter-label" data-i18n="filter.state">State</span>
+      <div class="filter-chips" id="state-chips"></div>
+    </div>
+    <div class="filter-column" id="filter-status">
+      <span class="filter-label" data-i18n="filter.status">Status</span>
+      <select id="status-select" multiple placeholder="All statuses"></select>
+    </div>
+    <div class="filter-column" id="filter-job">
+      <span class="filter-label" data-i18n="filter.service">Service</span>
+      <select id="job-select" multiple placeholder="All services"></select>
+    </div>
+    <div class="filter-column filter-actions">
+      <span class="filter-label">&nbsp;</span>
+      <button id="btn-reset-filters" data-i18n="filter.reset" title="Reset all filters">Reset</button>
+    </div>
+  </div>
+
+  <div id="search-panel" class="search-panel hidden">
+    <input id="search-input" type="text" data-i18n-placeholder="search.placeholder" placeholder="Search nodes..." autocomplete="off" />
+    <span id="search-count"></span>
+    <button id="btn-search-close" class="search-close" data-i18n-title="search.close" title="Close search">×</button>
+  </div>
+
+  <div id="cy">
+    <div id="graph-toolbar" class="graph-toolbar">
+      <div class="toolbar-grip"></div>
+      <!-- Navigation group -->
+      <button id="btn-zoom-in" data-i18n-title="graphToolbar.zoomIn" title="Zoom in" aria-label="Zoom in"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>
+      <button id="btn-zoom-out" data-i18n-title="graphToolbar.zoomOut" title="Zoom out" aria-label="Zoom out"><i class="bi bi-zoom-out" aria-hidden="true"></i></button>
+      <button id="btn-fullscreen" data-i18n-title="graphToolbar.fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen"><i class="bi bi-fullscreen" aria-hidden="true"></i></button>
+      <div class="toolbar-separator"></div>
+      <!-- Structure group -->
+      <button id="btn-layout-toggle" data-i18n-title="graphToolbar.layout" title="Toggle layout direction" aria-label="Toggle layout direction"><i class="bi bi-distribute-vertical" aria-hidden="true"></i></button>
+      <button id="btn-reset-layout" data-i18n-title="graphToolbar.resetLayout" title="Reset layout" aria-label="Reset layout"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+      <button id="btn-grouping" data-i18n-title="graphToolbar.groupByNs" title="Group by namespace" aria-label="Group by namespace"><i class="bi bi-bounding-box" aria-hidden="true"></i></button>
+      <button id="btn-dimension-toggle" class="hidden" data-i18n-title="graphToolbar.switchDimension" title="Switch grouping dimension" aria-label="Switch grouping dimension"><span id="dimension-label">NS</span></button>
+      <button id="btn-collapse-all" class="hidden" data-i18n-title="graphToolbar.collapseAll" title="Collapse/expand all namespaces" aria-label="Collapse/expand all namespaces"><i class="bi bi-arrows-collapse" aria-hidden="true"></i></button>
+      <div class="toolbar-separator"></div>
+      <!-- Display group -->
+      <button id="btn-edge-labels" data-i18n-title="graphToolbar.edgeLabels" title="Toggle edge type labels" aria-label="Toggle edge type labels"><i class="bi bi-tag" aria-hidden="true"></i></button>
+      <div class="toolbar-separator"></div>
+      <!-- Utilities group -->
+      <button id="btn-export" data-i18n-title="graphToolbar.export" title="Export" aria-label="Export"><i class="bi bi-download" aria-hidden="true"></i></button>
+      <div class="toolbar-dropdown-wrapper">
+        <button id="btn-legends" data-i18n-title="graphToolbar.legends" title="Legends" aria-label="Legends"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+        <div id="legends-dropdown" class="toolbar-dropdown hidden">
+          <div class="toolbar-dropdown-item" data-target="graph-legend">
+            <span class="dropdown-icon"><i class="bi bi-info-circle"></i></span>
+            <span data-i18n="graphToolbar.legend">Legend</span>
+            <i class="bi bi-check2 dropdown-check hidden"></i>
+          </div>
+          <div class="toolbar-dropdown-item" data-target="namespace-legend">
+            <span class="dropdown-icon"><i class="bi bi-palette"></i></span>
+            <span data-i18n="graphToolbar.nsLegend">Namespaces</span>
+            <i class="bi bi-check2 dropdown-check hidden"></i>
+          </div>
+          <div class="toolbar-dropdown-item" data-target="connection-legend">
+            <span class="dropdown-icon"><i class="bi bi-ethernet"></i></span>
+            <span data-i18n="connLegend.title">Connections</span>
+            <i class="bi bi-check2 dropdown-check hidden"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="graph-legend" class="graph-legend hidden">
+      <div class="legend-header">
+        <span class="legend-title" data-i18n="legend.title">Legend</span>
+        <button id="btn-legend-close" class="legend-close" data-i18n-title="legend.close" title="Close legend">×</button>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title" data-i18n="legend.nodeStates">Node States</div>
+        <div class="legend-item"><span class="legend-dot" style="background: #4caf50;"></span> <span data-i18n="legend.ok">OK</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #ff9800;"></span> <span data-i18n="legend.degraded">Degraded</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background: #f44336;"></span> <span data-i18n="legend.down">Down</span></div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title" data-i18n="legend.edgeStates">Edge States</div>
+        <div class="legend-item"><span class="legend-line solid" style="border-color: #4caf50;"></span> <span data-i18n="legend.ok">OK</span></div>
+        <div class="legend-item"><span class="legend-line dashed" style="border-color: #ff9800;"></span> <span data-i18n="legend.degraded">Degraded</span></div>
+        <div class="legend-item"><span class="legend-line dotted" style="border-color: #f44336;"></span> <span data-i18n="legend.down">Down</span></div>
+        <div class="legend-item"><span class="legend-line solid" style="border-color: #9e9e9e;"></span> <span data-i18n="legend.unknown">Unknown</span></div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title" data-i18n="legend.alerts">Alerts</div>
+        <div class="legend-item"><span class="legend-badge critical">!</span> <span data-i18n="legend.criticalAlert">Critical alert</span></div>
+        <div class="legend-item"><span class="legend-badge" style="background: #ff9800; font-size: 9px;">⚠</span> <span data-i18n="legend.cascadeWarning">Cascade warning</span></div>
+        <div class="legend-item"><span class="legend-line thick" style="border-color: #999;"></span> <span data-i18n="legend.thickerBorder">Thicker border</span></div>
+        <div class="legend-item"><span class="legend-badge legend-entry-badge">⬇</span> <span data-i18n="legend.entryPoint">Entry point</span></div>
+      </div>
+    </div>
+    <div id="namespace-legend" class="namespace-legend hidden">
+      <div class="legend-header">
+        <span class="legend-title" data-i18n="namespaceLegend.title">Namespaces</span>
+        <button id="btn-ns-legend-close" class="legend-close" data-i18n-title="namespaceLegend.close" title="Close">×</button>
+      </div>
+      <div id="ns-legend-items" class="ns-legend-items"></div>
+    </div>
+    <div id="connection-legend" class="connection-legend hidden">
+      <div class="legend-header">
+        <span class="legend-title" data-i18n="connLegend.title">Connection Statuses</span>
+        <button id="btn-conn-legend-close" class="legend-close" data-i18n-title="connLegend.close" title="Close">×</button>
+      </div>
+      <table class="conn-legend-table">
+        <thead>
+          <tr>
+            <th data-i18n="connLegend.color">Color</th>
+            <th data-i18n="connLegend.abbr">Abbr</th>
+            <th data-i18n="connLegend.meaning">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="legend-line solid" style="border-color: #ff9800;"></span></td><td class="conn-abbr">TMO</td><td data-i18n="legend.status.timeout">Timeout</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #f44336;"></span></td><td class="conn-abbr">CONN</td><td data-i18n="legend.status.connectionError">Connection Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #9c27b0;"></span></td><td class="conn-abbr">DNS</td><td data-i18n="legend.status.dnsError">DNS Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #ffeb3b;"></span></td><td class="conn-abbr">AUTH</td><td data-i18n="legend.status.authError">Auth Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #b71c1c;"></span></td><td class="conn-abbr">TLS</td><td data-i18n="legend.status.tlsError">TLS Error</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #ff5722;"></span></td><td class="conn-abbr">UNH</td><td data-i18n="legend.status.unhealthy">Unhealthy</td></tr>
+          <tr><td><span class="legend-line solid" style="border-color: #f44336;"></span></td><td class="conn-abbr">ERR</td><td data-i18n="legend.status.error">Error</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="empty-state" class="hidden">
+      <div class="empty-state-content">
+        <span class="empty-state-icon">&empty;</span>
+        <h3 data-i18n="empty.title">No services found</h3>
+        <p data-i18n="empty.description">Check that Prometheus is configured with topologymetrics exporter.</p>
+      </div>
+    </div>
+    <div id="context-menu" class="context-menu hidden"></div>
+    <div id="graph-tooltip" class="graph-tooltip hidden"></div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <div id="node-sidebar" class="node-sidebar hidden">
+    <div class="sidebar-header">
+      <h3 id="sidebar-title"></h3>
+      <button id="btn-sidebar-close" class="sidebar-close" data-i18n-title="sidebar.close" title="Close">×</button>
+    </div>
+    <div class="sidebar-body">
+      <div id="sidebar-details" class="sidebar-section"></div>
+      <div id="sidebar-dep-status" class="sidebar-section"></div>
+      <div id="sidebar-alerts" class="sidebar-section"></div>
+      <div id="sidebar-instances" class="sidebar-section"></div>
+      <div id="sidebar-edges" class="sidebar-section"></div>
+      <div id="sidebar-actions" class="sidebar-section"></div>
+      <div id="sidebar-grafana" class="sidebar-section"></div>
+    </div>
+  </div>
+
+  <div id="alert-drawer" class="alert-drawer hidden">
+    <div class="drawer-header">
+      <h3 data-i18n="alerts.title">Active Alerts</h3>
+      <button id="btn-drawer-close" class="drawer-close" data-i18n-title="alerts.close" title="Close">×</button>
+    </div>
+    <div id="alert-list" class="alert-list"></div>
+  </div>
+
+  <div id="timeline-panel" class="timeline-panel hidden"></div>
+
+  <footer id="status-bar">
+    <span id="status-connection" class="status-dot" data-i18n-title="status.connectionStatus" title="Connection status"></span>
+    <span id="status-info" data-i18n="status.loading">Loading...</span>
+    <span id="status-stats"></span>
+  </footer>
+
+  <div id="export-overlay" class="hidden">
+    <div class="export-modal" role="dialog" aria-labelledby="export-title" aria-modal="true">
+      <div class="export-header">
+        <h3 id="export-title" data-i18n="export.title">Export Graph</h3>
+        <button id="btn-export-close" class="export-close" data-i18n-title="export.cancel" title="Cancel">&times;</button>
+      </div>
+      <div class="export-body">
+        <div class="export-section">
+          <label class="export-label" data-i18n="export.formatLabel">Format</label>
+          <div id="export-formats" class="export-formats" role="radiogroup" aria-label="Export format">
+            <button class="export-format-btn active" data-format="png">PNG</button>
+            <button class="export-format-btn" data-format="svg">SVG</button>
+            <button class="export-format-btn" data-format="json">JSON</button>
+            <button class="export-format-btn" data-format="csv">CSV</button>
+            <button class="export-format-btn" data-format="dot">DOT</button>
+          </div>
+        </div>
+        <div class="export-section">
+          <label class="export-label" data-i18n="export.scopeLabel">Scope</label>
+          <div class="export-scopes">
+            <label class="export-scope-option">
+              <input type="radio" name="export-scope" value="current" checked />
+              <span data-i18n="export.scope.current">Current view</span>
+            </label>
+            <label class="export-scope-option">
+              <input type="radio" name="export-scope" value="full" />
+              <span data-i18n="export.scope.full">Full graph</span>
+            </label>
+          </div>
+        </div>
+        <div id="export-hint" class="export-hint" data-i18n="export.hint.currentPng">Exports current view as PNG using browser rendering (exact visual match).</div>
+      </div>
+      <div class="export-footer">
+        <button id="btn-export-cancel" class="export-btn-cancel" data-i18n="export.cancel">Cancel</button>
+        <button id="btn-export-download" class="export-btn-download">
+          <span id="export-download-text" data-i18n="export.download">Download</span>
+          <span id="export-spinner" class="export-spinner hidden"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-overlay" class="hidden">
+    <div class="error-modal">
+      <h2 data-i18n="error.title">Connection Error</h2>
+      <p id="error-message"></p>
+      <button id="btn-error-retry" data-i18n="error.retry">Retry</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

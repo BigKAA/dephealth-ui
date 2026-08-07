@@ -1,56 +1,95 @@
-# Agents file
+# AGENTS.md
 
-## Основные требования
+Инструкция для агентов ZCode, работающих с проектом **dephealth-ui**. Сначала прочитайте
+этот файл; для полноты деталей смотрите `CLAUDE.md`, `GIT-WORKFLOW.md` и `docs/`.
 
-- Общаться на русском языке.
-- Все комментарии и документацию вести на английском языке.
-- Создавать подробные комментарии в коде проекта.
-- Не врать.
-- Если не знаешь ответа - останови выполнение, спроси у пользователя.
-- Все файлы для языков программирования и md файлы проверять соответствующим linter.
-- Разработку, отладку и тестирования приложений вести только с помощью docker контейнеров или kubernetes.
-- Доменные имена, используемые при тестах и разработке добавлять в файл hosts (просить о ручном добавлении их пользователем).
+> **Важно:** Общение с пользователем всегда вести **на русском языке**. Весь код,
+> комментарии, документация и сообщения коммитов — **на английском**.
 
-## Доступные инструменты
+## Обзор проекта
 
-- kubectl - настроен на работу с тестовым кластером kubernetes
-- helm - для работы с helm charts
-- docker - работа с контейнерами
+dephealth-ui — инструмент визуализации состояния и топологии микросервисов. Бэкенд на Go
+(chi) отдаёт SPA на Vite + Cytoscape.js, который рисует граф узлов со статусами сервисов
+(OK/DEGRADED/DOWN), задержками соединений и ссылками на Grafana. Источники данных:
+Prometheus/VictoriaMetrics (через topologymetrics) и AlertManager.
 
-## Хранилище для контейнеров
+- Go-модуль: `github.com/BigKAA/dephealth-ui` (Go 1.25)
+- Фронтенд: ванильный JS + Vite + Cytoscape.js + ELK + Tom Select
 
-[Хранилище контейнеров](https://harbor.kryukov.lan) в локальном кластере. [Параметры установки harbor](https://github.com/BigKAA/youtube/tree/master/1.34/07-harbor).
+## Команды сборки / тестов / линтера (из Makefile и README)
 
-- harbor.kryukov.lan/library - публичное хранилище для локальных контейнеров.
-- harbor.kryukov.lan/docker - прокси для доступа к Docker Hub. Использовать для работы с Docker Hub.
-- harbor.kryukov.lan/mcr - прокси для доступа к Microsoft Container Registry. Использовать для работы с Microsoft Container Registry.
+- `make build` — только сборка Go: `go build -ldflags="-s -w" -o dephealth-ui ./cmd/dephealth-ui`
+- `make frontend-build` — `npm --prefix frontend ci`, затем `npm --prefix frontend run build`
+- `make test` — `go test ./... -v -race`
+- `make lint` — `golangci-lint run ./...` + `markdownlint '**/*.md'` (игнорирует node_modules)
+- Точечный Go-тест: `go test ./internal/topology/... -run TestName -v -race`
+- Dev-сервер фронтенда: `npm --prefix frontend run dev` (HMR); прод-сборка: `npm --prefix frontend run build`
+- Docker-образ для разработки → Harbor: `make docker-build TAG=vX.Y.Z`
+- Docker-образ релиза → Yandex CR (мульти-арх amd64+arm64): `make docker-release TAG=vX.Y.Z`
 
-- административный пользователь: `admin`, password: `password`.
-- для сохранения контейнеров использовать публичный проект library.
+## Архитектура и каталоги
 
-## Тестовый кластер kubernetes
+```
+cmd/dephealth-ui/    — точка входа; связывает конфиг и все внутренние пакеты
+internal/
+  config/            — загрузка и валидация YAML-конфига
+  server/            — chi-роутер, встроенный статический SPA, gzip/cors middleware
+  topology/          — клиент Prometheus + построение графа
+  alerts/            — клиент AlertManager
+  auth/              — basic / ldap / oidc аутентификация + сессии + rate limiting
+  cache/             — кэширование ответов
+  grafana/           — проверка доступности дашбордов при старте
+  cascade/           — анализ каскадных сбоев
+  timeline/          — лента событий
+  export/            — экспорт SVG/PNG/JSON/CSV/DOT (с тестами)
+  logging/           — структурированный логгер slog + HTTP middleware
+frontend/src/        — модули SPA на ванильном JS (graph, sidebar, i18n, export, ...)
+deploy/helm/         — чарт приложения + тестовые чарты infra/monitoring/uniproxy
+docs/                — API, дизайн, метрики, grafana (EN + RU)
+plans/               — поэтапные планы разработки/тестирования (используйте шаблон .templates/)
+```
 
-- Установлен Gateway API. Манифесты установленного Gateway API находятся [тут](https://github.com/BigKAA/youtube/tree/master/1.34/03-gatewayAPI).
-- Установлен MetalLB, включена поддержка сервисов типа LoadBalancer.
-- Ingress controller отсутствует.
-- Установлен cert-manager.
-  - Для выписки сертификатов использовать ClusterIssuer: dev-ca-issuer.
-- Доменные имена для отладки `test1.kryukov.lan`, `test2.kryukov.lan`, `test2.kryukov.lan` добавлены на локальный DNS сервер 192.168.218.9. Ссылается на IP Gateway API: 192.168.218.180.
-- Для сервисов типа LoadBalancer IP будет выделяться автоматически. DNS - имена автоматически не создаются.
+## Важный нюанс процесса сборки
 
-## Файлы
+Фронтенд встраивается в Go-бинарник через `//go:embed all:static` в
+`internal/server/static.go`. Dockerfile (мультисборка) собирает `frontend/`, затем копирует
+`dist/` в `internal/server/static/`.
 
-- REDME.md - Описание проекта
-- src/ - исходные коды
-- plans/ - директория для файлов, содержащих планы разработки и тестирования приложения
-- docs/ - Подробная документация по проекту
+**Локальный `make build` НЕ пересобирает фронтенд.** Чтобы применить изменения фронтенда
+локально: выполните `make frontend-build` (результат в `frontend/dist`), затем скопируйте
+его в `internal/server/static/` перед `make build`. В git отслеживается только
+`internal/server/static/.gitkeep`; собранные ассеты генерируются и не хранятся в репозитории.
 
-## Планы разработки и тестирования
+## API
 
-- План должен быть подробным и разбит на фазы выполнения
-- Одна фаза плана должна помещаться в один контекст используемого AI
-- После выполнения плана, он должен отмечаться как завершенный в файле плана
+REST под `/api/v1/*` на chi-роутере. Auth middleware (`s.auth.Middleware()`) защищает
+группу роутов `/api/v1`. Эндпоинты без аутентификации: `/healthz`, `/readyz`, `/auth`,
+`/api/v1/config`. Роуты группы: `topology`, `alerts`, `instances`, `cascade-analysis`,
+`cascade-graph`, `timeline/events`, `export/{format}`.
 
-## Git Workflow
+При добавлении эндпоинтов регистрируйте их внутри группы роутов `/api/v1` в
+`internal/server/server.go`, чтобы применялась аутентификация.
 
-- Обязательно следовать рекомендациям из [Git Workflow](GIT-WORKFLOW.md)
+## Соглашения
+
+- **Общение с пользователем — на русском языке.** Весь код, комментарии, документация и
+  сообщения коммитов — на английском.
+- Conventional Commits: `<type>(<scope>): <subject>` (типы: feat, fix, docs, style,
+  refactor, test, chore). Ветвление от `master` с префиксами: `feature/`, `bugfix/`,
+  `docs/`, `refactor/`, `test/`, `hotfix/`.
+- Спрашивать пользователя перед коммитом. После коммита уточнять метод слияния (локальный
+  merge или GitHub PR). Удалять ветки после слияния. Быстрые правки (опечатки) можно
+  коммитить сразу в `master`.
+- Разработка и тестирование ведутся **в Docker или Kubernetes** (homelab-кластер + реестры
+  Harbor) — подробности по кластеру/реестрам см. в CLAUDE.md.
+- Для схем в md файлах вместо txt использовать mermaid. За исключением иерархии
+  файловых систем.
+- Выполнять `make lint` (Go + Markdown) перед завершением работы.
+
+## Документация для чтения перед изменением критичных областей
+
+- `CLAUDE.md` — полный обзор проекта, окружение, реестры, чеклист релиза
+- `GIT-WORKFLOW.md` — правила ветвления, тегирование/релизы
+- `docs/application-design.md` — архитектура
+- `docs/API.md` — контракт REST API
+- `.templates/DEVELOPMENT_PLAN_TEMPLATE.md` — обязательный формат для новых планов разработки

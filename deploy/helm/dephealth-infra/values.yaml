@@ -1,0 +1,184 @@
+# dephealth-infra — значения по умолчанию
+#
+# Использование:
+#   helm install dephealth-infra deploy/helm/dephealth-infra/
+#   helm install dephealth-infra deploy/helm/dephealth-infra/ -f deploy/helm/dephealth-infra/values-homelab.yaml
+
+global:
+  # Registry для базовых Docker Hub образов
+  imageRegistry: docker.io
+  # Registry для собственных образов (stubs)
+  pushRegistry: ""
+  # StorageClass для PVC (пустая строка = default StorageClass кластера)
+  storageClass: ""
+  # Целевой namespace
+  namespace: dephealth-test
+  # Gateway API конфигурация
+  gateway:
+    name: eg
+    namespace: envoy-gateway-system
+
+# --- PostgreSQL ---
+postgres:
+  enabled: true
+  namespace: dephealth-postgresql
+  image: postgres
+  tag: "17-alpine"
+  credentials:
+    user: dephealth
+    password: dephealth-test-pass
+    database: dephealth
+  primary:
+    storage: 1Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  replica:
+    enabled: false
+    storage: 1Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+# --- Redis ---
+redis:
+  enabled: true
+  namespace: dephealth-redis
+  image: redis
+  tag: "7-alpine"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# --- Kafka ---
+kafka:
+  enabled: false
+  image: apache/kafka
+  tag: "3.8.1"
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# --- RabbitMQ ---
+rabbitmq:
+  enabled: false
+  image: rabbitmq
+  tag: "3-management-alpine"
+  credentials:
+    user: dephealth
+    password: dephealth-test-pass
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- 389 Directory Server (LDAP) ---
+ds389:
+  enabled: false
+  namespace: dephealth-389ds
+  image: 389ds/dirsrv
+  tag: "3.1"
+  dmPassword: "admin-password"
+  suffix: "dc=test,dc=local"
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- Nginx reverse proxy (Host-header routing scenario) ---
+# Fronts four uniproxy instances (uniproxy-09..12) behind a single host:port.
+# The inbound Host header selects the backend via an nginx map.
+nginx:
+  enabled: false
+  namespace: dephealth-uniproxy-3
+  image: nginx
+  tag: "1.27-alpine"
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# --- Stubs ---
+stubs:
+  httpStub:
+    enabled: false
+    image: dephealth-http-stub
+    tag: latest
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+      limits:
+        cpu: 100m
+        memory: 32Mi
+  grpcStub:
+    enabled: true
+    namespace: dephealth-grpc-stub
+    image: dephealth-grpc-stub
+    tag: latest
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+      limits:
+        cpu: 100m
+        memory: 32Mi
+
+# --- Dex (OIDC Provider) ---
+dex:
+  enabled: false
+  image: ghcr.io/dexidp/dex
+  tag: "v2.42.1"
+  # Issuer URL (must match external HTTPS URL)
+  issuer: "https://dex.example.com"
+  # Hostname for HTTPRoute
+  hostname: "dex.example.com"
+  # OIDC clients
+  staticClients:
+    - id: dephealth-ui
+      name: dephealth-ui
+      secret: ZGVwaGVhbHRoLXVpLXNlY3JldA
+      redirectURIs:
+        - "https://dephealth.example.com/auth/callback"
+        - "http://localhost:8080/auth/callback"
+  # Local users (password connector)
+  staticPasswords:
+    - email: "admin@example.com"
+      # echo password | htpasswd -BinC 10 admin | cut -d: -f2
+      hash: "$2y$10$Ewnzu3BUo4WYwIo9tNkfqO3VaK6uHbycCGTIUjiIUQWdm03NgvDNS"
+      username: "admin"
+      userID: "08a8684b-db89-4b73-91a9-3cd1221f0000"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

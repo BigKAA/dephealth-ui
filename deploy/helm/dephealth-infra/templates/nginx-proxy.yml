@@ -1,0 +1,101 @@
+{{- if .Values.nginx.enabled }}
+{{- $ns := .Values.nginx.namespace | default "dephealth-uniproxy-3" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-proxy-config
+  namespace: {{ $ns }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "nginx-proxy") | nindent 4 }}
+data:
+  # Mounted at /etc/nginx/conf.d/default.conf (overrides the image default).
+  # Host-header routing: the inbound Host selects one of the four backends.
+  default.conf: |
+    # One upstream per backend uniproxy instance.
+    upstream uniproxy_09 { server uniproxy-09.dephealth-uniproxy-3.svc:8080; }
+    upstream uniproxy_10 { server uniproxy-10.dephealth-uniproxy-3.svc:8080; }
+    upstream uniproxy_11 { server uniproxy-11.dephealth-uniproxy-3.svc:8080; }
+    upstream uniproxy_12 { server uniproxy-12.dephealth-uniproxy-3.svc:8080; }
+
+    # Map the inbound Host header to the matching upstream.
+    map $http_host $backend {
+        default        uniproxy_09;
+        uniproxy-09    uniproxy_09;
+        uniproxy-10    uniproxy_10;
+        uniproxy-11    uniproxy_11;
+        uniproxy-12    uniproxy_12;
+    }
+
+    server {
+        listen 80;
+        location / {
+            proxy_pass http://$backend;
+            proxy_set_header Host $http_host;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-proxy
+  namespace: {{ $ns }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "nginx-proxy") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "dephealth-infra.selectorLabels" (dict "name" "nginx-proxy") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dephealth-infra.selectorLabels" (dict "name" "nginx-proxy") | nindent 8 }}
+    spec:
+      containers:
+        - name: nginx
+          image: {{ include "dephealth-infra.image" (dict "registry" .Values.global.imageRegistry "image" .Values.nginx.image "tag" .Values.nginx.tag) }}
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-proxy
+  namespace: {{ $ns }}
+  labels:
+    {{- include "dephealth-infra.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "dephealth-infra.selectorLabels" (dict "name" "nginx-proxy") | nindent 4 }}
+  ports:
+    - port: 80
+      targetPort: http
+      name: http
+{{- end }}

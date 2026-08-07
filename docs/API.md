@@ -1,0 +1,796 @@
+# REST API Reference
+
+**Language:** English | [Русский](./API.ru.md)
+
+---
+
+## Overview
+
+dephealth-ui exposes a REST API for topology visualization and health monitoring. All endpoints return JSON and support CORS for browser-based clients.
+
+**Base URL:** `https://dephealth.example.com`
+**API Prefix:** `/api/v1`
+
+---
+
+## Authentication
+
+Authentication mode is configured in `config.yaml`:
+
+- **`none`** — No authentication (open access)
+- **`basic`** — HTTP Basic Authentication (username/password)
+- **`oidc`** — OpenID Connect (redirects to SSO provider)
+- **`ldap`** — LDAP bind authentication (username/password login form)
+
+For OIDC, the frontend automatically handles the OAuth2 flow. For LDAP, the user is presented with a login form at `/auth/login`. API calls after authentication include session cookies.
+
+---
+
+## Endpoints
+
+### `GET /api/v1/topology`
+
+Returns the complete service topology graph with pre-calculated node/edge states.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `namespace` | string | No | Filter by Kubernetes namespace (empty = all) |
+| `group` | string | No | Filter by logical group (SDK v0.5.0+, empty = all) |
+| `time` | string | No | ISO8601/RFC3339 timestamp for historical queries (e.g. `2026-02-15T12:00:00Z`). When set, returns topology state as of this point in time |
+
+**Caching:** Unfiltered live requests (`namespace`, `group`, and `time` empty) are cached server-side. Supports `ETag` / `If-None-Match` headers — returns `304 Not Modified` when data hasn't changed. Historical requests (`time` set) bypass the cache entirely.
+
+**Response:** `200 OK`
+
+```json
+{
+  "nodes": [
+    {
+      "id": "order-service",
+      "label": "order-service",
+      "state": "ok",
+      "type": "service",
+      "namespace": "production",
+      "group": "payment-team",
+      "isEntry": true,
+      "dependencyCount": 3,
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-service-status?var-service=order-service",
+      "alertCount": 0,
+      "alertSeverity": ""
+    },
+    {
+      "id": "order-service/postgres-main",
+      "label": "postgres-main",
+      "state": "unknown",
+      "type": "postgres",
+      "namespace": "production",
+      "host": "pg-master.db.svc",
+      "port": "5432",
+      "dependencyCount": 0,
+      "stale": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "order-service",
+      "target": "order-service/postgres-main",
+      "type": "postgres",
+      "latency": "5.2ms",
+      "latencyRaw": 0.0052,
+      "health": 1,
+      "state": "ok",
+      "critical": true,
+      "grafanaUrl": "https://grafana.example.com/d/dephealth-link-status?var-dependency=postgres-main&var-host=pg-master.db.svc&var-port=5432",
+      "alertCount": 1,
+      "alertSeverity": "warning"
+    }
+  ],
+  "alerts": [
+    {
+      "alertname": "DependencyHighLatency",
+      "service": "payment-api",
+      "dependency": "auth-service",
+      "severity": "warning",
+      "state": "firing",
+      "since": "2026-02-10T08:30:00Z",
+      "summary": "High latency detected on payment-api → auth-service"
+    }
+  ],
+  "meta": {
+    "cachedAt": "2026-02-10T09:15:30Z",
+    "ttl": 15,
+    "nodeCount": 42,
+    "edgeCount": 187,
+    "partial": false,
+    "errors": [],
+    "time": "2026-02-10T09:00:00Z",
+    "isHistory": true
+  }
+}
+```
+
+**Node fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique node identifier. Service nodes use the service name (e.g. `order-service`). Dependency nodes use `{source}/{dependency}` format (e.g. `order-service/postgres-main`). If a dependency name matches a known service, the service node is reused instead |
+| `label` | string | Display label. Service nodes use the service name. Dependency nodes use the logical dependency name (e.g. `postgres-main`) |
+| `state` | string | `ok`, `degraded`, `down`, `unknown` |
+| `type` | string | `service` (instrumented app) or dependency type (`postgres`, `redis`, `http`, `ldap`, etc.) |
+| `namespace` | string | Kubernetes namespace |
+| `group` | string | Logical service group (SDK v0.5.0+, omitted if empty) |
+| `isEntry` | bool | `true` if the node is an entry point for external traffic (set via `isentry` label in dephealth SDK metrics). Omitted if `false` |
+| `host` | string | Endpoint hostname (omitted for service nodes) |
+| `port` | string | Endpoint port (omitted for service nodes) |
+| `dependencyCount` | int | Number of outgoing edges |
+| `stale` | bool | `true` if the node's metrics have disappeared (lookback mode only) |
+| `grafanaUrl` | string | Direct link to Grafana Service Status dashboard (omitted if Grafana not configured) |
+| `alertCount` | int | Number of active alerts (omitted if 0) |
+| `alertSeverity` | string | Highest alert severity (omitted if no alerts) |
+
+**Edge fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source` | string | Source node ID |
+| `target` | string | Target node ID |
+| `type` | string | Connection type (`http`, `grpc`, `postgres`, `redis`, etc.) |
+| `latency` | string | Human-readable latency (`"5.2ms"`) |
+| `latencyRaw` | float64 | Raw latency in seconds |
+| `health` | float64 | `1` = healthy, `0` = unhealthy, `-1` = stale |
+| `state` | string | `ok`, `degraded`, `down`, `unknown` |
+| `critical` | bool | Whether this is a critical dependency |
+| `stale` | bool | `true` if edge metrics have disappeared (lookback mode only) |
+| `grafanaUrl` | string | Direct link to Grafana Link Status dashboard (omitted if Grafana not configured) |
+| `alertCount` | int | Number of active alerts for this edge (omitted if 0) |
+| `alertSeverity` | string | Highest alert severity for this edge (omitted if no alerts) |
+
+**Meta fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cachedAt` | string | RFC3339 timestamp of when the data was cached |
+| `ttl` | int | Cache TTL in seconds (clients should poll at this interval) |
+| `nodeCount` | int | Total number of nodes |
+| `edgeCount` | int | Total number of edges |
+| `partial` | bool | `true` if some queries failed and data may be incomplete |
+| `errors` | string[] | Error descriptions if `partial=true` (omitted if empty) |
+| `time` | string | RFC3339 timestamp of the requested historical point (omitted in live mode) |
+| `isHistory` | bool | `true` when viewing historical data (omitted in live mode) |
+
+**Node States (service nodes):**
+- `ok` — all outgoing edges healthy (health=1)
+- `degraded` — any outgoing edge has health=0
+- `down` — all outgoing edges are stale (metrics disappeared)
+- `unknown` — no outgoing edges / no data
+
+> Note: The backend `calcServiceNodeState` never returns `"down"` directly — it only returns `ok`, `degraded`, or `unknown`. The `down` state is set by stale detection logic when all edges are stale.
+
+**Edge States:**
+- `ok` — health = 1
+- `down` — health = 0
+- `unknown` — stale (metrics disappeared within lookback window)
+
+**Cascade warnings (frontend-only):**
+Cascade failure propagation is computed entirely on the frontend. The API response does not include cascade data (`cascadeCount`, `cascadeSources`, `inCascadeChain`). The `critical` field on edges determines whether failures propagate upstream as cascade warnings. See [Application Design — Cascade Warnings](./application-design.md#cascade-warnings).
+
+---
+
+### `GET /api/v1/cascade-analysis`
+
+Performs BFS cascade failure analysis across the dependency graph. Returns root causes, affected services, and full cascade chains with unlimited depth.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `service` | string | No | Analyze cascade for a specific service (empty = analyze all) |
+| `namespace` | string | No | Filter by Kubernetes namespace |
+| `group` | string | No | Filter by logical group (SDK v0.5.0+) |
+| `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
+| `time` | string | No | ISO8601/RFC3339 timestamp for historical cascade analysis |
+
+**Response:** `200 OK`
+
+```json
+{
+  "rootCauses": [
+    {
+      "id": "payment-api/postgres-main",
+      "label": "postgres-main",
+      "state": "down",
+      "namespace": "production"
+    }
+  ],
+  "affectedServices": [
+    {
+      "service": "order-service",
+      "namespace": "production",
+      "dependsOn": "payment-api",
+      "rootCauses": ["payment-api/postgres-main"]
+    }
+  ],
+  "allFailures": [
+    {
+      "service": "payment-api",
+      "dependency": "payment-api/postgres-main",
+      "dependencyLabel": "postgres-main",
+      "health": 0,
+      "critical": true
+    }
+  ],
+  "cascadeChains": [
+    {
+      "affectedService": "order-service",
+      "namespace": "production",
+      "dependsOn": "payment-api/postgres-main",
+      "dependsOnLabel": "postgres-main",
+      "path": ["order-service", "payment-api", "payment-api/postgres-main"],
+      "depth": 2
+    }
+  ],
+  "summary": {
+    "totalServices": 10,
+    "rootCauseCount": 1,
+    "affectedServiceCount": 3,
+    "totalFailureCount": 2,
+    "maxDepth": 2
+  }
+}
+```
+
+**Root Cause fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Dependency node ID in `{source}/{dependency}` format (e.g. `payment-api/postgres-main`) |
+| `label` | string | Human-readable label |
+| `state` | string | Current state (`down`, `degraded`, etc.) |
+| `namespace` | string | Kubernetes namespace |
+
+**Cascade Chain fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `affectedService` | string | Affected service node ID |
+| `namespace` | string | Namespace of the affected service |
+| `dependsOn` | string | Terminal dependency node ID (root cause) |
+| `dependsOnLabel` | string | Human-readable name of the terminal dependency (omitted if equal to `dependsOn`) |
+| `path` | string[] | Full path from affected service to root cause, as node IDs (joinable with `/api/v1/topology` node `id`) |
+| `depth` | int | Number of hops in the chain |
+
+---
+
+### `GET /api/v1/cascade-graph`
+
+Returns cascade failure topology in [Grafana Node Graph panel](https://grafana.com/docs/grafana/latest/panels-visualizations/visualizations/node-graph/) format. Designed to be consumed directly by the Grafana Infinity datasource.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `service` | string | No | Filter cascade graph for a specific service (empty = all) |
+| `namespace` | string | No | Filter by Kubernetes namespace |
+| `group` | string | No | Filter by logical group (SDK v0.5.0+) |
+| `depth` | int | No | Maximum BFS traversal depth (`0` = unlimited) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "nodes": [
+    {
+      "id": "order-service",
+      "title": "order-service",
+      "subTitle": "production",
+      "mainStat": "ok",
+      "arc__failed": 0,
+      "arc__degraded": 0,
+      "arc__ok": 1,
+      "arc__unknown": 0
+    },
+    {
+      "id": "payment-api/postgres-main",
+      "title": "postgres-main",
+      "subTitle": "production",
+      "mainStat": "down",
+      "arc__failed": 1,
+      "arc__degraded": 0,
+      "arc__ok": 0,
+      "arc__unknown": 0
+    }
+  ],
+  "edges": [
+    {
+      "id": "order-service--payment-api/postgres-main",
+      "source": "order-service",
+      "target": "payment-api/postgres-main",
+      "mainStat": ""
+    }
+  ]
+}
+```
+
+**Node fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique node identifier |
+| `title` | string | Display label |
+| `subTitle` | string | Kubernetes namespace |
+| `mainStat` | string | Node state: `ok`, `degraded`, `down`, `unknown` |
+| `arc__failed` | float | Arc segment for failed state (0.0–1.0) |
+| `arc__degraded` | float | Arc segment for degraded state (0.0–1.0) |
+| `arc__ok` | float | Arc segment for healthy state (0.0–1.0) |
+| `arc__unknown` | float | Arc segment for unknown state (0.0–1.0) |
+
+The `arc__*` fields control the colored ring around each node in the Grafana Node Graph panel. Exactly one field is set to `1` per node, based on the node's state.
+
+**Edge fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Edge identifier (`source--target`) |
+| `source` | string | Source node ID |
+| `target` | string | Target node ID |
+| `mainStat` | string | Reserved for future use |
+
+---
+
+### `GET /api/v1/timeline/events`
+
+Returns status transition events within a time range. Used by the frontend timeline slider to display event markers. Queries `app_dependency_status` via Prometheus `query_range` API, detects state changes, and returns timestamped events.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `start` | string | Yes | RFC3339 start timestamp (e.g. `2026-02-15T00:00:00Z`) |
+| `end` | string | Yes | RFC3339 end timestamp (must be after `start`) |
+
+The query step is auto-calculated based on the range duration:
+
+| Range | Step |
+|-------|------|
+| ≤ 1h | 15s |
+| ≤ 6h | 1m |
+| ≤ 24h | 5m |
+| ≤ 7d | 15m |
+| ≤ 30d | 1h |
+| ≤ 90d | 3h |
+| > 90d | 6h |
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "timestamp": "2026-02-15T08:32:15Z",
+    "service": "payment-api",
+    "fromState": "ok",
+    "toState": "timeout",
+    "kind": "degradation"
+  },
+  {
+    "timestamp": "2026-02-15T08:45:00Z",
+    "service": "payment-api",
+    "fromState": "timeout",
+    "toState": "ok",
+    "kind": "recovery"
+  }
+]
+```
+
+**Event fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | string | RFC3339 timestamp of the state change |
+| `service` | string | Service name where the transition occurred |
+| `namespace` | string | Kubernetes namespace (omitted if empty) |
+| `fromState` | string | Previous dependency status |
+| `toState` | string | New dependency status |
+| `kind` | string | `degradation` (worse state), `recovery` (better state), or `change` |
+
+**Errors:**
+- `400 Bad Request` — missing `start`/`end`, invalid format, or `start` ≥ `end`
+
+---
+
+### `GET /api/v1/export/{format}`
+
+Exports the topology graph in the specified format. Supports both data formats (JSON, CSV, DOT) and rendered images (PNG, SVG via Graphviz).
+
+**Path Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `format` | string | Yes | Export format: `json`, `csv`, `dot`, `png`, `svg` |
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `scope` | string | No | `full` (default) — entire topology, `current` — filtered by namespace/group |
+| `namespace` | string | No | Filter by Kubernetes namespace (only when `scope=current`) |
+| `group` | string | No | Filter by logical group (only when `scope=current`) |
+| `time` | string | No | ISO8601/RFC3339 timestamp for historical export |
+| `scale` | int | No | PNG scale factor, 1–4 (default `2`). Higher values produce larger images |
+
+**Response Headers:**
+
+| Format | Content-Type | Content-Disposition |
+|--------|-------------|---------------------|
+| `json` | `application/json` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.json"` |
+| `csv` | `application/zip` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.zip"` |
+| `dot` | `text/vnd.graphviz` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.dot"` |
+| `png` | `image/png` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.png"` |
+| `svg` | `image/svg+xml` | `attachment; filename="dephealth-topology-YYYYMMDD-HHMMSS.svg"` |
+
+**Response:** `200 OK` — binary file content
+
+**JSON export schema:**
+
+```json
+{
+  "version": "1.0",
+  "timestamp": "2026-02-20T12:00:00Z",
+  "scope": "full",
+  "filters": {},
+  "nodes": [
+    {
+      "id": "order-service",
+      "name": "order-service",
+      "namespace": "production",
+      "group": "payment-team",
+      "type": "service",
+      "state": "ok",
+      "alerts": 0
+    }
+  ],
+  "edges": [
+    {
+      "source": "order-service",
+      "target": "order-service/postgres-main",
+      "dependency": "postgres-main",
+      "type": "postgres",
+      "host": "pg-master.db.svc",
+      "port": "5432",
+      "critical": true,
+      "health": 1,
+      "status": "",
+      "detail": "",
+      "latency_ms": 0.0052
+    }
+  ]
+}
+```
+
+**CSV export:** Returns a ZIP archive containing two files:
+- `nodes.csv` — columns: `id`, `name`, `namespace`, `group`, `type`, `state`, `alerts`
+- `edges.csv` — columns: `source`, `target`, `dependency`, `type`, `host`, `port`, `critical`, `health`, `status`, `detail`, `latency_ms`
+
+Both CSV files include a UTF-8 BOM for automatic encoding detection in Excel.
+
+**DOT export:** Returns [Graphviz DOT](https://graphviz.org/doc/info/lang.html) format text with namespace/group subgraph clusters, status-colored nodes, and edge colors matching the UI connection legend.
+
+**PNG/SVG export:** Requires Graphviz installed on the server (included in the Docker image). Generates DOT internally and renders it via the `dot` layout engine. The `scale` parameter controls PNG resolution via DPI (scale=1 → 72dpi, scale=2 → 144dpi, scale=3 → 216dpi, scale=4 → 288dpi).
+
+**Examples:**
+
+```bash
+# Export full topology as JSON
+curl -o topology.json https://dephealth.example.com/api/v1/export/json
+
+# Export filtered topology as CSV
+curl -o topology.zip https://dephealth.example.com/api/v1/export/csv?scope=current&namespace=production
+
+# Export high-resolution PNG
+curl -o topology.png https://dephealth.example.com/api/v1/export/png?scale=3
+
+# Export historical topology as SVG
+curl -o topology.svg https://dephealth.example.com/api/v1/export/svg?time=2026-02-15T12:00:00Z
+```
+
+**Errors:**
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| 400 | Unsupported format, invalid scope, invalid time format, scale out of range (1–4) |
+| 502 | Prometheus/VictoriaMetrics unreachable |
+| 503 | Graphviz not installed (PNG/SVG only) |
+
+---
+
+### `GET /api/v1/alerts`
+
+Returns all active alerts from AlertManager aggregated by service/dependency.
+
+**Response:** `200 OK`
+
+```json
+{
+  "alerts": [
+    {
+      "alertname": "DependencyDown",
+      "service": "order-service",
+      "dependency": "postgres-main",
+      "severity": "critical",
+      "state": "firing",
+      "since": "2026-02-10T09:00:00Z",
+      "summary": "Dependency postgres-main is completely down"
+    }
+  ],
+  "meta": {
+    "total": 5,
+    "critical": 1,
+    "warning": 4,
+    "fetchedAt": "2026-02-10T09:15:30Z"
+  }
+}
+```
+
+**Alert fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `alertname` | string | Alert rule name (`DependencyDown`, `DependencyDegraded`, etc.) |
+| `service` | string | Source service name |
+| `dependency` | string | Target dependency name |
+| `severity` | string | `critical`, `warning`, `info` |
+| `state` | string | `firing` |
+| `since` | string | RFC3339 timestamp of alert start |
+| `summary` | string | Human-readable alert description (optional) |
+
+**Meta fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total` | int | Total number of active alerts |
+| `critical` | int | Number of critical alerts |
+| `warning` | int | Number of warning alerts |
+| `fetchedAt` | string | RFC3339 timestamp of when alerts were fetched |
+
+---
+
+### `GET /api/v1/config`
+
+Returns frontend configuration (Grafana URLs, dashboard UIDs, severity colors, display settings). This endpoint does not require authentication.
+
+**Response:** `200 OK`
+
+```json
+{
+  "grafana": {
+    "baseUrl": "https://grafana.example.com",
+    "dashboards": {
+      "cascadeOverview": "dephealth-cascade-overview",
+      "rootCause": "dephealth-root-cause",
+      "serviceStatus": "dephealth-service-status",
+      "linkStatus": "dephealth-link-status",
+      "serviceList": "dephealth-service-list",
+      "servicesStatus": "dephealth-services-status",
+      "linksStatus": "dephealth-links-status"
+    }
+  },
+  "cache": {
+    "ttl": 15
+  },
+  "auth": {
+    "type": "oidc"
+  },
+  "alerts": {
+    "enabled": true,
+    "severityLevels": [
+      {"value": "critical", "color": "#f44336"},
+      {"value": "warning", "color": "#ff9800"},
+      {"value": "info", "color": "#2196f3"}
+    ]
+  }
+}
+```
+
+**Alert configuration:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `alerts.enabled` | bool | `true` if AlertManager is configured (`datasources.alertmanager.url` is not empty), `false` otherwise. When `false`, the frontend hides all alert-related UI elements (alert button disabled, no alert badges on nodes/edges, no alert sections in sidebars, no alert counters in status bar) |
+| `alerts.severityLevels` | array | Alert severity levels with display colors |
+
+**Dashboard UIDs:**
+
+| Key | Purpose | URL Parameters |
+|-----|---------|----------------|
+| `cascadeOverview` | Cascade failure overview | `?var-namespace=<ns>` |
+| `rootCause` | Root cause analyzer | `?var-service=<name>&var-namespace=<ns>` |
+| `serviceStatus` | Single service health | `?var-service=<name>` |
+| `linkStatus` | Single dependency health | `?var-dependency=<dep>&var-host=<host>&var-port=<port>` |
+| `serviceList` | All services table | — |
+| `servicesStatus` | All services overview | — |
+| `linksStatus` | All links overview | — |
+
+If `grafana.baseUrl` is empty, Grafana integration features are hidden in the UI.
+
+---
+
+### `GET /api/v1/instances`
+
+Returns all running instances (pods/containers) for a specific service.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `service` | string | Yes | Service name (from `name` label) |
+
+**Example:** `GET /api/v1/instances?service=order-service`
+
+**Response:** `200 OK`
+
+Returns a JSON array of instances (not wrapped in an object):
+
+```json
+[
+  {
+    "instance": "10.244.1.5:9090",
+    "pod": "order-service-7d9f8b-xyz12",
+    "job": "order-service",
+    "service": "order-service"
+  },
+  {
+    "instance": "10.244.2.8:9090",
+    "pod": "order-service-7d9f8b-abc34",
+    "job": "order-service",
+    "service": "order-service"
+  }
+]
+```
+
+**Error:** `400 Bad Request` if `service` parameter is missing.
+
+---
+
+### `GET /healthz`
+
+Kubernetes liveness probe. Always returns `200 OK` with `{"status":"ok"}`.
+
+### `GET /readyz`
+
+Kubernetes readiness probe. Always returns `200 OK` with `{"status":"ok"}`.
+
+---
+
+### `GET /auth/login`
+
+Initiates authentication flow.
+
+- **OIDC** (`auth.type=oidc`): Redirects to OIDC provider's authorization endpoint (`302 Found`).
+- **LDAP** (`auth.type=ldap`): Renders HTML login form with username/password fields and CSRF token (`200 OK`).
+
+---
+
+### `POST /auth/login`
+
+Processes login form submission (only when `auth.type=ldap`).
+
+**Form fields:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `username` | string | Yes | LDAP username |
+| `password` | string | Yes | LDAP password |
+| `_csrf` | string | Yes | CSRF token from the login form |
+
+**Responses:**
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| 302 | Successful authentication — sets session cookie, redirects to `/` |
+| 400 | Missing username or password |
+| 401 | Invalid credentials |
+| 403 | Invalid or missing CSRF token |
+| 429 | Rate limit exceeded (5 attempts per minute per IP) |
+| 503 | Too many pending CSRF tokens |
+
+---
+
+### `GET /auth/callback`
+
+OIDC callback endpoint (only when `auth.type=oidc`).
+
+**Response:** `302 Found`
+Sets session cookie and redirects to application root.
+
+---
+
+### `GET /auth/logout`
+
+Terminates user session (when `auth.type=oidc` or `auth.type=ldap`).
+
+**Response:** `302 Found`
+Clears session cookie and redirects to application root.
+
+---
+
+### `GET /auth/userinfo`
+
+Returns current authenticated user information (when `auth.type=oidc` or `auth.type=ldap`).
+
+**Response:** `200 OK`
+
+```json
+{
+  "sub": "uid=john,ou=people,dc=example,dc=com",
+  "name": "John Doe",
+  "email": "john.doe@example.com"
+}
+```
+
+**Response (unauthenticated):** `401 Unauthorized`
+
+---
+
+## Error Responses
+
+All error responses follow this format:
+
+```json
+{
+  "error": "error message description"
+}
+```
+
+**Common HTTP Status Codes:**
+
+| HTTP Status | Description |
+|-------------|-------------|
+| 400 | Invalid or missing query parameters |
+| 401 | Authentication required |
+| 502 | Prometheus/AlertManager unreachable |
+
+---
+
+## CORS
+
+CORS is enabled for all origins with these settings:
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, OPTIONS
+Access-Control-Allow-Headers: Accept, Content-Type, If-None-Match
+Access-Control-Max-Age: 300
+```
+
+---
+
+## Caching and ETag
+
+The `/api/v1/topology` endpoint (unfiltered) supports HTTP caching:
+
+- Server returns `ETag` header with each response
+- Clients can send `If-None-Match` with the previous ETag value
+- If data hasn't changed, server returns `304 Not Modified` (empty body)
+- Recommended polling interval: use `meta.ttl` value (default 15s)
+
+Other endpoints (`/api/v1/alerts`, `/api/v1/instances`) are not cached and always return fresh data.
+
+---
+
+## Rate Limiting
+
+No explicit rate limiting is enforced. Caching at server-side reduces load on Prometheus/AlertManager.
+
+Recommended client polling intervals:
+- `/api/v1/topology` — every 15-30 seconds (use `meta.ttl`)
+- `/api/v1/alerts` — every 30-60 seconds
+- `/api/v1/config` — once at startup
+
+---
+
+## See Also
+
+- [Metrics Specification](./METRICS.md) — Required metrics format
+- [Application Design](./application-design.md) — Architecture overview
+- [Deployment Guide](../deploy/helm/dephealth-ui/README.md) — Kubernetes & Helm

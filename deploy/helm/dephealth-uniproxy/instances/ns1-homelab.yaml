@@ -1,0 +1,60 @@
+instances:
+  - name: uniproxy-01
+    group: proxy-cluster-1
+    replicas: 2
+    nodePort: 30080
+    isentry: "yes"
+    connections:
+      - name: uniproxy-02
+        type: http
+        url: "http://uniproxy-02.dephealth-uniproxy.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+      - name: uniproxy-03
+        type: http
+        url: "http://uniproxy-03.dephealth-uniproxy.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+
+  - name: uniproxy-02
+    group: proxy-cluster-1
+    replicas: 2
+    connections:
+      - name: redis
+        type: redis
+        url: "redis://redis.dephealth-redis.svc:6379"
+        critical: "no"
+      - name: grpc-stub
+        type: grpc
+        host: "grpc-stub.dephealth-grpc-stub.svc"
+        port: "9090"
+        critical: "no"
+      - name: uniproxy-04
+        type: http
+        url: "http://uniproxy-04.dephealth-uniproxy-2.svc:8080"
+        critical: "yes"
+        healthPath: "/"
+      - name: uniproxy-pr1
+        type: http
+        url: "http://192.168.218.168:8080"
+        critical: "yes"
+        healthPath: "/"
+
+  - name: uniproxy-03
+    group: proxy-cluster-1
+    replicas: 3
+    connections:
+      - name: postgresql
+        type: postgres
+        url: "postgres://dephealth:dephealth-test-pass@postgresql.dephealth-postgresql.svc:5432/dephealth"
+        critical: "yes"
+      - name: ldap
+        type: ldap
+        host: "ds389.dephealth-389ds.svc"
+        port: "3389"
+        critical: "no"
+      - name: uniproxy-01
+        type: http
+        url: "http://uniproxy-01.dephealth-uniproxy.svc:8080"
+        critical: "yes"
+        healthPath: "/"

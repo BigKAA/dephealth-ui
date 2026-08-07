@@ -1,0 +1,83 @@
+# dephealth-ui configuration
+# Copy to config.yaml and adjust values for your environment.
+# All settings can be overridden via environment variables (DEPHEALTH_*).
+
+server:
+  # Address and port to listen on
+  listen: ":8080"
+
+datasources:
+  prometheus:
+    # Prometheus or VictoriaMetrics API URL (required)
+    url: "http://victoriametrics.dephealth-monitoring.svc:8428"
+    # Optional Basic auth for Prometheus connection
+    # username: "reader"
+    # password: "secret"
+  alertmanager:
+    # AlertManager API URL (optional, enables alert enrichment)
+    url: "http://alertmanager.dephealth-monitoring.svc:9093"
+    # Optional Basic auth for AlertManager connection
+    # username: ""
+    # password: ""
+
+cache:
+  # Topology response cache TTL (default: 15s)
+  ttl: 15s
+
+topology:
+  # Lookback window for retaining stale nodes on the graph.
+  # When a service stops sending metrics, it remains visible with state "unknown"
+  # for the duration of this window. Uses last_over_time() PromQL function.
+  # Set to "0" to disable (default: only show services with current metrics).
+  # Recommended: "1h" for most environments, "6h" for infrequent deployments.
+  # Minimum: 1m. Env: DEPHEALTH_TOPOLOGY_LOOKBACK
+  # lookback: 1h
+
+auth:
+  # Authentication type: "none", "basic", or "oidc"
+  type: "none"
+
+  # Basic auth configuration (when type: "basic")
+  # basic:
+  #   users:
+  #     - username: admin
+  #       passwordHash: "$2a$10$..."  # bcrypt hash
+
+  # OIDC configuration (when type: "oidc")
+  # Uses Authorization Code Flow with PKCE (S256).
+  # oidc:
+  #   issuer: "https://keycloak.example.com/realms/infra"
+  #   clientId: "dephealth-ui"
+  #   clientSecret: "your-secret"         # optional for public clients with PKCE
+  #   redirectUrl: "https://dephealth.example.com/auth/callback"
+
+grafana:
+  # Grafana base URL for dashboard links (optional)
+  baseUrl: ""
+  dashboards:
+    # Dashboard UIDs for link generation
+    serviceStatus: "dephealth-service-status"
+    linkStatus: "dephealth-link-status"
+    cascadeOverview: "dephealth-cascade-overview"
+    rootCause: "dephealth-root-cause"
+
+log:
+  # Log output format: "text" or "json" (default: "json")
+  # Env: LOG_FORMAT
+  format: "json"
+  # Log level: "debug", "info", "warn", "error" (default: "info")
+  # Env: LOG_LEVEL
+  level: "info"
+  # Timestamp format: "rfc3339", "rfc3339nano", "unix", "unixmilli" (default: "rfc3339nano")
+  # Env: LOG_TIME_FORMAT
+  timeFormat: "rfc3339nano"
+  # Include source file:line in log output (default: false)
+  # Env: LOG_ADD_SOURCE
+  addSource: false
+  # Custom JSON key names for log aggregator compatibility (ECS, GCP, Splunk).
+  # Leave empty to use slog defaults: time, level, msg, source.
+  # Env: LOG_TIME_KEY, LOG_LEVEL_KEY, LOG_MESSAGE_KEY, LOG_SOURCE_KEY
+  # timeKey: "@timestamp"
+  # levelKey: "severity"
+  # messageKey: "message"
+  # sourceKey: "caller"

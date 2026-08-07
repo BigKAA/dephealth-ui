@@ -1,0 +1,162 @@
+.PHONY: build lint test frontend-build docker-build docker-push \
+       helm-deploy helm-undeploy dev clean \
+       uniproxy-deploy uniproxy-undeploy \
+       host-deploy host-undeploy host-status \
+       env-deploy env-undeploy env-status
+
+# --- Variables ---
+REGISTRY         ?= harbor.kryukov.lan/library
+RELEASE_REGISTRY ?= container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst
+DOCKER_PROXY     ?= harbor.kryukov.lan/docker
+IMAGE_NAME    ?= dephealth-ui
+TAG           ?= latest
+PLATFORMS     ?= linux/amd64,linux/arm64
+NAMESPACE     ?= dephealth-ui
+HELM_RELEASE  ?= dephealth-ui
+HELM_CHART    ?= deploy/helm/dephealth-ui
+HELM_VALUES   ?= $(HELM_CHART)/values-homelab.yaml
+
+# Test environment charts
+INFRA_CHART      ?= deploy/helm/dephealth-infra
+MONITORING_CHART ?= deploy/helm/dephealth-monitoring
+UNIPROXY_CHART   ?= deploy/helm/dephealth-uniproxy
+
+# Host deployment (bare metal)
+HOST_PR1_IP  ?= 192.168.218.168
+HOST_PR1_DIR ?= deploy/docker/uniproxy-pr1
+
+# --- Local ---
+
+build:
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o dephealth-ui ./cmd/dephealth-ui
+
+clean:
+	rm -f dephealth-ui
+	rm -rf frontend/dist
+
+lint:
+	golangci-lint run ./...
+	markdownlint '**/*.md' --ignore node_modules --ignore frontend/node_modules
+
+test:
+	go test ./... -v -race
+
+frontend-build:
+	npm --prefix frontend ci
+	npm --prefix frontend run build
+
+# --- Docker ---
+
+docker-build:
+	docker buildx build \
+		--platform $(PLATFORMS) \
+		--build-arg REGISTRY=$(DOCKER_PROXY) \
+		-t $(REGISTRY)/$(IMAGE_NAME):$(TAG) \
+		--push .
+
+docker-release:
+	docker buildx build \
+		--platform $(PLATFORMS) \
+		--build-arg REGISTRY=$(DOCKER_PROXY) \
+		-t $(RELEASE_REGISTRY)/$(IMAGE_NAME):$(TAG) \
+		--push .
+
+docker-push:
+	@echo "Image pushed during docker-build/docker-release (--push flag)"
+
+# --- Uniproxy ---
+
+uniproxy-deploy:
+	helm upgrade --install uniproxy-ns1 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns1-homelab.yaml \
+		-n dephealth-uniproxy --create-namespace
+	helm upgrade --install uniproxy-ns2 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns2-homelab.yaml \
+		-n dephealth-uniproxy-2 --create-namespace
+	helm upgrade --install uniproxy-ns3 $(UNIPROXY_CHART) \
+		-f $(UNIPROXY_CHART)/values-homelab.yaml \
+		-f $(UNIPROXY_CHART)/instances/ns3-homelab.yaml \
+		-n dephealth-uniproxy-3 --create-namespace
+
+uniproxy-undeploy:
+	-helm uninstall uniproxy-ns1 -n dephealth-uniproxy
+	-helm uninstall uniproxy-ns2 -n dephealth-uniproxy-2
+	-helm uninstall uniproxy-ns3 -n dephealth-uniproxy-3
+
+# --- Host deployment (bare metal) ---
+
+host-deploy:
+	ssh root@$(HOST_PR1_IP) 'mkdir -p /opt/uniproxy-pr1'
+	scp $(HOST_PR1_DIR)/docker-compose.yaml root@$(HOST_PR1_IP):/opt/uniproxy-pr1/
+	ssh root@$(HOST_PR1_IP) 'cd /opt/uniproxy-pr1 && docker compose up -d'
+
+host-undeploy:
+	ssh root@$(HOST_PR1_IP) 'cd /opt/uniproxy-pr1 && docker compose down'
+
+host-status:
+	ssh root@$(HOST_PR1_IP) 'docker ps --filter name=uniproxy-pr1 --filter name=postgresql --filter name=redis'
+
+# --- Helm (dephealth-ui) ---
+
+helm-deploy:
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		-f $(HELM_VALUES) \
+		-n $(NAMESPACE)
+
+helm-undeploy:
+	helm uninstall $(HELM_RELEASE) -n $(NAMESPACE)
+
+# --- Test environment ---
+
+env-deploy:
+	helm upgrade --install dephealth-infra $(INFRA_CHART) \
+		-f $(INFRA_CHART)/values-homelab.yaml
+	$(MAKE) uniproxy-deploy
+	$(MAKE) host-deploy
+	helm upgrade --install dephealth-monitoring $(MONITORING_CHART) \
+		-f $(MONITORING_CHART)/values-homelab.yaml \
+		-n dephealth-monitoring --create-namespace
+
+env-undeploy:
+	-helm uninstall dephealth-monitoring -n dephealth-monitoring
+	-$(MAKE) uniproxy-undeploy
+	-$(MAKE) host-undeploy
+	-helm uninstall dephealth-infra
+	-kubectl delete namespace dephealth-redis dephealth-postgresql dephealth-grpc-stub \
+		dephealth-389ds dephealth-uniproxy dephealth-uniproxy-2 dephealth-uniproxy-3 \
+		dephealth-monitoring --ignore-not-found
+
+env-status:
+	@echo "=== dephealth-redis ==="
+	@kubectl get pods -n dephealth-redis 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-postgresql ==="
+	@kubectl get pods -n dephealth-postgresql 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-grpc-stub ==="
+	@kubectl get pods -n dephealth-grpc-stub 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-389ds ==="
+	@kubectl get pods -n dephealth-389ds 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-uniproxy ==="
+	@kubectl get pods -n dephealth-uniproxy 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-uniproxy-2 ==="
+	@kubectl get pods -n dephealth-uniproxy-2 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-uniproxy-3 (nginx proxy + backends) ==="
+	@kubectl get pods -n dephealth-uniproxy-3 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== dephealth-monitoring ==="
+	@kubectl get pods -n dephealth-monitoring 2>/dev/null || echo "  namespace not found"
+	@echo ""
+	@echo "=== host: uniproxy-pr1 ($(HOST_PR1_IP)) ==="
+	@ssh root@$(HOST_PR1_IP) 'docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter name=uniproxy-pr1 --filter name=postgresql --filter name=redis' 2>/dev/null || echo "  host unreachable"
+
+# --- Development cycle ---
+
+dev: docker-build helm-deploy
+	@echo "Build, push, and deploy complete."

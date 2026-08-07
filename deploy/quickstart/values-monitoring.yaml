@@ -1,0 +1,29 @@
+# dephealth-monitoring — Quickstart overrides
+#
+# Environment-agnostic overrides for the test environment guide.
+# No private registries, host-specific IPs, or domain names.
+#
+# Usage:
+#   helm upgrade --install dephealth-monitoring deploy/helm/dephealth-monitoring \
+#     -f deploy/quickstart/values-monitoring.yaml \
+#     -n dephealth-monitoring --create-namespace
+
+global:
+  # Docker Hub for VictoriaMetrics, VMAlert, AlertManager, Grafana (all public).
+  imageRegistry: docker.io
+  # Empty string = use the cluster's default StorageClass.
+  storageClass: ""
+
+victoriametrics:
+  # Scrape arbitrary namespaces by annotation (optional, empty by default).
+  annotationScrape: []
+  # External static targets — see the "Optional: Bare Metal Host" section of
+  # docs/test-environment.md to add a host running uniproxy outside the cluster.
+  externalTargets: []
+
+grafana:
+  rootUrl: ""
+  # HTTPRoute disabled by default for portability. Enable it (or use Ingress)
+  # following the "Optional: External Access" section of docs/test-environment.md.
+  route:
+    enabled: false

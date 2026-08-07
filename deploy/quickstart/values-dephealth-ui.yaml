@@ -1,0 +1,54 @@
+# dephealth-ui — Quickstart overrides
+#
+# Environment-agnostic overrides for the test environment guide.
+# No private registries, host-specific IPs, or domain names.
+#
+# Usage:
+#   helm upgrade --install dephealth-ui deploy/helm/dephealth-ui \
+#     -f deploy/quickstart/values-dephealth-ui.yaml \
+#     -n dephealth-ui --create-namespace
+#
+# Access via port-forward (no Gateway/Ingress required):
+#   kubectl port-forward -n dephealth-ui svc/dephealth-ui 8080:8080
+#   open http://localhost:8080
+#
+# For external access via Gateway API or Ingress, see the "Optional: External
+# Access" section of docs/test-environment.md.
+
+image:
+  # dephealth-ui is a custom image. Yandex Container Registry is publicly
+  # readable. If it is unavailable, build it from this repo and push to your
+  # own registry. See the "Container Images" section of docs/test-environment.md.
+  name: container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst/dephealth-ui
+  tag: latest
+  pullPolicy: Always
+
+# External routes disabled — use kubectl port-forward for a portable setup.
+route:
+  enabled: false
+ingress:
+  enabled: false
+
+tls:
+  enabled: false
+
+config:
+  server:
+    listen: ":8080"
+  # Point at the monitoring stack deployed in the dephealth-monitoring namespace.
+  datasources:
+    prometheus:
+      url: "http://victoriametrics.dephealth-monitoring.svc:8428"
+    alertmanager:
+      url: "http://alertmanager.dephealth-monitoring.svc:9093"
+  topology:
+    # Keep disappeared nodes visible as "unknown" for 1 hour.
+    lookback: "1h"
+  cache:
+    ttl: 15s
+  auth:
+    type: "none"
+  grafana:
+    # Empty = Grafana links are hidden. Set this and the dashboard UIDs below
+    # if you expose Grafana externally (see "Optional: External Access").
+    baseUrl: ""

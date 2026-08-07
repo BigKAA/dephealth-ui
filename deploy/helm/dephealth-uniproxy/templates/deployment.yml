@@ -1,0 +1,197 @@
+{{- range .Values.instances }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "dephealth-uniproxy.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ .name }}
+spec:
+  replicas: {{ .replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/part-of: dephealth
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .name }}
+        app.kubernetes.io/part-of: dephealth
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: uniproxy
+          image: {{ include "dephealth-uniproxy.image" $ }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: DEPHEALTH_NAME
+              value: {{ .name | quote }}
+            {{- if .group }}
+            - name: DEPHEALTH_GROUP
+              value: {{ .group | quote }}
+            {{- end }}
+            {{- if .isentry }}
+            - name: DEPHEALTH_ISENTRY
+              value: {{ .isentry | quote }}
+            {{- end }}
+            - name: LISTEN_ADDR
+              value: ":8080"
+            - name: DEPHEALTH_CHECK_INTERVAL
+              value: {{ $.Values.checkInterval | quote }}
+            {{- if $.Values.timeout }}
+            - name: DEPHEALTH_TIMEOUT
+              value: {{ $.Values.timeout | quote }}
+            {{- end }}
+            {{- if $.Values.fetchTimeout }}
+            - name: DEPHEALTH_FETCH_TIMEOUT
+              value: {{ $.Values.fetchTimeout | quote }}
+            {{- end }}
+            {{- if .connections }}
+            - name: DEPHEALTH_DEPS
+              value: {{ include "dephealth-uniproxy.depsValue" .connections | quote }}
+            {{- range .connections }}
+            {{- $envPrefix := printf "DEPHEALTH_%s" (include "dephealth-uniproxy.envName" .name) }}
+            {{- if .url }}
+            - name: {{ $envPrefix }}_URL
+              value: {{ .url | quote }}
+            {{- else }}
+            - name: {{ $envPrefix }}_HOST
+              value: {{ .host | quote }}
+            - name: {{ $envPrefix }}_PORT
+              value: {{ .port | quote }}
+            {{- end }}
+            - name: {{ $envPrefix }}_CRITICAL
+              value: {{ .critical | default "yes" | quote }}
+            {{- if .healthPath }}
+            - name: {{ $envPrefix }}_HEALTH_PATH
+              value: {{ .healthPath | quote }}
+            {{- end }}
+            {{- if .hostHeader }}
+            - name: {{ $envPrefix }}_HOST_HEADER
+              value: {{ .hostHeader | quote }}
+            {{- end }}
+            {{- if .checkInterval }}
+            - name: {{ $envPrefix }}_CHECK_INTERVAL
+              value: {{ .checkInterval | quote }}
+            {{- end }}
+            {{- if .timeout }}
+            - name: {{ $envPrefix }}_TIMEOUT
+              value: {{ .timeout | quote }}
+            {{- end }}
+            {{- if .tls }}
+            - name: {{ $envPrefix }}_TLS
+              value: {{ .tls | quote }}
+            {{- end }}
+            {{- if .tlsSkipVerify }}
+            - name: {{ $envPrefix }}_TLS_SKIP_VERIFY
+              value: {{ .tlsSkipVerify | quote }}
+            {{- end }}
+            {{- if .grpcServiceName }}
+            - name: {{ $envPrefix }}_GRPC_SERVICE_NAME
+              value: {{ .grpcServiceName | quote }}
+            {{- end }}
+            {{- if .postgresQuery }}
+            - name: {{ $envPrefix }}_POSTGRES_QUERY
+              value: {{ .postgresQuery | quote }}
+            {{- end }}
+            {{- if .mysqlQuery }}
+            - name: {{ $envPrefix }}_MYSQL_QUERY
+              value: {{ .mysqlQuery | quote }}
+            {{- end }}
+            {{- if .redisPassword }}
+            - name: {{ $envPrefix }}_REDIS_PASSWORD
+              value: {{ .redisPassword | quote }}
+            {{- end }}
+            {{- if .redisDB }}
+            - name: {{ $envPrefix }}_REDIS_DB
+              value: {{ .redisDB | quote }}
+            {{- end }}
+            {{- if .amqpURL }}
+            - name: {{ $envPrefix }}_AMQP_URL
+              value: {{ .amqpURL | quote }}
+            {{- end }}
+            {{- if .auth }}
+            {{- if .auth.bearerToken }}
+            - name: {{ $envPrefix }}_BEARER_TOKEN
+              value: {{ .auth.bearerToken | quote }}
+            {{- end }}
+            {{- if .auth.basicUser }}
+            - name: {{ $envPrefix }}_BASIC_USER
+              value: {{ .auth.basicUser | quote }}
+            {{- end }}
+            {{- if .auth.basicPass }}
+            - name: {{ $envPrefix }}_BASIC_PASS
+              value: {{ .auth.basicPass | quote }}
+            {{- end }}
+            {{- if .auth.headers }}
+            - name: {{ $envPrefix }}_HEADERS
+              value: {{ .auth.headers | toJson | quote }}
+            {{- end }}
+            {{- if .auth.metadata }}
+            - name: {{ $envPrefix }}_METADATA
+              value: {{ .auth.metadata | toJson | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- if .serverAuth }}
+            {{- if .serverAuth.method }}
+            - name: AUTH_METHOD
+              value: {{ .serverAuth.method | quote }}
+            {{- end }}
+            {{- if .serverAuth.token }}
+            - name: AUTH_TOKEN
+              value: {{ .serverAuth.token | quote }}
+            {{- end }}
+            {{- if .serverAuth.username }}
+            - name: AUTH_USER
+              value: {{ .serverAuth.username | quote }}
+            {{- end }}
+            {{- if .serverAuth.password }}
+            - name: AUTH_PASS
+              value: {{ .serverAuth.password | quote }}
+            {{- end }}
+            {{- if .serverAuth.apiKey }}
+            - name: AUTH_API_KEY
+              value: {{ .serverAuth.apiKey | quote }}
+            {{- end }}
+            {{- if .serverAuth.metricsMethod }}
+            - name: AUTH_METRICS_METHOD
+              value: {{ .serverAuth.metricsMethod | quote }}
+            {{- end }}
+            {{- if .serverAuth.statusMethod }}
+            - name: AUTH_STATUS_METHOD
+              value: {{ .serverAuth.statusMethod | quote }}
+            {{- end }}
+            {{- end }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: {{ $.Values.probes.readinessDelay }}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: {{ $.Values.probes.livenessDelay }}
+            periodSeconds: 10
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+{{- end }}
