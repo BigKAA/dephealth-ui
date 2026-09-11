@@ -105,6 +105,9 @@ dephealth-ui предоставляет REST API для визуализации
     "edgeCount": 187,
     "partial": false,
     "errors": [],
+    "warnings": [
+      "dependency \"postgres/pg:5432\": conflicting dep_namespace values (db, infra), explicit labels ignored"
+    ],
     "time": "2026-02-10T09:00:00Z",
     "isHistory": true
   }
@@ -119,8 +122,8 @@ dephealth-ui предоставляет REST API для визуализации
 | `label` | string | Отображаемое имя. Для сервис-узлов — имя сервиса. Для dependency-узлов — логическое имя зависимости (например, `postgres-main`) |
 | `state` | string | `ok`, `degraded`, `down`, `unknown` |
 | `type` | string | `service` (инструментированное приложение) или тип зависимости (`postgres`, `redis`, `http`, `ldap` и т.д.) |
-| `namespace` | string | Kubernetes namespace |
-| `group` | string | Логическая группа сервиса (SDK v0.5.0+, пропускается если пуста) |
+| `namespace` | string | Kubernetes namespace. Для dependency-узлов: резолюция через метку `dep_namespace` → FQDN `host` → наследование (см. [спецификацию метрик](./METRICS.ru.md#метки-размещения-зависимостей-dep_namespace--dep_group)) |
+| `group` | string | Логическая группа сервиса (SDK v0.5.0+, пропускается если пуста). Для dependency-узлов: резолюция через метку `dep_group` → наследование |
 | `isEntry` | bool | `true`, если узел является точкой входа для внешнего трафика (задаётся через метку `isentry` в метриках dephealth SDK). Пропускается, если `false` |
 | `host` | string | Hostname endpoint (пропускается для service-узлов) |
 | `port` | string | Порт endpoint (пропускается для service-узлов) |
@@ -157,6 +160,7 @@ dephealth-ui предоставляет REST API для визуализации
 | `edgeCount` | int | Общее количество рёбер |
 | `partial` | bool | `true`, если часть запросов не удалась и данные могут быть неполными |
 | `errors` | string[] | Описания ошибок при `partial=true` (пропускается, если пусто) |
+| `warnings` | string[] | Некритичные замечания построения графа (пропускается, если пусто), например конфликт значений меток `dep_namespace`/`dep_group` у общей зависимости — явные метки проигнорированы, применены эвристики |
 | `time` | string | RFC3339 метка запрошенного исторического момента (пропускается в live-режиме) |
 | `isHistory` | bool | `true` при просмотре исторических данных (пропускается в live-режиме) |
 

@@ -105,6 +105,9 @@ Returns the complete service topology graph with pre-calculated node/edge states
     "edgeCount": 187,
     "partial": false,
     "errors": [],
+    "warnings": [
+      "dependency \"postgres/pg:5432\": conflicting dep_namespace values (db, infra), explicit labels ignored"
+    ],
     "time": "2026-02-10T09:00:00Z",
     "isHistory": true
   }
@@ -119,8 +122,8 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | `label` | string | Display label. Service nodes use the service name. Dependency nodes use the logical dependency name (e.g. `postgres-main`) |
 | `state` | string | `ok`, `degraded`, `down`, `unknown` |
 | `type` | string | `service` (instrumented app) or dependency type (`postgres`, `redis`, `http`, `ldap`, etc.) |
-| `namespace` | string | Kubernetes namespace |
-| `group` | string | Logical service group (SDK v0.5.0+, omitted if empty) |
+| `namespace` | string | Kubernetes namespace. For dependency nodes: resolved via `dep_namespace` label → FQDN of `host` → inheritance (see [Metrics spec](./METRICS.md#dependency-placement-labels-dep_namespace--dep_group)) |
+| `group` | string | Logical service group (SDK v0.5.0+, omitted if empty). For dependency nodes: resolved via `dep_group` label → inheritance |
 | `isEntry` | bool | `true` if the node is an entry point for external traffic (set via `isentry` label in dephealth SDK metrics). Omitted if `false` |
 | `host` | string | Endpoint hostname (omitted for service nodes) |
 | `port` | string | Endpoint port (omitted for service nodes) |
@@ -157,6 +160,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | `edgeCount` | int | Total number of edges |
 | `partial` | bool | `true` if some queries failed and data may be incomplete |
 | `errors` | string[] | Error descriptions if `partial=true` (omitted if empty) |
+| `warnings` | string[] | Non-fatal graph construction issues (omitted if empty), e.g. conflicting `dep_namespace`/`dep_group` label values on a shared dependency — the explicit labels were ignored and heuristics were used |
 | `time` | string | RFC3339 timestamp of the requested historical point (omitted in live mode) |
 | `isHistory` | bool | `true` when viewing historical data (omitted in live mode) |
 

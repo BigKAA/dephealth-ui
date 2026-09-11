@@ -46,6 +46,8 @@
 |-------|----------|----------|------------------|
 | `namespace` | Prometheus | Kubernetes namespace. Не является частью SDK — добавляется автоматически Prometheus при scrape pod'ов. Рекомендуется использовать и вне Kubernetes для единообразия. | `production`, `staging`, `team-alpha` |
 | `isentry` | Custom | Отмечает сервис как точку входа для внешнего трафика. Не является частью спецификации SDK. При значении `yes` узел отображается с бейджем точки входа в UI. Рекомендуется для dephealth-ui. Задаётся через custom labels SDK или переменную `DEPHEALTH_ISENTRY=yes` в uniproxy. | `yes` |
+| `dep_namespace` | Custom (зарезервирована) | Namespace **цели** зависимости (см. [Метки размещения зависимостей](#метки-размещения-зависимостей-dep_namespace--dep_group)). В отличие от `namespace`, описывающего отчитывающийся сервис, помещает сам узел зависимости в группу namespace. Необязательна; разрешены виртуальные значения вроде `external`. | `db`, `external`, `payments` |
+| `dep_group` | Custom (зарезервирована) | Логическая группа **цели** зависимости. Та же семантика, что у `dep_namespace`, но для измерения group. Необязательна. | `storage-tier`, `cdn` |
 | `role` | Custom | Роль инстанса (для реплицированных систем) | `primary`, `replica`, `standby` |
 | `shard` | Custom | Идентификатор шарда (для шардированных систем) | `shard-01`, `shard-02` |
 | `vhost` | Custom | AMQP virtual host | `/`, `/app` |
@@ -53,10 +55,59 @@
 | `instance` | Prometheus | Prometheus instance label | `10.244.1.5:9090` |
 | `job` | Prometheus | Prometheus job label | `order-service` |
 
+#### Метки размещения зависимостей: `dep_namespace` / `dep_group`
+
+Метки `namespace` и `group` описывают **отчитывающийся сервис**, а не цель.
+Поэтому узлы зависимостей (endpoint'ов) не имеют собственного надёжного
+размещения. Зарезервированные необязательные метки `dep_namespace` и
+`dep_group` закрывают этот пробел: они описывают **расположение цели
+зависимости**.
+
+- **Необязательны:** если отчитывающийся сервис их не задаёт, поведение
+  остаётся прежним (namespace из FQDN `host` или наследование от единственного
+  источника; group — наследование). См. приоритет резолюции ниже.
+- **Разрешены виртуальные значения:** например `external`, `third-party` —
+  любой смысловой «бакет» вашей топологии.
+- **Правило единогласия:** если несколько сервисов отчитываются об одном и том
+  же endpoint'е зависимости, непустые значения меток должны совпадать.
+  Конфликтующие значения игнорируются (с fallback на эвристики) и попадают в
+  `meta.warnings` ответа топологии.
+- **Сервисы-цели не затрагиваются:** если цель сама является отчитывающимся
+  сервисом, она сохраняет собственные метки `namespace`/`group`, а метки
+  `dep_*` на входящих рёбрах игнорируются.
+
+Приоритет резолюции для узлов зависимостей:
+
+1. Единогласные явные `dep_namespace` / `dep_group`
+2. Namespace из FQDN `host` (`<service>.<namespace>.svc[.<domain>]`)
+3. Наследование от сервисов-источников, согласных на одно значение
+4. Иначе узел остаётся вне групп
+
+**Задание меток через Go SDK** (механизм custom labels, работает уже сейчас):
+
+```go
+sdk.RegisterDependency(dephealth.Dependency{
+    Name:     "postgres-main",
+    Type:     "postgres",
+    Host:     "pg-master.db.svc",
+    Port:     5432,
+    Critical: true,
+    // ...
+}).WithLabel("dep_namespace", "db").WithLabel("dep_group", "storage-tier")
+```
+
+**Задание меток через uniproxy** (промежуточный механизм через env, работает с
+текущей версией uniproxy):
+
+```bash
+DEPHEALTH_DB_LABEL_DEP_NAMESPACE=db
+DEPHEALTH_DB_LABEL_DEP_GROUP=data
+```
+
 **Пример:**
 ```prometheus
-app_dependency_health{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",role="primary"} 1
-app_dependency_health{name="order-service",namespace="production",dependency="redis-cache",type="redis",host="redis.cache.svc",port="6379",critical="no"} 1
+app_dependency_health{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",role="primary",dep_namespace="db",dep_group="storage-tier"} 1
+app_dependency_health{name="order-service",namespace="production",dependency="redis-cache",type="redis",host="redis.cache.svc",port="6379",critical="no",dep_namespace="external"} 1
 app_dependency_health{name="payment-api",namespace="production",dependency="auth-service",type="http",host="auth.svc",port="8080",critical="yes"} 0
 ```
 
@@ -134,9 +185,9 @@ app_dependency_status_detail{name="order-service",namespace="production",depende
 
 ### 1. **Обнаружение топологии** — извлечение всех уникальных рёбер
 ```promql
-group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
 ```
-**Назначение:** Обнаружить все связи сервис→зависимость в системе. Метки `group` и `isentry` включаются при наличии.
+**Назначение:** Обнаружить все связи сервис→зависимость в системе. Метки `group`, `isentry`, `dep_namespace` и `dep_group` включаются при наличии.
 
 ### 2. **Состояние здоровья** — текущее значение health для каждого ребра
 ```promql
@@ -185,7 +236,7 @@ app_dependency_status == 1  (через query_range API)
 ## Модель графа
 
 - **Узлы (Vertices):** Уникальные значения метки `name` → представляют сервисы/приложения
-- **Рёбра (Directed):** Каждая уникальная пара `(name, dependency)` = одна связь «сервис→зависимость». Топологический запрос группирует по `{name, namespace, group, dependency, type, host, port, critical, isentry}`; `type`/`host`/`port`/`critical`/`isentry` — атрибуты ребра, а идентичность определяется только парой `(name, dependency)` (поэтому несколько зависимостей за одним host:port за ingress остаются раздельными)
+- **Рёбра (Directed):** Каждая уникальная пара `(name, dependency)` = одна связь «сервис→зависимость». Топологический запрос группирует по `{name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group}`; `type`/`host`/`port`/`critical`/`isentry` — атрибуты ребра, а идентичность определяется только парой `(name, dependency)` (поэтому несколько зависимостей за одним host:port за ingress остаются раздельными)
 - **Свойства рёбер:**
   - **critical:** визуальная толщина (критичные зависимости отображаются толще) + распространение каскадных предупреждений (только рёбра с `critical=yes` распространяют предупреждения о сбоях вверх по графу)
   - **latency:** отображается как подпись на ребре
@@ -351,8 +402,8 @@ datasources:
 
 **Тестовый запрос:**
 ```promql
-# Должен вернуть вашу топологию сервисов
-group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
+# Должен вернуть топологию ваших сервисов
+group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
 ```
 
 ---

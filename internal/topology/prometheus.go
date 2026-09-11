@@ -80,13 +80,17 @@ func NewPrometheusClient(cfg PrometheusConfig) PrometheusClient {
 // PromQL query templates for topology construction.
 // When namespace is provided, a label filter is injected.
 const (
-	queryTopologyEdges = `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health%s)`
-	queryHealthState   = `app_dependency_health%s`
-	queryAvgLatency    = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
-	queryP99Latency    = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
-	queryInstances     = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
+	// edgeLabels is the group-by clause shared by topology edge queries. It
+	// includes the reserved dep_namespace/dep_group labels; reporters that do
+	// not set them simply produce empty values.
+	edgeLabels                      = `(name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group)`
+	queryTopologyEdges              = `group by ` + edgeLabels + ` (app_dependency_health%s)`
+	queryHealthState                = `app_dependency_health%s`
+	queryAvgLatency                 = `rate(app_dependency_latency_seconds_sum%s[5m]) / rate(app_dependency_latency_seconds_count%s[5m])`
+	queryP99Latency                 = `histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket%s[5m]))`
+	queryInstances                  = `group by (instance, pod, job) (app_dependency_health{name="%s"})`
 	// queryTopologyEdgesLookback uses last_over_time to include stale series.
-	queryTopologyEdgesLookback = `group by (name, namespace, group, dependency, type, host, port, critical, isentry) (last_over_time(app_dependency_health%s[%s]))`
+	queryTopologyEdgesLookback = `group by ` + edgeLabels + ` (last_over_time(app_dependency_health%s[%s]))`
 	// SDK v0.4.1: dependency status (enum pattern, exactly one series == 1 per endpoint).
 	queryDependencyStatus       = `app_dependency_status%s == 1`
 	queryDependencyStatusDetail = `app_dependency_status_detail%s == 1`
@@ -325,6 +329,23 @@ func parseMatrixValues(raw []json.RawMessage) ([]TimeValue, error) {
 	return values, nil
 }
 
+// parseTopologyEdge maps a Prometheus result metric to a TopologyEdge.
+func parseTopologyEdge(r promResult) TopologyEdge {
+	return TopologyEdge{
+		Name:         r.Metric["name"],
+		Namespace:    r.Metric["namespace"],
+		Group:        r.Metric["group"],
+		Dependency:   r.Metric["dependency"],
+		Type:         r.Metric["type"],
+		Host:         r.Metric["host"],
+		Port:         r.Metric["port"],
+		Critical:     r.Metric["critical"] == "yes",
+		IsEntry:      r.Metric["isentry"] == "yes",
+		DepNamespace: r.Metric["dep_namespace"],
+		DepGroup:     r.Metric["dep_group"],
+	}
+}
+
 func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOptions) ([]TopologyEdge, error) {
 	f := optFilter(opts)
 	results, err := c.query(ctx, fmt.Sprintf(queryTopologyEdges, f), opts.Time)
@@ -334,17 +355,7 @@ func (c *prometheusClient) QueryTopologyEdges(ctx context.Context, opts QueryOpt
 
 	edges := make([]TopologyEdge, 0, len(results))
 	for _, r := range results {
-		edges = append(edges, TopologyEdge{
-			Name:       r.Metric["name"],
-			Namespace:  r.Metric["namespace"],
-			Group:      r.Metric["group"],
-			Dependency: r.Metric["dependency"],
-			Type:       r.Metric["type"],
-			Host:       r.Metric["host"],
-			Port:       r.Metric["port"],
-			Critical:   r.Metric["critical"] == "yes",
-			IsEntry:    r.Metric["isentry"] == "yes",
-		})
+		edges = append(edges, parseTopologyEdge(r))
 	}
 	return edges, nil
 }
@@ -359,17 +370,7 @@ func (c *prometheusClient) QueryTopologyEdgesLookback(ctx context.Context, opts 
 
 	edges := make([]TopologyEdge, 0, len(results))
 	for _, r := range results {
-		edges = append(edges, TopologyEdge{
-			Name:       r.Metric["name"],
-			Namespace:  r.Metric["namespace"],
-			Group:      r.Metric["group"],
-			Dependency: r.Metric["dependency"],
-			Type:       r.Metric["type"],
-			Host:       r.Metric["host"],
-			Port:       r.Metric["port"],
-			Critical:   r.Metric["critical"] == "yes",
-			IsEntry:    r.Metric["isentry"] == "yes",
-		})
+		edges = append(edges, parseTopologyEdge(r))
 	}
 	return edges, nil
 }

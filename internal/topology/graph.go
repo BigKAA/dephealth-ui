@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -125,7 +126,7 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 		}
 	}
 
-	nodes, edges, depLookup := b.buildGraph(rawEdges, health, avgLatency, currentEdgeKeys, depStatus, depStatusDetail)
+	nodes, edges, depLookup, warnings := b.buildGraph(rawEdges, health, avgLatency, currentEdgeKeys, depStatus, depStatusDetail)
 
 	alertInfos := b.enrichWithAlerts(nodes, edges, fetchedAlerts, depLookup)
 
@@ -136,6 +137,7 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 		EdgeCount: len(edges),
 		Partial:   len(queryErrors) > 0,
 		Errors:    queryErrors,
+		Warnings:  warnings,
 	}
 	if opts.Time != nil {
 		meta.Time = opts.Time
@@ -153,6 +155,8 @@ func (b *GraphBuilder) Build(ctx context.Context, opts QueryOptions) (*TopologyR
 // buildGraph constructs nodes and edges from raw topology data.
 // When currentEdgeKeys is non-nil (lookback mode), edges whose key is absent
 // from the set are marked as stale with state "unknown".
+// It also returns non-fatal warnings (e.g. conflicting dep_namespace/dep_group
+// labels on a shared dependency node).
 func (b *GraphBuilder) buildGraph(
 	rawEdges []TopologyEdge,
 	health map[EdgeKey]float64,
@@ -160,7 +164,7 @@ func (b *GraphBuilder) buildGraph(
 	currentEdgeKeys map[EdgeKey]bool,
 	depStatus map[EdgeKey]string,
 	depStatusDetail map[EdgeKey]string,
-) ([]Node, []Edge, map[EdgeKey]string) {
+) ([]Node, []Edge, map[EdgeKey]string, []string) {
 	// First pass: collect all known service names (sources that report metrics).
 	serviceNames := make(map[string]bool)
 	for _, e := range rawEdges {
@@ -187,6 +191,19 @@ func (b *GraphBuilder) buildGraph(
 	// Build unique edges keyed by {Name, Dependency} — a real connection is
 	// identified by the dependency name, not by the transport endpoint.
 	edgeMap := make(map[EdgeKey]TopologyEdge)
+
+	// Reserved dep_namespace/dep_group label values and source service
+	// namespace/group values collected per dependency node for the
+	// resolution pass below. Edges whose target is a known service are not
+	// tracked: explicit dep labels must not affect service nodes (a target
+	// that is itself a service keeps its own labels).
+	type depLabelSets struct {
+		explicitNS  map[string]bool // non-empty dep_namespace values across incoming edges
+		explicitGrp map[string]bool // non-empty dep_group values across incoming edges
+		sourceNS    map[string]bool // namespaces of the reporting services
+		sourceGrp   map[string]bool // groups of the reporting services
+	}
+	depLabels := make(map[string]depLabelSets)
 
 	// Reverse lookup: (name, dependency_name) → target node ID for alert matching.
 	depLookup := make(map[EdgeKey]string)
@@ -235,16 +252,43 @@ func (b *GraphBuilder) buildGraph(
 		nodeMap[e.Name].deps[depNodeID] = true
 
 		// Register target node (dependency) — only if not a known service.
+		// Namespace and group are NOT taken from this edge: they are resolved
+		// in the second pass (first-edge assignment was non-deterministic for
+		// shared dependencies).
 		if !serviceNames[e.Dependency] {
 			if _, ok := nodeMap[depNodeID]; !ok {
 				nodeMap[depNodeID] = &nodeInfo{
 					typ:        e.Type,
-					group:      e.Group,
 					host:       e.Host,
 					port:       e.Port,
 					dependency: e.Dependency,
 					deps:       make(map[string]bool),
 				}
+			}
+
+			sets, ok := depLabels[depNodeID]
+			if !ok {
+				sets = depLabelSets{
+					explicitNS:  make(map[string]bool),
+					explicitGrp: make(map[string]bool),
+					sourceNS:    make(map[string]bool),
+					sourceGrp:   make(map[string]bool),
+				}
+				depLabels[depNodeID] = sets
+			}
+			// Inner maps are reference types: mutations below are visible in
+			// the stored value.
+			if e.DepNamespace != "" {
+				sets.explicitNS[e.DepNamespace] = true
+			}
+			if e.DepGroup != "" {
+				sets.explicitGrp[e.DepGroup] = true
+			}
+			if e.Namespace != "" {
+				sets.sourceNS[e.Namespace] = true
+			}
+			if e.Group != "" {
+				sets.sourceGrp[e.Group] = true
 			}
 		}
 	}
@@ -349,31 +393,46 @@ func (b *GraphBuilder) buildGraph(
 		}
 	}
 
-	// Second pass: resolve namespace for dependency nodes that have no namespace.
+	// Second pass: resolve namespace and group for dependency nodes.
+	//
+	// Precedence for namespace: unanimous explicit dep_namespace labels →
+	// FQDN extraction from host → inheritance from source services that
+	// agree on a single value → empty.
+	// Precedence for group: unanimous explicit dep_group labels →
+	// inheritance from agreeing source services → empty.
+	// Conflicting explicit labels are ignored with a warning.
+	var warnings []string
 	for id, info := range nodeMap {
-		if info.typ == "service" || info.namespace != "" {
+		if info.typ == "service" {
 			continue
 		}
-		// Try FQDN extraction from host.
-		if ns := resolveDepNamespace(info.host); ns != "" {
+		sets := depLabels[id]
+
+		if ns, ok := singleValue(sets.explicitNS); ok {
 			info.namespace = ns
-			continue
-		}
-		// Try inheriting from sole source service namespace.
-		sourceNamespaces := make(map[string]bool)
-		for _, e := range rawEdges {
-			if resolveTarget(e) == id {
-				if src, ok := nodeMap[e.Name]; ok && src.namespace != "" {
-					sourceNamespaces[src.namespace] = true
-				}
+		} else {
+			if len(sets.explicitNS) > 1 {
+				warnings = append(warnings, conflictingDepLabelWarning(id, "dep_namespace", sets.explicitNS))
 			}
-		}
-		if len(sourceNamespaces) == 1 {
-			for ns := range sourceNamespaces {
+			if ns := resolveDepNamespace(info.host); ns != "" {
+				info.namespace = ns
+			} else if ns, ok := singleValue(sets.sourceNS); ok {
 				info.namespace = ns
 			}
 		}
+
+		if g, ok := singleValue(sets.explicitGrp); ok {
+			info.group = g
+		} else {
+			if len(sets.explicitGrp) > 1 {
+				warnings = append(warnings, conflictingDepLabelWarning(id, "dep_group", sets.explicitGrp))
+			}
+			if g, ok := singleValue(sets.sourceGrp); ok {
+				info.group = g
+			}
+		}
 	}
+	sort.Strings(warnings)
 
 	// Build nodes.
 	nodes := make([]Node, 0, len(nodeMap))
@@ -433,7 +492,33 @@ func (b *GraphBuilder) buildGraph(
 		}
 	}
 
-	return nodes, edges, depLookup
+	return nodes, edges, depLookup, warnings
+}
+
+// singleValue returns the only value of a set that contains exactly one
+// element. It returns ok=false for empty sets or conflicting values.
+func singleValue(set map[string]bool) (string, bool) {
+	if len(set) != 1 {
+		return "", false
+	}
+	for v := range set {
+		return v, true
+	}
+	return "", false
+}
+
+// conflictingDepLabelWarning builds a warning for conflicting reserved
+// dependency labels on a dependency node, e.g.:
+//
+//	dependency "pg/pg:5432": conflicting dep_namespace values (db, infra), explicit labels ignored
+func conflictingDepLabelWarning(depNodeID, label string, values map[string]bool) string {
+	sorted := make([]string, 0, len(values))
+	for v := range values {
+		sorted = append(sorted, v)
+	}
+	sort.Strings(sorted)
+	return fmt.Sprintf("dependency %q: conflicting %s values (%s), explicit labels ignored",
+		depNodeID, label, strings.Join(sorted, ", "))
 }
 
 // edgeHealthInfo holds health and criticality for a single edge.

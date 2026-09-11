@@ -83,6 +83,32 @@ Dependency nodes (non-service targets like databases, caches, message brokers) u
 - If two services depend on the same database (`host:port`), they produce separate graph nodes (e.g., `order-service/postgres-main` and `payment-api/postgres-main`)
 - If a dependency name matches a known service name, the dependency links to that service node instead (building a connected service-to-service graph)
 
+### Dependency Node Grouping Resolution
+
+The `namespace` and `group` metric labels describe the **reporting service**, not
+the target. Dependency nodes therefore resolve their own placement with the
+following precedence (the reserved optional `dep_namespace` / `dep_group` labels
+describe the target's location; see the [Metrics spec](./METRICS.md)):
+
+1. **Unanimous explicit `dep_namespace` / `dep_group`** across all incoming
+   edges of the dependency node. Conflicting non-empty values are ignored and
+   reported in `meta.warnings` of the topology response.
+2. **Namespace from FQDN of `host`** (`<service>.<namespace>.svc[.<domain>]` →
+   namespace; namespace dimension only).
+3. **Inheritance from source services** when all sources reporting this
+   dependency agree on a single namespace/group value.
+4. **Otherwise ungrouped** (the node renders outside any group).
+
+Service-to-service targets are not affected: a target that is itself a
+reporting service keeps its own `namespace`/`group` labels, and `dep_*` labels
+on its incoming edges are ignored.
+
+> **Historical note:** before `dep_namespace`/`dep_group` support, the `group`
+> of a dependency node was taken from the first incoming edge encountered
+> (non-deterministic for shared dependencies). Multi-source endpoints without
+> explicit labels now render ungrouped instead of landing in an arbitrary
+> group.
+
 ### Alert Rules (from topologymetrics Helm chart)
 
 | Alert | Condition | Severity |
@@ -390,7 +416,7 @@ A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The ch
 
 **Group dimension details:**
 - Service nodes display a colored stripe and `gr: <group>` label when in group mode
-- Dependency nodes (Redis, PostgreSQL, etc.) do not have a `group` label — they show no stripe in group mode
+- Dependency nodes (Redis, PostgreSQL, etc.) get a `group` only when resolved (explicit `dep_group` label or unanimous inheritance) — they show no stripe when ungrouped
 - The filter dropdown switches between "Namespace" and "Group" values depending on the active dimension
 - The namespace/group legend panel updates to show the active dimension's values and colors
 - If no nodes in the topology have a `group` field, the toggle is hidden and namespace mode is used automatically
