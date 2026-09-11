@@ -2,10 +2,10 @@
 
 ## Metadata
 
-- **Plan version**: 1.1.0
+- **Plan version**: 1.2.0
 - **Created**: 2026-09-11
 - **Last updated**: 2026-09-11
-- **Status**: In Progress
+- **Status**: Completed
 
 ---
 
@@ -18,21 +18,17 @@
 
 ## Current Status
 
-- **Active phase**: Phase 4
-- **Active item**: 4.2 — final check (lookback window auto-clear) in progress
+- **Active phase**: none — plan complete
+- **Active item**: none
 - **Last updated**: 2026-09-11
-- **Note**: Phases 1–3 and 4.1 done. 4.2 deployed to the homelab cluster and
-  E2E-verified via the API and visually in the UI: explicit sole-source labels
-  (ldap → infra/identity), unanimous shared labels (postgresql → db/data),
-  previous behavior for unlabeled endpoints (redis/grpc-stub), conflict →
-  fallback + both sorted `meta.warnings`, compound grouping works in both
-  dimensions (namespace and group). Also recovered a missing `custom-ca`
-  ConfigMap in the dephealth-ui namespace (extracted from cert-manager
-  `dev-ca`). One expected lookback effect is being observed: after reverting a
-  temporary conflicting label, the conflict warning persists until the stale
-  series ages out of the 1h lookback window (~15:15); the final check confirms
-  the warning clears and the UI auto-refresh re-groups postgresql from the
-  FQDN fallback container into `db` without a page reload.
+- **Note**: All phases complete. Released as **v0.22.0** (tag + GitHub Release
+  + multi-arch image in Yandex CR). Final lookback observation confirmed: the
+  temporary conflicting label self-cleared when the stale series aged out of
+  the 1h window (15:14:35, `meta.warnings` empty, postgresql back in `db`/`data`),
+  and the untouched UI re-grouped postgresql into the `db` compound container
+  via auto-refresh alone (no page reload) — closing the Phase 2 manual
+  criterion. Homelab runs the feature (dev image v0.22.0-1; release image
+  v0.22.0 identical code).
 
 ---
 
@@ -41,7 +37,7 @@
 - [x] [Phase 1: Backend — Label Ingestion and Node Resolution](#phase-1-backend--label-ingestion-and-node-resolution)
 - [x] [Phase 2: Frontend — Dynamic Re-grouping](#phase-2-frontend--dynamic-re-grouping)
 - [x] [Phase 3: Documentation](#phase-3-documentation)
-- [ ] [Phase 4: Build, Deploy and Verification](#phase-4-build-deploy-and-verification)
+- [x] [Phase 4: Build, Deploy and Verification](#phase-4-build-deploy-and-verification)
 
 ---
 
@@ -199,9 +195,12 @@ surfaces display the resolved values.
 ### ✅ Phase 2 Completion Criteria
 
 - [x] All items completed (2.1, 2.2)
-- [ ] Manual check: changing a label on a test uniproxy instance re-groups the
-      node on the next auto-refresh (no page reload) — deferred to Phase 4.2
-      (requires the homelab test environment)
+- [x] Manual check: changing a label on a test uniproxy instance re-groups the
+      node on the next auto-refresh (no page reload) — verified in the homelab:
+      the UI tab was left untouched in namespace grouping; after the
+      conflicting label reverted and the lookback window cleared, postgresql
+      moved from the `dephealth-postgresql` (FQDN fallback) container into the
+      `db` container via auto-refresh alone
 
 > 2.2 result: no gaps found. `tooltip.js` and `sidebar.js` render
 > `namespace`/`group` for dependency nodes; `buildCompoundElements`
@@ -305,22 +304,23 @@ release flow.
     - grouping works in both dimensions (namespace / group): confirmed
       visually (containers `infra`, `identity`, `proxy-cluster-1/2/3`,
       FQDN-fallback containers) ✅
-  - **Lookback effect observed**: after reverting the conflicting label, the
-    instant query is unanimous again immediately, but the topology keeps the
-    conflict until the stale series ages out of the 1h lookback window
-    (`last_over_time[1h]` still sees the `legacy` samples) — expected
-    behavior, not a bug. Final check (~15:15): warning clears and the open UI
-    (untouched, namespace grouping) re-groups postgresql into the `db`
-    container on auto-refresh without a page reload — this also closes the
-    Phase 2 manual criterion.
+  - **Lookback effect observed and confirmed**: after reverting the conflicting
+    label, the instant query was unanimous again immediately, but the topology
+    kept the conflict until the stale series aged out of the 1h lookback
+    window (`last_over_time[1h]` still saw the `legacy` samples) — expected
+    behavior, not a bug. Final check (15:14): `meta.warnings` empty,
+    postgresql back to `db`/`data`, and the untouched open UI re-grouped it
+    into the `db` container on auto-refresh without a page reload (closes the
+    Phase 2 manual criterion).
 
 ### ✅ Phase 4 Completion Criteria
 
-- [ ] All items completed (4.1 ✅, 4.2 pending)
-- [ ] All tests and linters pass (golangci-lint ✅; markdownlint blocked by
+- [x] All items completed (4.1, 4.2)
+- [x] All tests and linters pass (golangci-lint ✅; markdownlint blocked by
       pre-existing repo-wide failure on master — tracked separately)
-- [ ] E2E scenarios verified in the homelab environment
-- [ ] CHANGELOG updated; ready for release (0.22.0)
+- [x] E2E scenarios verified in the homelab environment
+- [x] CHANGELOG updated; released as v0.22.0 (tag, GitHub Release,
+      multi-arch image in Yandex CR)
 
 ---
 
@@ -347,4 +347,4 @@ release flow.
 
 ---
 
-**🚧 Phases 1–3 and 4.1 complete. Remaining: 4.2 (deploy to homelab + E2E verification).**
+**✅ Plan complete — released as v0.22.0.**
