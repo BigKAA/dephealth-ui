@@ -38,13 +38,10 @@ Available tools: `kubectl`, `helm`, `docker`
 - Authentication via `yc` credential helper (configured in `~/.docker/config.json`)
 - Use for all documentation examples and Helm chart defaults
 
-<<<<<<< HEAD
-=======
 **Base images:**
 - Pulled directly from `docker.io` (Docker Hub) — no proxy registry required for building `dephealth-ui`
 - Override per-build with `make docker-build DOCKER_PROXY=<registry>` if a mirror is needed
 
->>>>>>> c48905ef8b86d4de56cabba6fe0fc08c0e983429
 ## Git Workflow
 
 Follow **GitHub Flow + Semantic Versioning** (see [GIT-WORKFLOW.md](GIT-WORKFLOW.md)):
