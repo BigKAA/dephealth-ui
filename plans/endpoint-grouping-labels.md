@@ -2,36 +2,43 @@
 
 ## Metadata
 
-- **Plan version**: 1.0.0
+- **Plan version**: 1.1.0
 - **Created**: 2026-09-11
 - **Last updated**: 2026-09-11
-- **Status**: Pending
+- **Status**: In Progress
 
 ---
 
 ## Version History
 
+- **v1.1.0** (2026-09-11): Phases 1–3 and item 4.1 implemented
 - **v1.0.0** (2026-09-11): Initial plan
 
 ---
 
 ## Current Status
 
-- **Active phase**: Phase 1
-- **Active item**: 1.1
+- **Active phase**: Phase 4
+- **Active item**: 4.2
 - **Last updated**: 2026-09-11
-- **Note**: Design agreed (Variant A: reserved metric labels). External work
+- **Note**: Phases 1–3 and 4.1 done: backend ingests `dep_namespace`/`dep_group`
+  with the agreed resolution precedence and `meta.warnings`; frontend render
+  signature includes namespace/group; docs (EN+RU) and CHANGELOG updated;
+  `go test -race` and `golangci-lint` pass; frontend and Go binary build.
+  markdownlint fails repo-wide on master (tool version regression — 922
+  pre-existing errors; this change adds none in docs, only the CHANGELOG's
+  standard Keep-a-Changelog MD024 pattern). Item 4.2 (homelab deploy + E2E)
+  is pending. Design agreed (Variant A: reserved metric labels). External work
   tracked via GitHub issues drafted in `tmp/issue-topologymetrics.md` and
-  `tmp/issue-uniproxy.md`. This repo's changes are backward-compatible and can
-  ship before the external ones.
+  `tmp/issue-uniproxy.md`.
 
 ---
 
 ## Table of Contents
 
-- [ ] [Phase 1: Backend — Label Ingestion and Node Resolution](#phase-1-backend--label-ingestion-and-node-resolution)
-- [ ] [Phase 2: Frontend — Dynamic Re-grouping](#phase-2-frontend--dynamic-re-grouping)
-- [ ] [Phase 3: Documentation](#phase-3-documentation)
+- [x] [Phase 1: Backend — Label Ingestion and Node Resolution](#phase-1-backend--label-ingestion-and-node-resolution)
+- [x] [Phase 2: Frontend — Dynamic Re-grouping](#phase-2-frontend--dynamic-re-grouping)
+- [x] [Phase 3: Documentation](#phase-3-documentation)
 - [ ] [Phase 4: Build, Deploy and Verification](#phase-4-build-deploy-and-verification)
 
 ---
@@ -72,7 +79,7 @@ can emit them **today** without SDK changes.
 ## Phase 1: Backend — Label Ingestion and Node Resolution
 
 **Dependencies**: None
-**Status**: Pending
+**Status**: Completed
 
 ### Description
 
@@ -82,7 +89,7 @@ conflict warnings via `TopologyMeta`.
 
 ### Items
 
-- [ ] **1.1 PromQL ingestion and model fields**
+- [x] **1.1 PromQL ingestion and model fields**
   - **Dependencies**: None
   - **Description**: Extend the topology edge queries to select the new labels
     and parse them into `TopologyEdge`.
@@ -99,7 +106,7 @@ conflict warnings via `TopologyMeta`.
     - Tests: mock prom results with/without the labels (absent label → empty
       value, present → parsed).
 
-- [ ] **1.2 Node resolution precedence in `buildGraph`**
+- [x] **1.2 Node resolution precedence in `buildGraph`**
   - **Dependencies**: 1.1
   - **Description**: Apply the agreed precedence for dependency nodes and fix
     `group` inheritance.
@@ -126,7 +133,7 @@ conflict warnings via `TopologyMeta`.
       - service target unaffected by dep labels;
       - lookback variant of the above.
 
-- [ ] **1.3 Conflict warnings in `TopologyMeta`**
+- [x] **1.3 Conflict warnings in `TopologyMeta`**
   - **Dependencies**: 1.2
   - **Description**: Surface label conflicts so misconfiguration is visible.
   - **Creates/Modifies**:
@@ -142,17 +149,22 @@ conflict warnings via `TopologyMeta`.
 
 ### ✅ Phase 1 Completion Criteria
 
-- [ ] All items completed (1.1, 1.2, 1.3)
-- [ ] `go test ./internal/topology/... -v -race` passes
-- [ ] No changes to node identity (`dependency/host:port` IDs unchanged)
-- [ ] Resolution matrix covered by tests
+- [x] All items completed (1.1, 1.2, 1.3)
+- [x] `go test ./internal/topology/... -v -race` passes
+- [x] No changes to node identity (`dependency/host:port` IDs unchanged)
+- [x] Resolution matrix covered by tests
+
+> Implementation note: "sole-source inheritance" follows the existing
+> namespace-inheritance semantics — a value is inherited when all sources
+> agree on it (a sole source is the special case). This preserves current
+> namespace behavior exactly and applies it symmetrically to `group`.
 
 ---
 
 ## Phase 2: Frontend — Dynamic Re-grouping
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Completed (manual E2E check deferred to Phase 4.2)
 
 ### Description
 
@@ -162,7 +174,7 @@ surfaces display the resolved values.
 
 ### Items
 
-- [ ] **2.1 Include namespace/group in the render signature**
+- [x] **2.1 Include namespace/group in the render signature**
   - **Dependencies**: None
   - **Description**: `computeSignature` in `frontend/src/graph.js` currently
     hashes only node ids/types and edges, so a namespace/group-only change never
@@ -173,7 +185,7 @@ surfaces display the resolved values.
   - **Details**: `${n.id}:${n.type}:${n.namespace || ''}:${n.group || ''}`;
     missing values serialize stably to empty strings.
 
-- [ ] **2.2 UI surface verification**
+- [x] **2.2 UI surface verification**
   - **Dependencies**: 2.1
   - **Description**: Verify that node tooltip and sidebar show the resolved
     namespace/group for dependency nodes and that compound grouping picks them
@@ -184,16 +196,22 @@ surfaces display the resolved values.
 
 ### ✅ Phase 2 Completion Criteria
 
-- [ ] All items completed (2.1, 2.2)
+- [x] All items completed (2.1, 2.2)
 - [ ] Manual check: changing a label on a test uniproxy instance re-groups the
-      node on the next auto-refresh (no page reload)
+      node on the next auto-refresh (no page reload) — deferred to Phase 4.2
+      (requires the homelab test environment)
+
+> 2.2 result: no gaps found. `tooltip.js` and `sidebar.js` render
+> `namespace`/`group` for dependency nodes; `buildCompoundElements`
+> (grouping.js) consumes `node.namespace`/`node.group` in both dimensions.
+> No code changes were needed.
 
 ---
 
 ## Phase 3: Documentation
 
 **Dependencies**: Phase 1
-**Status**: Pending
+**Status**: Completed
 
 ### Description
 
@@ -202,7 +220,7 @@ users. All docs in English (RU versions where they exist).
 
 ### Items
 
-- [ ] **3.1 Metrics specification**
+- [x] **3.1 Metrics specification**
   - **Dependencies**: None
   - **Description**: Add `dep_namespace` / `dep_group` to the label lists and
     describe semantics (target location, optional, unanimity rule, virtual
@@ -212,14 +230,14 @@ users. All docs in English (RU versions where they exist).
   - Include an example of setting the labels via uniproxy env vars and via SDK
     `WithLabel`.
 
-- [ ] **3.2 API and design docs**
+- [x] **3.2 API and design docs**
   - **Dependencies**: None
   - **Description**: Document the resolution precedence and `meta.warnings` in:
     - `docs/API.md` (Topology response: `meta.warnings`)
     - `docs/application-design.md` (grouping resolution rules), RU version if
       present in `docs/`
 
-- [ ] **3.3 CHANGELOG**
+- [x] **3.3 CHANGELOG**
   - **Dependencies**: None
   - **Description**: Add an Unreleased entry: new labels, resolution precedence,
     `meta.warnings`, fixed `group` first-edge inheritance (visible behavior
@@ -227,15 +245,21 @@ users. All docs in English (RU versions where they exist).
 
 ### ✅ Phase 3 Completion Criteria
 
-- [ ] All items completed (3.1, 3.2, 3.3)
-- [ ] `make lint` (markdownlint) passes
+- [x] All items completed (3.1, 3.2, 3.3)
+- [ ] `make lint` (markdownlint) passes — blocked by a pre-existing repo-wide
+      markdownlint failure on master (922 errors, tool version regression);
+      the new/edited docs introduce zero new lint errors (CHANGELOG's MD024
+      duplicates match the file's established Keep-a-Changelog pattern)
+
+> 3.2 note: RU versions of API.md and application-design.md exist and were
+> updated alongside the EN docs.
 
 ---
 
 ## Phase 4: Build, Deploy and Verification
 
 **Dependencies**: Phase 1, Phase 2, Phase 3
-**Status**: Pending
+**Status**: In Progress
 
 ### Description
 
@@ -244,13 +268,14 @@ release flow.
 
 ### Items
 
-- [ ] **4.1 Local validation**
+- [x] **4.1 Local validation**
   - **Dependencies**: None
   - **Description**:
-    - `make test` (Go tests with `-race`)
-    - `make lint` (golangci-lint + markdownlint)
+    - `make test` (Go tests with `-race`) — pass (11 packages)
+    - `make lint` — golangci-lint pass (0 issues); markdownlint fails
+      repo-wide on master (pre-existing, see Phase 3 criteria)
     - `make frontend-build`, copy `frontend/dist` → `internal/server/static/`,
-      `make build`
+      `make build` — pass (binary smoke-tested)
 
 - [ ] **4.2 Deploy and end-to-end verification**
   - **Dependencies**: 4.1
@@ -271,8 +296,9 @@ release flow.
 
 ### ✅ Phase 4 Completion Criteria
 
-- [ ] All items completed (4.1, 4.2)
-- [ ] All tests and linters pass
+- [ ] All items completed (4.1 ✅, 4.2 pending)
+- [ ] All tests and linters pass (golangci-lint ✅; markdownlint blocked by
+      pre-existing repo-wide failure on master — tracked separately)
 - [ ] E2E scenarios verified in the homelab environment
 - [ ] CHANGELOG updated; ready for release (0.22.0)
 
@@ -301,4 +327,4 @@ release flow.
 
 ---
 
-**🎯 Plan ready for execution.**
+**🚧 Phases 1–3 and 4.1 complete. Remaining: 4.2 (deploy to homelab + E2E verification).**

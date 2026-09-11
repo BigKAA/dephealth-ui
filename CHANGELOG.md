@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Endpoint grouping via `dep_namespace` / `dep_group` labels** — two reserved optional metric labels describe the location of the dependency **target** (unlike `namespace`/`group`, which describe the reporting service). They let reporters place dependency nodes into a namespace/group explicitly, including virtual buckets such as `external`. Set via the SDK custom-label mechanism (`WithLabel`, uniproxy env `DEPHEALTH_<NAME>_LABEL_DEP_NAMESPACE` / `DEPHEALTH_<NAME>_LABEL_DEP_GROUP`); documented in the metrics spec (EN + RU).
+- **`meta.warnings` in the topology response** — non-fatal graph construction issues, currently conflicting `dep_namespace`/`dep_group` values on a shared dependency (explicit labels ignored, heuristics applied). Distinct from `meta.errors`, which marks partial data.
+
+### Changed
+
+- **Dependency node grouping resolution** — namespace/group for dependency nodes now resolve with an explicit precedence: unanimous `dep_namespace`/`dep_group` → namespace from FQDN of `host` → inheritance from agreeing source services → ungrouped. Service-to-service targets are unaffected and keep their own labels.
+- **Visible behavior change: `group` inheritance for dependency nodes** — previously taken from the first incoming edge (non-deterministic for multi-source dependencies), now only inherited when all sources agree. Multi-source endpoints that previously landed in an arbitrary group will render ungrouped until explicit `dep_group` labels are set.
+
+### Fixed
+
+- **Frontend auto-refresh regrouping** — the render signature now includes node `namespace` and `group`, so a label-only change (e.g. adding `dep_namespace` at runtime) re-groups the node on the next auto-refresh without a page reload.
+
 ## [0.21.1] - 2026-08-07
 
 ### Fixed

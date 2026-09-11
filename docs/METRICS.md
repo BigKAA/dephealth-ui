@@ -46,6 +46,8 @@ This document specifies:
 |-------|--------|-------------|----------------|
 | `namespace` | Prometheus | Kubernetes namespace. Not part of SDK — added automatically by Prometheus when scraping pods. Recommended for non-Kubernetes deployments for consistency. | `production`, `staging`, `team-alpha` |
 | `isentry` | Custom | Marks the service as an entry point for external traffic. Not part of SDK spec. When set to `yes`, the node is displayed with an entry point badge in the UI. Recommended for dephealth-ui. Set via SDK custom labels or `DEPHEALTH_ISENTRY=yes` env var in uniproxy. | `yes` |
+| `dep_namespace` | Custom (reserved) | Namespace of the dependency **target** (see [Dependency placement labels](#dependency-placement-labels-dep_namespace--dep_group)). Unlike `namespace`, which describes the reporting service, it places the dependency node itself into a namespace group. Optional; virtual buckets such as `external` are allowed. | `db`, `external`, `payments` |
+| `dep_group` | Custom (reserved) | Logical group of the dependency **target**. Same semantics as `dep_namespace` but for the group dimension. Optional. | `storage-tier`, `cdn` |
 | `role` | Custom | Instance role (for replicated systems) | `primary`, `replica`, `standby` |
 | `shard` | Custom | Shard identifier (for sharded systems) | `shard-01`, `shard-02` |
 | `vhost` | Custom | AMQP virtual host | `/`, `/app` |
@@ -53,10 +55,58 @@ This document specifies:
 | `instance` | Prometheus | Prometheus instance label | `10.244.1.5:9090` |
 | `job` | Prometheus | Prometheus job label | `order-service` |
 
+#### Dependency placement labels: `dep_namespace` / `dep_group`
+
+The `namespace` and `group` labels describe the **reporting service**, not the
+target. Dependency (endpoint) nodes therefore have no reliable placement of
+their own. The reserved optional labels `dep_namespace` and `dep_group` close
+this gap: they describe the **location of the dependency target**.
+
+- **Optional:** reporters that do not set them keep the previous behavior
+  (namespace from FQDN of `host` or inheritance from a sole source service;
+  group from inheritance). See the resolution precedence below.
+- **Virtual values allowed:** e.g. `external`, `third-party` — any bucket that
+  makes sense in your topology.
+- **Unanimity rule:** when several services report the same dependency
+  endpoint, the non-empty label values must agree. Conflicting values are
+  ignored (with a fallback to the heuristics) and surfaced in `meta.warnings`
+  of the topology response.
+- **Service targets are not affected:** if the target is itself a reporting
+  service, it keeps its own `namespace`/`group` labels and `dep_*` labels on
+  incoming edges are ignored.
+
+Resolution precedence for dependency nodes:
+
+1. Unanimous explicit `dep_namespace` / `dep_group`
+2. Namespace from FQDN of `host` (`<service>.<namespace>.svc[.<domain>]`)
+3. Inheritance from source services that agree on a single value
+4. Otherwise the node stays ungrouped
+
+**Setting the labels via the Go SDK** (custom-label mechanism, works today):
+
+```go
+sdk.RegisterDependency(dephealth.Dependency{
+    Name:     "postgres-main",
+    Type:     "postgres",
+    Host:     "pg-master.db.svc",
+    Port:     5432,
+    Critical: true,
+    // ...
+}).WithLabel("dep_namespace", "db").WithLabel("dep_group", "storage-tier")
+```
+
+**Setting the labels via uniproxy** (interim env-var mechanism, works with the
+current uniproxy):
+
+```bash
+DEPHEALTH_DB_LABEL_DEP_NAMESPACE=db
+DEPHEALTH_DB_LABEL_DEP_GROUP=data
+```
+
 **Example:**
 ```prometheus
-app_dependency_health{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",role="primary"} 1
-app_dependency_health{name="order-service",namespace="production",dependency="redis-cache",type="redis",host="redis.cache.svc",port="6379",critical="no"} 1
+app_dependency_health{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",role="primary",dep_namespace="db",dep_group="storage-tier"} 1
+app_dependency_health{name="order-service",namespace="production",dependency="redis-cache",type="redis",host="redis.cache.svc",port="6379",critical="no",dep_namespace="external"} 1
 app_dependency_health{name="payment-api",namespace="production",dependency="auth-service",type="http",host="auth.svc",port="8080",critical="yes"} 0
 ```
 
@@ -134,9 +184,9 @@ The application executes the following queries against Prometheus/VictoriaMetric
 
 ### 1. **Topology Discovery** — extract all unique edges
 ```promql
-group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
 ```
-**Purpose:** Discover all service→dependency relationships in the system. The `group` and `isentry` labels are included when available.
+**Purpose:** Discover all service→dependency relationships in the system. The `group`, `isentry`, `dep_namespace` and `dep_group` labels are included when available.
 
 ### 2. **Health State** — current health value per edge
 ```promql
@@ -185,7 +235,7 @@ app_dependency_status == 1  (via query_range API)
 ## Graph Model
 
 - **Nodes (Vertices):** Unique values of `name` label → represent services/applications
-- **Edges (Directed):** Each unique `(name, dependency)` pair = one service→dependency connection. The topology query groups by `{name, namespace, group, dependency, type, host, port, critical, isentry}`; `type`/`host`/`port`/`critical`/`isentry` are edge attributes, and the edge is identified by `(name, dependency)` alone (so several dependencies sharing one host:port behind an ingress stay separate)
+- **Edges (Directed):** Each unique `(name, dependency)` pair = one service→dependency connection. The topology query groups by `{name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group}`; `type`/`host`/`port`/`critical`/`isentry` are edge attributes, and the edge is identified by `(name, dependency)` alone (so several dependencies sharing one host:port behind an ingress stay separate)
 - **Edge Properties:**
   - **critical:** visual thickness (critical dependencies are displayed thicker) + cascade warning propagation (only `critical=yes` edges propagate failure warnings upstream)
   - **latency:** displayed as label on edge
@@ -352,7 +402,7 @@ datasources:
 **Test Query:**
 ```promql
 # Should return your service topology
-group by (name, namespace, group, dependency, type, host, port, critical, isentry) (app_dependency_health)
+group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
 ```
 
 ---

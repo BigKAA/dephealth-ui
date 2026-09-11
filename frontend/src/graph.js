@@ -418,11 +418,14 @@ let severityColorMap = {}; // Map severity value -> color (e.g., {critical: '#f4
 let severityLevels = []; // Ordered array of severity levels from config
 
 /**
- * Compute a structural signature from node IDs and edge keys.
- * Changes in state/latency don't affect the signature.
+ * Compute a structural signature from node IDs, types, namespaces/groups and
+ * edge keys. Changes in state/latency don't affect the signature. Namespace
+ * and group are included so that a regrouping caused by label changes at
+ * runtime (e.g. dep_namespace/dep_group added on a dependency) triggers a
+ * rebuild on auto-refresh even without a structural change.
  */
 function computeSignature(data) {
-  const nodeIds = data.nodes.map((n) => `${n.id}:${n.type}`).sort();
+  const nodeIds = data.nodes.map((n) => `${n.id}:${n.type}:${n.namespace || ''}:${n.group || ''}`).sort();
   const edgeKeys = data.edges.map((e) => `${e.source}->${e.target}`).sort();
   const groupFlag = isGroupingEnabled() ? 'G' : 'F';
   const dim = getGroupingDimension();

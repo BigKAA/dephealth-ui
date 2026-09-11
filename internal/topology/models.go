@@ -57,6 +57,10 @@ type TopologyMeta struct {
 	EdgeCount int        `json:"edgeCount"`
 	Partial   bool       `json:"partial"`
 	Errors    []string   `json:"errors,omitempty"`
+	// Warnings report non-fatal graph construction issues (e.g. conflicting
+	// dep_namespace/dep_group labels). Unlike Errors, they do not imply
+	// partial data.
+	Warnings  []string   `json:"warnings,omitempty"`
 	Time      *time.Time `json:"time,omitempty"`      // Historical timestamp when set.
 	IsHistory bool       `json:"isHistory,omitempty"` // True when viewing historical data.
 }
@@ -111,6 +115,11 @@ type TopologyEdge struct {
 	Port       string
 	Critical   bool
 	IsEntry    bool
+	// Reserved optional labels describing the location of the dependency
+	// TARGET (unlike Namespace/Group which describe the reporting service).
+	// Empty when the reporter does not set them.
+	DepNamespace string
+	DepGroup     string
 }
 
 // QueryOptions holds optional parameters for topology queries.

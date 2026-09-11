@@ -1974,6 +1974,267 @@ func TestEdgeDedup_BothCurrentKeepsWorstHealth(t *testing.T) {
 	}
 }
 
+// --- dep_namespace / dep_group label resolution tests ---
+
+// healthAllOne builds a health map marking every given edge healthy.
+func healthAllOne(edges []TopologyEdge) map[EdgeKey]float64 {
+	m := make(map[EdgeKey]float64, len(edges))
+	for _, e := range edges {
+		m[EdgeKey{Name: e.Name, Dependency: e.Dependency}] = 1
+	}
+	return m
+}
+
+// assertDepNode finds a node by ID and asserts its namespace/group.
+func assertDepNode(t *testing.T, resp *TopologyResponse, id string) Node {
+	t.Helper()
+	for _, n := range resp.Nodes {
+		if n.ID == id {
+			return n
+		}
+	}
+	t.Fatalf("missing node %q", id)
+	return Node{}
+}
+
+func assertWarnings(t *testing.T, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("warnings = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("warnings[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestDepLabelResolution covers the resolution matrix for dependency nodes:
+// explicit dep_namespace/dep_group labels (unanimity rule) → FQDN extraction
+// (namespace only) → inheritance from agreeing source services → ungrouped.
+func TestDepLabelResolution(t *testing.T) {
+	tests := []struct {
+		name          string
+		edges         []TopologyEdge
+		depNodeID     string
+		wantNamespace string
+		wantGroup     string
+		wantWarnings  []string
+	}{
+		{
+			name: "explicit labels from a single source win over empty others",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Group: "cluster-1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "db", DepGroup: "storage"},
+				{Name: "svc-b", Namespace: "ns2", Group: "cluster-2", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			},
+			depNodeID:     "postgres/pg:5432",
+			wantNamespace: "db",
+			wantGroup:     "storage",
+		},
+		{
+			name: "explicit unanimous multi-source",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379", DepNamespace: "external", DepGroup: "cdn"},
+				{Name: "svc-b", Namespace: "ns2", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379", DepNamespace: "external", DepGroup: "cdn"},
+			},
+			depNodeID:     "redis/redis-host:6379",
+			wantNamespace: "external",
+			wantGroup:     "cdn",
+		},
+		{
+			name: "explicit conflicting dep_namespace falls back with warning",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "db"},
+				{Name: "svc-b", Namespace: "ns2", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "infra"},
+			},
+			depNodeID:     "postgres/pg:5432",
+			wantNamespace: "", // FQDN fails, sources disagree
+			wantGroup:     "",
+			wantWarnings: []string{
+				`dependency "postgres/pg:5432": conflicting dep_namespace values (db, infra), explicit labels ignored`,
+			},
+		},
+		{
+			name: "explicit conflicting dep_group falls back with warning, namespace still explicit",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "db", DepGroup: "db-tier"},
+				{Name: "svc-b", Namespace: "ns2", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "db", DepGroup: "infra-tier"},
+			},
+			depNodeID:     "postgres/pg:5432",
+			wantNamespace: "db",
+			wantGroup:     "", // conflicting, sources carry no groups
+			wantWarnings: []string{
+				`dependency "postgres/pg:5432": conflicting dep_group values (db-tier, infra-tier), explicit labels ignored`,
+			},
+		},
+		{
+			name: "explicit labels win over FQDN",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis.dephealth-redis.svc.cluster.local", Port: "6379", DepNamespace: "external", DepGroup: "cdn"},
+			},
+			depNodeID:     "redis/redis.dephealth-redis.svc.cluster.local:6379",
+			wantNamespace: "external",
+			wantGroup:     "cdn",
+		},
+		{
+			name: "FQDN fallback without explicit labels",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis.dephealth-redis.svc.cluster.local", Port: "6379"},
+			},
+			depNodeID:     "redis/redis.dephealth-redis.svc.cluster.local:6379",
+			wantNamespace: "dephealth-redis", // FQDN beats source inheritance
+			wantGroup:     "cluster-1",       // sole source
+		},
+		{
+			name: "sole-source inheritance for namespace and group",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+			},
+			depNodeID:     "redis/redis-host:6379",
+			wantNamespace: "ns1",
+			wantGroup:     "cluster-1",
+		},
+		{
+			name: "multi-source disagreeing sources without explicit labels stay ungrouped",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Group: "cluster-1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-b", Namespace: "ns2", Group: "cluster-2", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			},
+			depNodeID:     "postgres/pg:5432",
+			wantNamespace: "",
+			wantGroup:     "",
+		},
+		{
+			name: "multi-source agreeing sources inherit the shared values",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Group: "cluster-1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+				{Name: "svc-b", Namespace: "ns1", Group: "cluster-1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			},
+			depNodeID:     "postgres/pg:5432",
+			wantNamespace: "ns1",
+			wantGroup:     "cluster-1",
+		},
+		{
+			name: "service target keeps its own labels and emits no warnings",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "nsA", Group: "grpA", Dependency: "svc-b", Type: "http", Host: "svc-b.nsB.svc", Port: "8080", DepNamespace: "evil-ns", DepGroup: "evil-group"},
+				{Name: "svc-b", Namespace: "nsB", Group: "grpB", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432"},
+			},
+			depNodeID:     "svc-b",
+			wantNamespace: "nsB",
+			wantGroup:     "grpB",
+		},
+		{
+			name: "conflicts on both labels produce sorted warnings",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "kafka", Type: "kafka", Host: "kafka", Port: "9092", DepNamespace: "bus", DepGroup: "b-tier"},
+				{Name: "svc-b", Namespace: "ns2", Dependency: "kafka", Type: "kafka", Host: "kafka", Port: "9092", DepNamespace: "infra", DepGroup: "i-tier"},
+			},
+			depNodeID:     "kafka/kafka:9092",
+			wantNamespace: "",
+			wantGroup:     "",
+			wantWarnings: []string{
+				`dependency "kafka/kafka:9092": conflicting dep_group values (b-tier, i-tier), explicit labels ignored`,
+				`dependency "kafka/kafka:9092": conflicting dep_namespace values (bus, infra), explicit labels ignored`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockPrometheusClient{
+				edges:  tt.edges,
+				health: healthAllOne(tt.edges),
+				avg:    map[EdgeKey]float64{},
+			}
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, 0, nil, testSeverityLevels())
+			resp, err := builder.Build(context.Background(), QueryOptions{})
+			if err != nil {
+				t.Fatalf("Build() error: %v", err)
+			}
+
+			n := assertDepNode(t, resp, tt.depNodeID)
+			if n.Namespace != tt.wantNamespace {
+				t.Errorf("%s.Namespace = %q, want %q", tt.depNodeID, n.Namespace, tt.wantNamespace)
+			}
+			if n.Group != tt.wantGroup {
+				t.Errorf("%s.Group = %q, want %q", tt.depNodeID, n.Group, tt.wantGroup)
+			}
+			assertWarnings(t, resp.Meta.Warnings, tt.wantWarnings)
+		})
+	}
+}
+
+// TestDepLabelResolution_Lookback repeats the core resolution scenarios in
+// lookback mode (edges come from the lookback query).
+func TestDepLabelResolution_Lookback(t *testing.T) {
+	tests := []struct {
+		name          string
+		edges         []TopologyEdge
+		depNodeID     string
+		wantNamespace string
+		wantGroup     string
+		wantWarnings  []string
+	}{
+		{
+			name: "explicit unanimous multi-source",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379", DepNamespace: "external", DepGroup: "cdn"},
+				{Name: "svc-b", Namespace: "ns2", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379", DepNamespace: "external", DepGroup: "cdn"},
+			},
+			depNodeID:     "redis/redis-host:6379",
+			wantNamespace: "external",
+			wantGroup:     "cdn",
+		},
+		{
+			name: "explicit conflicting falls back with warning",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "db"},
+				{Name: "svc-b", Namespace: "ns2", Dependency: "postgres", Type: "postgres", Host: "pg", Port: "5432", DepNamespace: "infra"},
+			},
+			depNodeID:     "postgres/pg:5432",
+			wantNamespace: "",
+			wantGroup:     "",
+			wantWarnings: []string{
+				`dependency "postgres/pg:5432": conflicting dep_namespace values (db, infra), explicit labels ignored`,
+			},
+		},
+		{
+			name: "sole-source inheritance",
+			edges: []TopologyEdge{
+				{Name: "svc-a", Namespace: "ns1", Group: "cluster-1", Dependency: "redis", Type: "redis", Host: "redis-host", Port: "6379"},
+			},
+			depNodeID:     "redis/redis-host:6379",
+			wantNamespace: "ns1",
+			wantGroup:     "cluster-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockPrometheusClient{
+				lookbackEdges: tt.edges,
+				health:        healthAllOne(tt.edges),
+				avg:           map[EdgeKey]float64{},
+			}
+			builder := NewGraphBuilder(mock, nil, GrafanaConfig{}, 15*time.Second, time.Hour, nil, testSeverityLevels())
+			resp, err := builder.Build(context.Background(), QueryOptions{})
+			if err != nil {
+				t.Fatalf("Build() error: %v", err)
+			}
+
+			n := assertDepNode(t, resp, tt.depNodeID)
+			if n.Namespace != tt.wantNamespace {
+				t.Errorf("%s.Namespace = %q, want %q", tt.depNodeID, n.Namespace, tt.wantNamespace)
+			}
+			if n.Group != tt.wantGroup {
+				t.Errorf("%s.Group = %q, want %q", tt.depNodeID, n.Group, tt.wantGroup)
+			}
+			assertWarnings(t, resp.Meta.Warnings, tt.wantWarnings)
+		})
+	}
+}
+
 func TestEdgeBetter(t *testing.T) {
 	tests := []struct {
 		name      string
