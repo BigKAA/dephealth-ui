@@ -5,7 +5,7 @@
 [![Helm Chart](https://img.shields.io/badge/helm-0.11.1-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
 
-**Real-time microservices topology and health visualization tool**
+Real-time microservices topology and health visualization tool
 
 **Language:** English | [Русский](./README.ru.md)
 
@@ -28,6 +28,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 ## Features
 
 ✅ **Real-time Topology Visualization**
+
 - Interactive node-graph diagram with Cytoscape.js
 - ELK layered layout engine for flat and grouped modes
 - Color-coded node states (green=OK, yellow=DEGRADED, red=DOWN, gray=Unknown/stale)
@@ -36,11 +37,13 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Position persistence in localStorage with Reset Layout button
 
 ✅ **Focus Mode**
+
 - Highlight connected elements on node selection
 - Three modes: 1-hop neighbors, downstream dependencies, upstream dependencies
 - Dim unrelated nodes and edges for clarity
 
 ✅ **Namespace Grouping**
+
 - Group services by Kubernetes namespace into compound nodes
 - Collapse/expand namespace groups (double-click or sidebar button)
 - Collapsed nodes show worst state, service count, and alert badges
@@ -50,6 +53,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Collapse/expand state persisted in localStorage
 
 ✅ **Cascade Warnings & State Model**
+
 - 4-state model: OK, DEGRADED, DOWN, UNKNOWN with precise calculation rules
 - Cascade failure propagation visualization through critical dependencies
 - Automatic root cause detection via BFS algorithm
@@ -57,10 +61,12 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Smart filtering with virtual "warning" state and degraded/down chain visibility
 
 ✅ **Timeline & Historical Queries**
+
 - Historical topology snapshots at any point in time
 - Timeline events endpoint for state transition tracking
 
 ✅ **Comprehensive Monitoring**
+
 - Service health status with alert counts
 - Edge latency display (average P99 percentile)
 - Critical dependency highlighting (thicker edges)
@@ -68,6 +74,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - ETag/304 caching for efficient data transfer
 
 ✅ **Rich UI Features**
+
 - Smart search with fuzzy matching
 - Multi-filter support (namespace, type, state, service)
 - Alert drawer with severity-based grouping
@@ -84,6 +91,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 - Dark theme support
 
 ✅ **Enterprise-Ready**
+
 - Multiple authentication modes (none, Basic, OIDC/SSO, LDAP)
 - CORS support for browser-based clients
 - Server-side caching (configurable TTL)
@@ -93,7 +101,7 @@ The application consumes metrics collected by the [dephealth SDK](https://github
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────┐
 │  Browser (SPA)      │  ← Cytoscape.js + ELK + Vite
 │  Vanilla JS         │
@@ -167,6 +175,7 @@ helm repo update
 #### 2. Install with Helm
 
 **Using Gateway API:**
+
 ```bash
 helm install dephealth-ui ./deploy/helm/dephealth-ui \
   --set route.enabled=true \
@@ -179,6 +188,7 @@ helm install dephealth-ui ./deploy/helm/dephealth-ui \
 ```
 
 **Using Ingress:**
+
 ```bash
 helm install dephealth-ui ./deploy/helm/dephealth-ui \
   --set ingress.enabled=true \
@@ -194,7 +204,8 @@ helm install dephealth-ui ./deploy/helm/dephealth-ui \
 #### 3. Access the UI
 
 Open your browser and navigate to:
-```
+
+```text
 https://dephealth.example.com
 ```
 
@@ -327,6 +338,7 @@ dephealth-ui requires metrics from services instrumented with [dephealth SDK](ht
 Health status of dependency endpoints (1=UP, 0=DOWN).
 
 **SDK Labels:**
+
 - `name` — service name
 - `group` — logical service group (required since SDK v0.5.0; dephealth-ui works without it)
 - `dependency` — logical dependency name
@@ -337,6 +349,7 @@ Health status of dependency endpoints (1=UP, 0=DOWN).
 - `namespace` — added by Prometheus (not SDK); recommended for non-K8s deployments
 
 **Example:**
+
 ```prometheus
 app_dependency_health{name="order-service",namespace="prod",dependency="postgres-main",type="postgres",host="pg.svc",port="5432",critical="yes"} 1
 ```
@@ -432,7 +445,7 @@ npm test
 
 ## Project Structure
 
-```
+```text
 dephealth-ui/
 ├── cmd/dephealth-ui/          # Application entry point
 ├── internal/                  # Go packages
@@ -468,7 +481,8 @@ dephealth-ui/
 5. Open a Pull Request
 
 **Commit Format:**
-```
+
+```text
 <type>(<scope>): <subject>
 
 Types: feat, fix, docs, style, refactor, test, chore
@@ -499,4 +513,4 @@ Apache License 2.0 - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Built with ❤️ for microservices observability**
+Built with ❤️ for microservices observability

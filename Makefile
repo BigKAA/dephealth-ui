@@ -36,7 +36,7 @@ clean:
 
 lint:
 	golangci-lint run ./...
-	markdownlint '**/*.md' --ignore node_modules --ignore frontend/node_modules
+	markdownlint '**/*.md' --ignore node_modules --ignore frontend/node_modules --ignore tmp
 
 test:
 	go test ./... -v -race

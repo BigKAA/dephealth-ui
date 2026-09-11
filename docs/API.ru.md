@@ -165,6 +165,7 @@ dephealth-ui предоставляет REST API для визуализации
 | `isHistory` | bool | `true` при просмотре исторических данных (пропускается в live-режиме) |
 
 **Состояния узлов (сервис-ноды):**
+
 - `ok` — все исходящие рёбра здоровы (health=1)
 - `degraded` — любое исходящее ребро имеет health=0
 - `down` — все исходящие рёбра stale (метрики пропали)
@@ -173,6 +174,7 @@ dephealth-ui предоставляет REST API для визуализации
 > Примечание: Backend `calcServiceNodeState` никогда не возвращает `"down"` напрямую — возвращает только `ok`, `degraded` или `unknown`. Состояние `down` устанавливается логикой stale detection, когда все рёбра stale.
 
 **Состояния рёбер:**
+
 - `ok` — health = 1
 - `down` — health = 0
 - `unknown` — stale (метрики пропали в пределах lookback window)
@@ -399,6 +401,7 @@ dephealth-ui предоставляет REST API для визуализации
 | `kind` | string | `degradation` (ухудшение), `recovery` (восстановление) или `change` (изменение) |
 
 **Ошибки:**
+
 - `400 Bad Request` — отсутствуют `start`/`end`, неверный формат или `start` ≥ `end`
 
 ---
@@ -473,6 +476,7 @@ dephealth-ui предоставляет REST API для визуализации
 ```
 
 **CSV-экспорт:** Возвращает ZIP-архив с двумя файлами:
+
 - `nodes.csv` — колонки: `id`, `name`, `namespace`, `group`, `type`, `state`, `alerts`
 - `edges.csv` — колонки: `source`, `target`, `dependency`, `type`, `host`, `port`, `critical`, `health`, `status`, `detail`, `latency_ms`
 
@@ -754,7 +758,7 @@ Callback endpoint для OIDC (только при `auth.type=oidc`).
 
 CORS включён для всех источников со следующими настройками:
 
-```
+```http
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, OPTIONS
 Access-Control-Allow-Headers: Accept, Content-Type, If-None-Match
@@ -781,6 +785,7 @@ Endpoint `/api/v1/topology` (без фильтров) поддерживает H
 Явное ограничение частоты запросов не применяется. Кэширование на стороне сервера снижает нагрузку на Prometheus/AlertManager.
 
 Рекомендуемые интервалы опроса клиента:
+
 - `/api/v1/topology` — каждые 15-30 секунд (используйте `meta.ttl`)
 - `/api/v1/alerts` — каждые 30-60 секунд
 - `/api/v1/config` — один раз при запуске

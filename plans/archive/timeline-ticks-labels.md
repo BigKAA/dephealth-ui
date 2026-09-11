@@ -68,9 +68,11 @@ isolation.
   - **Dependencies**: 1.1
   - **Description**: Create a function `generateTicks(rangeStart, rangeEnd, containerWidth)`
     that returns an array of tick objects:
+
     ```js
     { time: Date, ratio: number, type: 'major' | 'minor', label?: string }
     ```
+
     Logic:
     1. Call `chooseTicks()` to get step sizes and format.
     2. Snap `rangeStart` up to the nearest major boundary for the first major tick.
@@ -111,13 +113,15 @@ with existing slider interactions (range change, zoom, preset switches).
   - **Description**: In `buildUI()`, add a new `div.timeline-ticks` container inside
     `timeline-slider-container`, positioned **below** the track and **behind** the markers layer.
     DOM order inside `timeline-slider-container`:
-    ```
+
+    ```text
     div.timeline-ticks        ← NEW (ticks + labels, background layer)
     div.timeline-track        ← existing
     div.timeline-markers      ← existing (events, on top of ticks)
     div.timeline-thumb        ← existing
     div.timeline-tooltip      ← existing
     ```
+
     Increase `timeline-slider-container` height from 24px to ~48px.
     Adjust `timeline-track` vertical position to stay near the top (~6px from top).
     Adjust `timeline-thumb` top position accordingly.
@@ -190,18 +194,22 @@ visually across different ranges and themes.
   - **Dependencies**: None
   - **Description**: Build a development Docker image and push to Harbor.
     Use the next dev tag in the current version sequence.
+
     ```bash
     make docker-dev TAG=vX.Y.Z-N
     ```
+
   - **Creates**: Docker image in Harbor
   - **Links**: N/A
 
 - [x] **3.2 Deploy to test cluster**
   - **Dependencies**: 3.1
   - **Description**: Update the Helm values with the new image tag and deploy:
+
     ```bash
     make deploy
     ```
+
   - **Links**: N/A
 
 - [x] **3.3 Visual verification**

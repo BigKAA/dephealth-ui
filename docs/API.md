@@ -165,6 +165,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
 | `isHistory` | bool | `true` when viewing historical data (omitted in live mode) |
 
 **Node States (service nodes):**
+
 - `ok` — all outgoing edges healthy (health=1)
 - `degraded` — any outgoing edge has health=0
 - `down` — all outgoing edges are stale (metrics disappeared)
@@ -173,6 +174,7 @@ Returns the complete service topology graph with pre-calculated node/edge states
 > Note: The backend `calcServiceNodeState` never returns `"down"` directly — it only returns `ok`, `degraded`, or `unknown`. The `down` state is set by stale detection logic when all edges are stale.
 
 **Edge States:**
+
 - `ok` — health = 1
 - `down` — health = 0
 - `unknown` — stale (metrics disappeared within lookback window)
@@ -399,6 +401,7 @@ The query step is auto-calculated based on the range duration:
 | `kind` | string | `degradation` (worse state), `recovery` (better state), or `change` |
 
 **Errors:**
+
 - `400 Bad Request` — missing `start`/`end`, invalid format, or `start` ≥ `end`
 
 ---
@@ -473,6 +476,7 @@ Exports the topology graph in the specified format. Supports both data formats (
 ```
 
 **CSV export:** Returns a ZIP archive containing two files:
+
 - `nodes.csv` — columns: `id`, `name`, `namespace`, `group`, `type`, `state`, `alerts`
 - `edges.csv` — columns: `source`, `target`, `dependency`, `type`, `host`, `port`, `critical`, `health`, `status`, `detail`, `latency_ms`
 
@@ -760,7 +764,7 @@ All error responses follow this format:
 
 CORS is enabled for all origins with these settings:
 
-```
+```http
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, OPTIONS
 Access-Control-Allow-Headers: Accept, Content-Type, If-None-Match
@@ -787,6 +791,7 @@ Other endpoints (`/api/v1/alerts`, `/api/v1/instances`) are not cached and alway
 No explicit rate limiting is enforced. Caching at server-side reduces load on Prometheus/AlertManager.
 
 Recommended client polling intervals:
+
 - `/api/v1/topology` — every 15-30 seconds (use `meta.ttl`)
 - `/api/v1/alerts` — every 30-60 seconds
 - `/api/v1/config` — once at startup

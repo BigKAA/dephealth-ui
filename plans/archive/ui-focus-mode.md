@@ -31,7 +31,7 @@
 ## 📑 Оглавление
 
 - [x] [Phase 1: Core infrastructure — module, styles, graph traversal](#phase-1-core-infrastructure)
-- [x] [Phase 2: Basic focus mode — click, 1-hop highlight, direction colors](#phase-2-basic-focus-mode)
+- [x] [Phase 2: Basic focus mode — click, 1-hop highlight, direction colors](#phase-2-basic-focus-mode--click-1-hop-highlight-direction-colors)
 - [x] [Phase 3: Downstream and upstream focus — Shift+Click, Shift+Alt+Click](#phase-3-downstream-and-upstream-focus)
 - [x] [Phase 4: Edge cases and integration — collapsed namespaces, filters, multi-select](#phase-4-edge-cases-and-integration)
 - [x] [Phase 5: Build, test, docs](#phase-5-build-test-docs)
