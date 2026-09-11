@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **dephealth-ui** — a microservices health and topology visualization tool. Displays a node-graph diagram showing service states (OK, DEGRADED, DOWN), connection latency, and links to Grafana dashboards.
 
 Data sources:
+
 - Prometheus/VictoriaMetrics (via [topologymetrics](https://github.com/BigKAA/topologymetrics))
 - AlertManager
 
@@ -25,6 +26,7 @@ All development, debugging, and testing must use **Docker containers or Kubernet
 Available tools: `kubectl`, `helm`, `docker`
 
 ### Kubernetes Test Cluster
+
 - Gateway API installed (no Ingress controller)
 - MetalLB enabled (LoadBalancer services get auto-assigned IPs, no auto DNS)
 - cert-manager with `ClusterIssuer: dev-ca-issuer`
@@ -34,11 +36,13 @@ Available tools: `kubectl`, `helm`, `docker`
 ### Container Registries
 
 **Application registry (Yandex Container Registry):**
+
 - `container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst` — both dev and release images
 - Authentication via `yc` credential helper (configured in `~/.docker/config.json`)
 - Use for all documentation examples and Helm chart defaults
 
 **Base images:**
+
 - Pulled directly from `docker.io` (Docker Hub) — no proxy registry required for building `dephealth-ui`
 - Override per-build with `make docker-build DOCKER_PROXY=<registry>` if a mirror is needed
 
@@ -77,7 +81,7 @@ Before creating a release tag, **always** perform these steps:
 
 ## Project Structure
 
-```
+```text
 cmd/dephealth-ui/       — application entry point
 internal/               — Go packages (config, server, topology, alerts, auth, cache)
 frontend/               — Vite + Cytoscape.js SPA (Phase 2)

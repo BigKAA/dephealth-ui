@@ -29,7 +29,7 @@ Prometheus/VictoriaMetrics (через topologymetrics) и AlertManager.
 
 ## Архитектура и каталоги
 
-```
+```text
 cmd/dephealth-ui/    — точка входа; связывает конфиг и все внутренние пакеты
 internal/
   config/            — загрузка и валидация YAML-конфига

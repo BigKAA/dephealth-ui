@@ -22,7 +22,7 @@
 - **Active item**: none
 - **Last updated**: 2026-09-11
 - **Note**: All phases complete. Released as **v0.22.0** (tag + GitHub Release
-  + multi-arch image in Yandex CR). Final lookback observation confirmed: the
+  - multi-arch image in Yandex CR). Final lookback observation confirmed: the
   temporary conflicting label self-cleared when the stale series aged out of
   the 1h window (15:14:35, `meta.warnings` empty, postgresql back in `db`/`data`),
   and the untouched UI re-grouped postgresql into the `db` compound container

@@ -135,7 +135,7 @@ on its incoming edges are ignored.
 
 Combined application: Go backend + JS frontend, shipped as a single Docker image.
 
-```
+```text
 ┌─────────────────────┐
 │  Browser (JS SPA)   │  ← Cytoscape.js, receives ready JSON graph
 │  Cytoscape.js       │  ← No PromQL knowledge, no Prometheus access
@@ -409,12 +409,14 @@ The frontend is a thin visualization layer. All data transformation happens on t
 ### Visual Grouping (Dimensions)
 
 Grouping visually combines services into Cytoscape.js compound nodes by a selected **dimension**:
+
 - **Namespace** — Kubernetes namespace (default, available for all services)
 - **Group** — logical group label from SDK v0.5.0+ (`group` label on metrics)
 
 A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The choice is persisted in `localStorage` and reflected in the URL (`?dimension=group` or `?dimension=namespace`).
 
 **Group dimension details:**
+
 - Service nodes display a colored stripe and `gr: <group>` label when in group mode
 - Dependency nodes (Redis, PostgreSQL, etc.) get a `group` only when resolved (explicit `dep_group` label or unanimous inheritance) — they show no stripe when ungrouped
 - The filter dropdown switches between "Namespace" and "Group" values depending on the active dimension
@@ -422,10 +424,12 @@ A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The ch
 - If no nodes in the topology have a `group` field, the toggle is hidden and namespace mode is used automatically
 
 **Modes:**
+
 - **Flat mode (dagre):** all nodes displayed at the same level, dagre layout
 - **Grouped mode (fcose):** nodes grouped in dimension containers, fcose layout
 
 **Collapse/Expand:**
+
 - Double-click on a group or "Expand" button in sidebar → collapse/expand
 - Collapsed group shows: worst child state, service count, total alerts
 - Edges between collapsed groups are automatically aggregated (showing count `×N`)
@@ -433,6 +437,7 @@ A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The ch
 - During data refresh (auto-refresh) — collapsed groups remain collapsed
 
 **Click-to-expand navigation:**
+
 - In collapsed group sidebar — clickable service list with colored state indicators
 - Click on a service → group expands → camera centers on selected service → sidebar shows service details
 - In edge sidebar — click on a node from a collapsed group also expands and navigates to the original service
@@ -446,6 +451,7 @@ A toolbar toggle button (**NS** / **GRP**) switches the active dimension. The ch
 Three types of sidebars:
 
 **1. Node Sidebar** — on clicking a service node:
+
 - Basic info (state, type, namespace, group)
 - Active alerts (with severity)
 - Instance list (pod name, IP:port) — for service nodes
@@ -458,6 +464,7 @@ Three types of sidebars:
 ![Stale/unknown node sidebar](./images/sidebar-stale-node.png)
 
 **2. Edge Sidebar** — on clicking an edge:
+
 - State, type, latency, criticality
 - Active alerts for this link
 - Connected nodes (source/target) with clickable navigation
@@ -467,6 +474,7 @@ Three types of sidebars:
 ![Edge sidebar with alerts and connected nodes](./images/sidebar-edge-details.png)
 
 **3. Collapsed Namespace Sidebar** — on clicking a collapsed namespace:
+
 - Worst state, service count, total alerts
 - Clickable service list with colored state dots and "Go to node →" arrow
 - "Expand namespace" button
@@ -514,7 +522,7 @@ For each `down` service node, trace downstream through critical edges to find th
 **Phase 2 — BFS upstream** (`computeCascadeWarnings`):
 From each `down` service node, BFS upstream through incoming critical edges. Each upstream node (that is not itself `down`) receives cascade warning data referencing the real root cause(s).
 
-```
+```text
 fetchTopology() → renderGraph() → computeCascadeWarnings(cy) → updateBadges()
 ```
 
@@ -560,7 +568,7 @@ History mode enables time-travel through the topology graph, allowing users to v
 
 ### Architecture
 
-```
+```text
 Browser                          Go Backend                    VictoriaMetrics
   │                                  │                              │
   │  /api/v1/topology?time=T         │                              │
@@ -578,6 +586,7 @@ Browser                          Go Backend                    VictoriaMetrics
 ```
 
 **Backend:**
+
 - All Prometheus queries accept an optional `time` parameter. When set, the Prometheus `/api/v1/query?time=<unix_ts>` parameter is used instead of the current time
 - Historical alerts are reconstructed from the `ALERTS{alertstate="firing"}` metric at the requested timestamp (AlertManager is not queried for historical data)
 - Historical requests bypass the in-memory cache entirely (no Get, no Set)
@@ -585,6 +594,7 @@ Browser                          Go Backend                    VictoriaMetrics
 - The `/api/v1/timeline/events` endpoint uses `query_range` to detect `app_dependency_status` transitions over a time window, with auto-calculated step size
 
 **Frontend:**
+
 - Timeline panel: bottom panel with time range presets (1h–90d), custom datetime inputs, and a range slider
 - Time scale: major/minor ticks with formatted time labels (adaptive intervals from 10 min to 14 days depending on range); anti-overlap label suppression; responsive via ResizeObserver
 - Event markers: colored markers on the slider showing state transitions (red=degradation, green=recovery, orange=change)
@@ -644,6 +654,7 @@ The **lookback window** feature (`topology.lookback`) retains disappeared nodes 
 4. Nodes where ALL edges are stale → `state="unknown"`; mixed nodes use non-stale edges for state calculation
 
 **Frontend visualization:**
+
 - Stale nodes: gray background (`#9e9e9e`), dashed border
 - Stale edges: gray dashed lines, latency hidden
 - Tooltip shows "Metrics disappeared" / "Метрики пропали"
@@ -675,7 +686,7 @@ Export uses a dual-path approach:
 - **"Current view"** (frontend): `cy.png()` and `cy.svg()` — captures the exact Cytoscape.js canvas as the user sees it, preserving layout, zoom, and collapsed groups
 - **"Full graph"** (backend): `GET /api/v1/export/{format}` — generates a complete, server-side representation of the topology via the `internal/export` package and Graphviz
 
-```
+```text
 ┌────────────────────────────────────────┐
 │  Export Modal (frontend)               │
 │                                        │
@@ -729,6 +740,7 @@ The Docker image includes the Alpine `graphviz` package (~55–65 MB) for server
 ### Docker
 
 Multi-stage build:
+
 1. **Stage 1 (frontend):** Node.js + Vite → builds SPA into `dist/`
 2. **Stage 2 (backend):** Go → compiles binary with embedded static files from Stage 1
 3. **Stage 3 (runtime):** Alpine-based image with Graphviz for graph export rendering
@@ -747,6 +759,7 @@ Result: Docker image ~80 MB (Graphviz adds ~55–65 MB to the base image).
 ### Environment Variable Override
 
 All YAML parameters can be overridden via environment variables:
+
 - `DEPHEALTH_SERVER_LISTEN`
 - `DEPHEALTH_DATASOURCES_PROMETHEUS_URL`
 - `DEPHEALTH_DATASOURCES_ALERTMANAGER_URL`

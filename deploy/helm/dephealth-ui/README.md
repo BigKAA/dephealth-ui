@@ -35,6 +35,7 @@ global:
 ```
 
 This will create:
+
 - `HTTPRoute` resource pointing to the configured Gateway
 - `Certificate` resource (if `tls.enabled: true`) managed by cert-manager
 

@@ -58,6 +58,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
   - **Modifies**:
     - `internal/config/config.go`
   - **Details**:
+
     ```go
     // LDAPConfig holds LDAP authentication settings.
     type LDAPConfig struct {
@@ -80,7 +81,9 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
         Email       string `yaml:"email"`
     }
     ```
+
     Default in `defaultConfig()`:
+
     ```go
     Auth: AuthConfig{
         Type: "none",
@@ -105,6 +108,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     - `internal/config/config_test.go` — update `"unknown auth type"` test, add LDAP tests
   - **Details**:
     Validation rules:
+
     ```go
     case "ldap":
         if c.Auth.LDAP.URL == "" {
@@ -117,6 +121,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
             return fmt.Errorf("auth.ldap.baseDN is required when auth.type is \"ldap\"")
         }
     ```
+
     New test cases (add to table-driven `TestValidate`):
     - `"auth type ldap valid"` — url=`ldap://ldap:389` + baseDN set, wantErr=false
     - `"auth type ldap valid ldaps"` — url=`ldaps://ldap:636` + baseDN set, wantErr=false
@@ -133,6 +138,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     - `internal/config/config_test.go` — new test
   - **Details**:
     Environment variables:
+
     | Variable | Field |
     |----------|-------|
     | `DEPHEALTH_AUTH_LDAP_URL` | `LDAP.URL` |
@@ -156,6 +162,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     - `internal/config/config_test.go`
   - **Details**:
     Test YAML content:
+
     ```yaml
     server:
       listen: ":8080"
@@ -181,6 +188,7 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
           - "cn=dephealth-users,ou=groups,dc=example,dc=com"
           - "cn=admins,ou=groups,dc=example,dc=com"
     ```
+
     Verify: all fields including nested `attributes.displayName`, `attributes.email`,
     and `allowedGroups` slice length and values.
 
@@ -199,13 +207,16 @@ All existing tests must continue to pass; new tests cover LDAP config loading an
     - `internal/auth/ldap.go` — stub with `NewLDAP()` returning error
   - **Details**:
     Stub signature in `internal/auth/ldap.go`:
+
     ```go
     // NewLDAP creates an LDAP authenticator.
     func NewLDAP(cfg config.LDAPConfig, logger *slog.Logger) (Authenticator, error) {
         return nil, fmt.Errorf("LDAP authenticator is not implemented")
     }
     ```
+
     Factory test `TestFactoryLDAP`:
+
     ```go
     func TestFactoryLDAP(t *testing.T) {
         _, err := NewFromConfig(config.AuthConfig{
@@ -274,6 +285,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
   - **Modifies**:
     - `internal/auth/ldap.go`
   - **Details**:
+
     ```go
     type ldapAuth struct {
         cfg          config.LDAPConfig
@@ -282,6 +294,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
         logger       *slog.Logger
     }
     ```
+
     Determine `secureCookie`: add `SecureCookie bool` field to `config.AuthConfig`
     (shared by all auth types). In `NewLDAP()`: `secureCookie: cfg.SecureCookie`
     (where `cfg` is the parent `AuthConfig`). This requires updating the `NewLDAP`
@@ -418,6 +431,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     Pre-populate with test users and groups.
 
     Test cases:
+
     | Test | Description |
     |------|-------------|
     | `TestNewLDAP` | Constructor with valid config |
@@ -441,6 +455,7 @@ Use a mock LDAP server in tests (package `github.com/jimlambrt/gldap`).
     | `TestLDAP_MiddlewareNoSession` | Request without cookie → 401 |
     | `TestLDAP_FilterEscaping` | Username with special chars is escaped |
     | `TestLDAP_Factory` | Update Phase 1 `TestFactoryLDAP` in `basic_test.go` — expect success (no error) now that `NewLDAP` returns a real authenticator |
+
   - **Links**:
     - [go-ldap/ldap](https://github.com/go-ldap/ldap)
     - [jimlambrt/gldap](https://github.com/jimlambrt/gldap)
@@ -479,6 +494,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     - `internal/auth/templates/login.html`
   - **Details**:
     Template data struct:
+
     ```go
     type loginPageData struct {
         Error     string
@@ -486,6 +502,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
         Username  string // preserve entered username on auth failure
     }
     ```
+
     Template features:
     - Responsive, centered form
     - Application title "dephealth-ui" at top
@@ -507,19 +524,26 @@ verify against a real LDAP server (OpenLDAP in test infra).
   - **Modifies**:
     - `internal/auth/ldap.go`
   - **Details**:
+
     ```go
     //go:embed templates/login.html
     var loginTemplateHTML string
     ```
+
     Add field to `ldapAuth`:
+
     ```go
     loginTmpl *template.Template
     ```
+
     In `NewLDAP()`:
+
     ```go
     tmpl, err := template.New("login").Parse(loginTemplateHTML)
     ```
+
     In `handleLoginPost` on failure:
+
     ```go
     a.loginTmpl.Execute(w, loginPageData{
         Error:     "Invalid username or password",
@@ -538,10 +562,12 @@ verify against a real LDAP server (OpenLDAP in test infra).
     - `internal/auth/ldap.go`
   - **Details**:
     Add to `ldapAuth`:
+
     ```go
     csrfTokens   map[string]time.Time  // token → expiry
     csrfMu       sync.Mutex
     ```
+
     Token TTL: 10 minutes. Cleanup expired tokens on each new token generation.
     Max tokens cap: 10000 — if exceeded after cleanup, reject with 503
     (Service Unavailable) to prevent memory exhaustion from automated GET /login spam.
@@ -558,6 +584,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
   - **Modifies**:
     - `internal/auth/ldap.go` — add `limiter` field, integrate into `handleLoginPost`
   - **Details**:
+
     ```go
     type rateLimiter struct {
         mu          sync.Mutex
@@ -594,6 +621,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     - `internal/auth/ratelimit_test.go` — rate limiter unit tests (separate file)
   - **Details**:
     Rate limiter tests (in `ratelimit_test.go`):
+
     | Test | Description |
     |------|-------------|
     | `TestRateLimiter_AllowUnderLimit` | 5 requests within window → all allowed |
@@ -606,6 +634,7 @@ verify against a real LDAP server (OpenLDAP in test infra).
     | `TestClientIP_RemoteAddr` | Falls back to `r.RemoteAddr`, strips port |
 
     CSRF and integration tests (in `ldap_test.go`):
+
     | Test | Description |
     |------|-------------|
     | `TestLDAP_CSRF_ValidToken` | POST with correct token → processed |
@@ -670,6 +699,7 @@ templates for LDAP configuration. Update project documentation.
   - **Modifies**:
     - `frontend/src/main.js` — search for `config.auth.type === 'oidc'` in `init()`
   - **Details**:
+
     ```javascript
     // Before:
     if (config.auth && config.auth.type === 'oidc') {
@@ -689,6 +719,7 @@ templates for LDAP configuration. Update project documentation.
     - `deploy/helm/dephealth-ui/templates/deployment.yml`
   - **Details**:
     Add to `values.yaml` under `config.auth`:
+
     ```yaml
     auth:
       type: "none"
@@ -708,21 +739,27 @@ templates for LDAP configuration. Update project documentation.
         groupFilter: ""
         allowedGroups: []
     ```
+
     Add top-level secret config:
+
     ```yaml
     ldapSecret:
       enabled: false
       secretName: ""
       bindPasswordKey: "bindPassword"
     ```
+
     In `deployment.yml`, update the existing `if or` condition to include `ldapSecret`:
+
     ```yaml
     # Before:
     {{- if or .Values.customCA.enabled .Values.grafanaSecret.enabled }}
     # After:
     {{- if or .Values.customCA.enabled .Values.grafanaSecret.enabled .Values.ldapSecret.enabled }}
     ```
+
     Add LDAP env var inside the env block:
+
     ```yaml
     {{- if .Values.ldapSecret.enabled }}
     - name: DEPHEALTH_AUTH_LDAP_BIND_PASSWORD
@@ -732,6 +769,7 @@ templates for LDAP configuration. Update project documentation.
           key: {{ .Values.ldapSecret.bindPasswordKey }}
     {{- end }}
     ```
+
     Note: `customCA` already exists and works for LDAP TLS too (SSL_CERT_FILE is
     process-wide), so no additional CA handling needed.
 

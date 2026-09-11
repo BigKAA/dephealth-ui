@@ -5,7 +5,7 @@
 [![Helm Chart](https://img.shields.io/badge/helm-0.11.1-0F1689.svg)](./deploy/helm/dephealth-ui)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
 
-**Визуализация топологии и здоровья микросервисов в реальном времени**
+Визуализация топологии и здоровья микросервисов в реальном времени
 
 **Язык:** [English](./README.md) | Русский
 
@@ -26,6 +26,7 @@
 ## Возможности
 
 ✅ **Визуализация топологии в реальном времени**
+
 - Интерактивная диаграмма узлов с Cytoscape.js
 - ELK layered layout для плоского и группированного режимов
 - Цветовая индикация состояний (зелёный=OK, жёлтый=DEGRADED, красный=DOWN, серый=Unknown/stale)
@@ -34,11 +35,13 @@
 - Сохранение позиций в localStorage с кнопкой сброса layout
 
 ✅ **Режим фокуса (Focus Mode)**
+
 - Подсветка связанных элементов при выборе узла
 - Три режима: 1-hop соседи, downstream-зависимости, upstream-зависимости
 - Затемнение несвязанных узлов и рёбер для наглядности
 
 ✅ **Группировка по namespace**
+
 - Группировка сервисов по Kubernetes namespace в составные узлы
 - Сворачивание/разворачивание групп (двойной клик или кнопка в sidebar)
 - Свёрнутые ноды показывают наихудшее состояние, кол-во сервисов и бейджи алертов
@@ -48,6 +51,7 @@
 - Состояние collapse/expand сохраняется в localStorage
 
 ✅ **Каскадные предупреждения и модель состояний**
+
 - Модель из 4 состояний: OK, DEGRADED, DOWN, UNKNOWN с точными правилами вычисления
 - Визуализация каскадного распространения сбоев через критические зависимости
 - Автоматическое определение корневых причин с помощью алгоритма BFS
@@ -55,10 +59,12 @@
 - Умная фильтрация с виртуальным состоянием «warning» и видимостью цепочки degraded/down
 
 ✅ **Timeline и исторические запросы**
+
 - Исторические снимки топологии на любой момент времени
 - Endpoint событий для отслеживания переходов состояний
 
 ✅ **Полный мониторинг**
+
 - Статус здоровья сервисов с количеством алертов
 - Отображение latency на рёбрах (средний и P99 перцентиль)
 - Выделение критичных зависимостей (толще рёбра)
@@ -66,6 +72,7 @@
 - ETag/304 кэширование для эффективной передачи данных
 
 ✅ **Богатый UI**
+
 - Умный поиск с fuzzy matching
 - Множественные фильтры (namespace, тип, состояние, сервис)
 - Drawer алертов с группировкой по severity
@@ -82,6 +89,7 @@
 - Поддержка тёмной темы
 
 ✅ **Enterprise-ready**
+
 - Несколько режимов аутентификации (none, Basic, OIDC/SSO, LDAP)
 - CORS для браузерных клиентов
 - Серверное кэширование (настраиваемый TTL)
@@ -91,7 +99,7 @@
 
 ## Архитектура
 
-```
+```text
 ┌─────────────────────┐
 │  Браузер (SPA)      │  ← Cytoscape.js + ELK + Vite
 │  Vanilla JS         │
@@ -165,6 +173,7 @@ helm repo update
 #### 2. Установка через Helm
 
 **С использованием Gateway API:**
+
 ```bash
 helm install dephealth-ui ./deploy/helm/dephealth-ui \
   --set route.enabled=true \
@@ -177,6 +186,7 @@ helm install dephealth-ui ./deploy/helm/dephealth-ui \
 ```
 
 **С использованием Ingress:**
+
 ```bash
 helm install dephealth-ui ./deploy/helm/dephealth-ui \
   --set ingress.enabled=true \
@@ -192,7 +202,8 @@ helm install dephealth-ui ./deploy/helm/dephealth-ui \
 #### 3. Доступ к UI
 
 Откройте браузер и перейдите по адресу:
-```
+
+```text
 https://dephealth.example.com
 ```
 
@@ -325,6 +336,7 @@ dephealth-ui требует метрики от сервисов, инструм
 Состояние здоровья endpoint'ов зависимостей (1=UP, 0=DOWN).
 
 **Метки SDK:**
+
 - `name` — имя сервиса
 - `group` — логическая группа сервиса (обязательна с SDK v0.5.0; dephealth-ui работает и без неё)
 - `dependency` — логическое имя зависимости
@@ -335,6 +347,7 @@ dephealth-ui требует метрики от сервисов, инструм
 - `namespace` — добавляется Prometheus (не SDK); рекомендуется использовать вне K8s для единообразия
 
 **Пример:**
+
 ```prometheus
 app_dependency_health{name="order-service",namespace="prod",dependency="postgres-main",type="postgres",host="pg.svc",port="5432",critical="yes"} 1
 ```
@@ -430,7 +443,7 @@ npm test
 
 ## Структура проекта
 
-```
+```text
 dephealth-ui/
 ├── cmd/dephealth-ui/          # Точка входа приложения
 ├── internal/                  # Go-пакеты
@@ -466,7 +479,8 @@ dephealth-ui/
 5. Откройте Pull Request
 
 **Формат коммитов:**
-```
+
+```text
 <type>(<scope>): <subject>
 
 Типы: feat, fix, docs, style, refactor, test, chore
@@ -497,4 +511,4 @@ Apache License 2.0 — см. [LICENSE](./LICENSE) для деталей.
 
 ---
 
-**Built with ❤️ for microservices observability**
+Built with ❤️ for microservices observability

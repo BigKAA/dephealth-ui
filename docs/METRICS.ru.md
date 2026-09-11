@@ -9,6 +9,7 @@
 **dephealth-ui** требует метрики, совместимые с Prometheus, которые описывают зависимости сервисов и их состояние здоровья. Эти метрики собираются приложениями, инструментированными с помощью [dephealth SDK](https://github.com/BigKAA/topologymetrics).
 
 Данный документ определяет:
+
 - Обязательные имена и типы метрик
 - Обязательные и опциональные метки
 - Форматы значений и ограничения
@@ -25,6 +26,7 @@
 **Описание:** Состояние здоровья endpoint'а зависимости сервиса.
 
 **Значения:**
+
 - `1` — зависимость здорова (успешно отвечает)
 - `0` — зависимость недоступна (не отвечает или проваливает health check)
 
@@ -105,6 +107,7 @@ DEPHEALTH_DB_LABEL_DEP_GROUP=data
 ```
 
 **Пример:**
+
 ```prometheus
 app_dependency_health{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",role="primary",dep_namespace="db",dep_group="storage-tier"} 1
 app_dependency_health{name="order-service",namespace="production",dependency="redis-cache",type="redis",host="redis.cache.svc",port="6379",critical="no",dep_namespace="external"} 1
@@ -123,6 +126,7 @@ app_dependency_health{name="payment-api",namespace="production",dependency="auth
 **Обязательные метки:** Те же, что и у `app_dependency_health` (все обязательные метки должны совпадать).
 
 **Генерируемые time series:**
+
 - `app_dependency_latency_seconds_bucket{..., le="0.001"}` — количество запросов ≤ 1ms
 - `app_dependency_latency_seconds_bucket{..., le="0.005"}` — количество запросов ≤ 5ms
 - `app_dependency_latency_seconds_bucket{..., le="+Inf"}` — общее количество
@@ -130,6 +134,7 @@ app_dependency_health{name="payment-api",namespace="production",dependency="auth
 - `app_dependency_latency_seconds_count{...}` — общее количество health check'ов
 
 **Пример:**
+
 ```prometheus
 app_dependency_latency_seconds_bucket{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",le="0.001"} 45
 app_dependency_latency_seconds_bucket{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",le="0.005"} 98
@@ -154,6 +159,7 @@ app_dependency_latency_seconds_count{name="order-service",namespace="production"
 **Используется:** Endpoint событий timeline (`/api/v1/timeline/events`) для детектирования переходов состояний.
 
 **Пример:**
+
 ```prometheus
 app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="ok"} 1
 app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="timeout"} 0
@@ -173,6 +179,7 @@ app_dependency_status{name="order-service",namespace="production",dependency="po
 **Используется:** Отображение деталей ребра в боковой панели.
 
 **Пример:**
+
 ```prometheus
 app_dependency_status_detail{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",detail="connection_refused"} 1
 ```
@@ -184,51 +191,67 @@ app_dependency_status_detail{name="order-service",namespace="production",depende
 Приложение выполняет следующие запросы к Prometheus/VictoriaMetrics:
 
 ### 1. **Обнаружение топологии** — извлечение всех уникальных рёбер
+
 ```promql
 group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
 ```
+
 **Назначение:** Обнаружить все связи сервис→зависимость в системе. Метки `group`, `isentry`, `dep_namespace` и `dep_group` включаются при наличии.
 
 ### 2. **Состояние здоровья** — текущее значение health для каждого ребра
+
 ```promql
 app_dependency_health
 ```
+
 **Назначение:** Определить, доступен ли каждый endpoint зависимости (UP=1, DOWN=0).
 
 ### 3. **Средний latency** — среднее значение latency для каждого ребра
+
 ```promql
 rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])
 ```
+
 **Назначение:** Вычислить скользящее среднее latency за 5 минут для каждой зависимости.
 
 ### 4. **P99 Latency** — 99-й перцентиль latency для каждого ребра
+
 ```promql
 histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 ```
+
 **Назначение:** Вычислить P99 latency для выявления медленных зависимостей.
 
 ### 5. **Инстансы сервиса** — список всех инстансов сервиса
+
 ```promql
 group by (instance, pod, job) (app_dependency_health{name="<service-name>"})
 ```
+
 **Назначение:** Отобразить все запущенные инстансы/pod'ы для выбранного сервиса в боковой панели.
 
 ### 6. **Статус зависимости** — активная категория статуса для каждого ребра (SDK v0.4.0+)
+
 ```promql
 app_dependency_status == 1
 ```
+
 **Назначение:** Найти активную категорию статуса для каждого endpoint'а зависимости (ровно одна серия == 1 на ребро).
 
 ### 7. **Детали статуса** — детальная информация о статусе для каждого ребра (SDK v0.4.0+)
+
 ```promql
 app_dependency_status_detail == 1
 ```
+
 **Назначение:** Получить детальное описание статуса для каждого endpoint'а зависимости.
 
 ### 8. **Переходы состояний** — детектирование событий timeline за временной диапазон
+
 ```promql
 app_dependency_status == 1  (через query_range API)
 ```
+
 **Назначение:** Детектировать переходы состояний для endpoint'а событий timeline путём анализа изменений активного статуса во времени.
 
 ---
@@ -243,7 +266,8 @@ app_dependency_status == 1  (через query_range API)
   - **health:** влияет на цвет ребра (зелёный=OK, жёлтый=degraded, красный=down)
 
 **Пример топологии:**
-```
+
+```text
 order-service (узел)
   ├─→ postgres-main (ребро: critical=yes, type=postgres, latency=5ms)
   ├─→ redis-cache (ребро: critical=no, type=redis, latency=1ms)
@@ -255,6 +279,7 @@ order-service (узел)
 ## Правила вычисления состояний
 
 **Состояние сервис-ноды** (вычисляется backend в `calcServiceNodeState`):
+
 - **unknown:** Нет исходящих рёбер (нет данных о зависимостях)
 - **degraded:** Любое исходящее ребро имеет `health=0`
 - **ok:** Все исходящие рёбра имеют `health=1`
@@ -263,11 +288,13 @@ order-service (узел)
 > Примечание: `calcServiceNodeState` никогда не возвращает `"down"`. Подробнее см. [Проектирование приложения — Модель состояний](./application-design.ru.md#модель-состояний).
 
 **Состояние dependency-ноды** (вычисляется backend):
+
 - **down:** Все входящие рёбра stale (`stale=true`)
 - **ok:** `health=1` (из non-stale входящих рёбер)
 - **down:** `health=0`
 
 **Состояние ребра:**
+
 - **ok:** `app_dependency_health = 1`
 - **down:** `app_dependency_health = 0`
 - **unknown:** Stale (метрики пропали в пределах lookback window)
@@ -280,6 +307,7 @@ order-service (узел)
 2. **Каскадные предупреждения:** Только рёбра с `critical=yes` распространяют предупреждения о сбоях вверх по графу. Когда зависимость падает, каскадные предупреждения отправляются всем вышестоящим сервисам, связанным через критические рёбра.
 
 **Пример:** Если `order-service → postgres-main (critical=yes)` и `postgres-main` падает:
+
 - `order-service` получает бейдж каскадного предупреждения `⚠ 1` с tooltip'ом, показывающим корневую причину
 - Если `order-service → redis-cache (critical=no)` и `redis-cache` падает — каскадное предупреждение не генерируется
 
@@ -292,12 +320,14 @@ order-service (узел)
 dephealth-ui запрашивает AlertManager API v2 для получения активных алертов:
 
 **Ожидаемые метки алертов:**
+
 - `alertname` — имя правила алерта (например, `DependencyDown`, `DependencyHighLatency`)
 - `severity` — `critical`, `warning`, `info`
 - `name` — имя сервиса (соответствует метке метрики)
 - `dependency` — имя зависимости (соответствует метке метрики)
 
 **Типичные алерты** (из проекта topologymetrics):
+
 - `DependencyDown` — все endpoint'ы недоступны в течение 1 мин (critical)
 - `DependencyDegraded` — смешанные состояния UP/DOWN в течение 2 мин (warning)
 - `DependencyHighLatency` — P99 > 1с в течение 5 мин (warning)
@@ -313,6 +343,7 @@ dephealth-ui запрашивает AlertManager API v2 для получени�
 Используйте [dephealth SDK](https://github.com/BigKAA/topologymetrics) для автоматического экспорта метрик:
 
 **Пример на Go:**
+
 ```go
 import "github.com/BigKAA/topologymetrics/sdk-go"
 
@@ -401,6 +432,7 @@ datasources:
 - AlertManager настроен и доступен
 
 **Тестовый запрос:**
+
 ```promql
 # Должен вернуть топологию ваших сервисов
 group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
@@ -412,23 +444,29 @@ group by (name, namespace, group, dependency, type, host, port, critical, isentr
 
 **Проблема:** Граф топологии пустой
 **Решение:** Проверьте наличие метрик в Prometheus:
+
 ```promql
 count(app_dependency_health)
 ```
+
 Если ноль — проверьте конфигурацию scrape в Prometheus.
 
 **Проблема:** Отсутствуют рёбра в топологии
 **Решение:** Убедитесь, что все обязательные метки присутствуют и не пустые. Запрос:
+
 ```promql
 app_dependency_health{name="", namespace="", dependency="", type="", host="", port=""}
 ```
+
 Должен вернуть 0 результатов (нет метрик с пустыми обязательными метками).
 
 **Проблема:** Не отображается latency
 **Решение:** Проверьте метрики histogram:
+
 ```promql
 rate(app_dependency_latency_seconds_count[5m])
 ```
+
 Если ноль — health check'и не записывают latency.
 
 **Проблема:** Неверные состояния узлов

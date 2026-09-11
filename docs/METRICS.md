@@ -9,6 +9,7 @@
 **dephealth-ui** requires Prometheus-compatible metrics that describe service dependencies and their health status. These metrics are collected by applications instrumented with the [dephealth SDK](https://github.com/BigKAA/topologymetrics).
 
 This document specifies:
+
 - Required metric names and types
 - Mandatory and optional labels
 - Value formats and constraints
@@ -25,6 +26,7 @@ This document specifies:
 **Description:** Health status of a service dependency endpoint.
 
 **Values:**
+
 - `1` — dependency is healthy (responding successfully)
 - `0` — dependency is down (unreachable or failing health checks)
 
@@ -104,6 +106,7 @@ DEPHEALTH_DB_LABEL_DEP_GROUP=data
 ```
 
 **Example:**
+
 ```prometheus
 app_dependency_health{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",role="primary",dep_namespace="db",dep_group="storage-tier"} 1
 app_dependency_health{name="order-service",namespace="production",dependency="redis-cache",type="redis",host="redis.cache.svc",port="6379",critical="no",dep_namespace="external"} 1
@@ -122,6 +125,7 @@ app_dependency_health{name="payment-api",namespace="production",dependency="auth
 **Required Labels:** Same as `app_dependency_health` (all required labels must match).
 
 **Generated Time Series:**
+
 - `app_dependency_latency_seconds_bucket{..., le="0.001"}` — count of requests ≤ 1ms
 - `app_dependency_latency_seconds_bucket{..., le="0.005"}` — count of requests ≤ 5ms
 - `app_dependency_latency_seconds_bucket{..., le="+Inf"}` — total count
@@ -129,6 +133,7 @@ app_dependency_health{name="payment-api",namespace="production",dependency="auth
 - `app_dependency_latency_seconds_count{...}` — total number of health checks
 
 **Example:**
+
 ```prometheus
 app_dependency_latency_seconds_bucket{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",le="0.001"} 45
 app_dependency_latency_seconds_bucket{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",le="0.005"} 98
@@ -153,6 +158,7 @@ app_dependency_latency_seconds_count{name="order-service",namespace="production"
 **Used by:** Timeline events endpoint (`/api/v1/timeline/events`) for state transition detection.
 
 **Example:**
+
 ```prometheus
 app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="ok"} 1
 app_dependency_status{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",status="timeout"} 0
@@ -172,6 +178,7 @@ app_dependency_status{name="order-service",namespace="production",dependency="po
 **Used by:** Edge sidebar detail display.
 
 **Example:**
+
 ```prometheus
 app_dependency_status_detail{name="order-service",namespace="production",dependency="postgres-main",type="postgres",host="pg-master.db.svc",port="5432",critical="yes",detail="connection_refused"} 1
 ```
@@ -183,51 +190,67 @@ app_dependency_status_detail{name="order-service",namespace="production",depende
 The application executes the following queries against Prometheus/VictoriaMetrics:
 
 ### 1. **Topology Discovery** — extract all unique edges
+
 ```promql
 group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
 ```
+
 **Purpose:** Discover all service→dependency relationships in the system. The `group`, `isentry`, `dep_namespace` and `dep_group` labels are included when available.
 
 ### 2. **Health State** — current health value per edge
+
 ```promql
 app_dependency_health
 ```
+
 **Purpose:** Determine if each dependency endpoint is currently UP (1) or DOWN (0).
 
 ### 3. **Average Latency** — mean latency per edge
+
 ```promql
 rate(app_dependency_latency_seconds_sum[5m]) / rate(app_dependency_latency_seconds_count[5m])
 ```
+
 **Purpose:** Calculate rolling 5-minute average latency for each dependency.
 
 ### 4. **P99 Latency** — 99th percentile latency per edge
+
 ```promql
 histogram_quantile(0.99, rate(app_dependency_latency_seconds_bucket[5m]))
 ```
+
 **Purpose:** Calculate P99 latency to identify slow dependencies.
 
 ### 5. **Service Instances** — list all instances for a service
+
 ```promql
 group by (instance, pod, job) (app_dependency_health{name="<service-name>"})
 ```
+
 **Purpose:** Display all running instances/pods for a selected service in the sidebar.
 
 ### 6. **Dependency Status** — active status category per edge (SDK v0.4.0+)
+
 ```promql
 app_dependency_status == 1
 ```
+
 **Purpose:** Find the active status category for each dependency endpoint (exactly one series == 1 per edge).
 
 ### 7. **Dependency Status Detail** — detailed status info per edge (SDK v0.4.0+)
+
 ```promql
 app_dependency_status_detail == 1
 ```
+
 **Purpose:** Retrieve the detailed status description for each dependency endpoint.
 
 ### 8. **Status Transitions** — timeline event detection over a time range
+
 ```promql
 app_dependency_status == 1  (via query_range API)
 ```
+
 **Purpose:** Detect state transitions for the timeline events endpoint by analyzing changes in the active status over time.
 
 ---
@@ -242,7 +265,8 @@ app_dependency_status == 1  (via query_range API)
   - **health:** affects edge color (green=OK, yellow=degraded, red=down)
 
 **Example Topology:**
-```
+
+```text
 order-service (node)
   ├─→ postgres-main (edge: critical=yes, type=postgres, latency=5ms)
   ├─→ redis-cache (edge: critical=no, type=redis, latency=1ms)
@@ -254,6 +278,7 @@ order-service (node)
 ## State Calculation Rules
 
 **Service Node State** (computed by backend in `calcServiceNodeState`):
+
 - **unknown:** No outgoing edges (no dependency data)
 - **degraded:** Any outgoing edge has `health=0`
 - **ok:** All outgoing edges have `health=1`
@@ -262,11 +287,13 @@ order-service (node)
 > Note: `calcServiceNodeState` never returns `"down"`. See [Application Design — State Model](./application-design.md#state-model) for details.
 
 **Dependency Node State** (computed by backend):
+
 - **down:** All incoming edges are stale (`stale=true`)
 - **ok:** `health=1` (from non-stale incoming edges)
 - **down:** `health=0`
 
 **Edge State:**
+
 - **ok:** `app_dependency_health = 1`
 - **down:** `app_dependency_health = 0`
 - **unknown:** Stale (metrics disappeared within lookback window)
@@ -279,6 +306,7 @@ The `critical` label (`yes`/`no`) has two effects in dephealth-ui:
 2. **Cascade warnings:** Only edges with `critical=yes` propagate failure warnings upstream. When a dependency goes down, cascade warnings are sent to all upstream services connected through critical edges.
 
 **Example:** If `order-service → postgres-main (critical=yes)` and `postgres-main` goes down:
+
 - `order-service` receives a cascade warning badge `⚠ 1` with tooltip showing the root cause
 - If `order-service → redis-cache (critical=no)` and `redis-cache` goes down — no cascade warning is generated
 
@@ -291,12 +319,14 @@ See [Application Design — Cascade Warnings](./application-design.md#cascade-wa
 dephealth-ui queries AlertManager API v2 for active alerts:
 
 **Expected Alert Labels:**
+
 - `alertname` — alert rule name (e.g., `DependencyDown`, `DependencyHighLatency`)
 - `severity` — `critical`, `warning`, `info`
 - `name` — service name (matches metric label)
 - `dependency` — dependency name (matches metric label)
 
 **Common Alerts** (from topologymetrics project):
+
 - `DependencyDown` — all endpoints down for 1min (critical)
 - `DependencyDegraded` — mixed UP/DOWN states for 2min (warning)
 - `DependencyHighLatency` — P99 > 1s for 5min (warning)
@@ -312,6 +342,7 @@ dephealth-ui queries AlertManager API v2 for active alerts:
 Use the [dephealth SDK](https://github.com/BigKAA/topologymetrics) to automatically emit metrics:
 
 **Go Example:**
+
 ```go
 import "github.com/BigKAA/topologymetrics/sdk-go"
 
@@ -400,6 +431,7 @@ datasources:
 - AlertManager is configured and reachable
 
 **Test Query:**
+
 ```promql
 # Should return your service topology
 group by (name, namespace, group, dependency, type, host, port, critical, isentry, dep_namespace, dep_group) (app_dependency_health)
@@ -411,23 +443,29 @@ group by (name, namespace, group, dependency, type, host, port, critical, isentr
 
 **Problem:** Topology graph is empty
 **Solution:** Verify metrics are present in Prometheus:
+
 ```promql
 count(app_dependency_health)
 ```
+
 If zero, check Prometheus scrape configuration.
 
 **Problem:** Edges missing in topology
 **Solution:** Ensure all required labels are present and non-empty. Query:
+
 ```promql
 app_dependency_health{name="", namespace="", dependency="", type="", host="", port=""}
 ```
+
 Should return 0 results (no metrics with empty required labels).
 
 **Problem:** Latency not displayed
 **Solution:** Check histogram metrics:
+
 ```promql
 rate(app_dependency_latency_seconds_count[5m])
 ```
+
 If zero, health checks are not recording latency.
 
 **Problem:** Wrong node states

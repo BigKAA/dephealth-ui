@@ -31,12 +31,14 @@
 ## Ключевые концепции
 
 **Необходимые метрики:**
+
 - `app_dependency_health` — Gauge (0/1), указывающий состояние здоровья зависимости
 - `app_dependency_latency_seconds` — Histogram, измеряющий latency health check'ов
 - `app_dependency_status` — Gauge (enum-паттерн), активная категория статуса (SDK v0.4.0+)
 - `app_dependency_status_detail` — Gauge (info-паттерн), детальное описание статуса (SDK v0.4.0+)
 
 **Метки SDK (обязательные):**
+
 - `name` — Имя сервиса
 - `group` — Логическая группа сервиса (обязательна с SDK v0.5.0; dephealth-ui работает без неё)
 - `dependency` — Логическое имя зависимости
@@ -46,11 +48,13 @@
 - `critical` — Флаг критичности (`yes`/`no`)
 
 **Дополнительные метки (не из SDK):**
+
 - `namespace` — Kubernetes namespace (добавляется Prometheus; рекомендуется использовать вне K8s)
 - `isentry` — Метка точки входа (рекомендуется для dephealth-ui)
 
 **Поток интеграции:**
-```
+
+```text
 Ваш сервис (с dephealth SDK)
   ↓ экспортирует метрики
 Prometheus/VictoriaMetrics

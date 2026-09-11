@@ -27,7 +27,7 @@ dephealth-ui предоставляет прямые ссылки на дашб�
 
 Backend генерирует URL для Grafana по шаблону `{baseUrl}/d/{uid}?{variables}`:
 
-```
+```text
 # Service Status
 https://grafana.example.com/d/dephealth-service-status?var-service=my-service
 
@@ -56,6 +56,7 @@ grafana:
 ```
 
 Или через переменную окружения:
+
 ```bash
 DEPHEALTH_GRAFANA_TOKEN=glsa_xxxxxxxxxxxxxxxxxxxx
 ```
@@ -70,6 +71,7 @@ grafana:
 ```
 
 Или через переменные окружения:
+
 ```bash
 DEPHEALTH_GRAFANA_USERNAME=api-user
 DEPHEALTH_GRAFANA_PASSWORD=api-password

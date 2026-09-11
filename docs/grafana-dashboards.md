@@ -27,7 +27,7 @@ Each dashboard type expects specific Grafana template variables:
 
 The backend generates Grafana URLs using the pattern `{baseUrl}/d/{uid}?{variables}`:
 
-```
+```text
 # Service Status
 https://grafana.example.com/d/dephealth-service-status?var-service=my-service
 
@@ -56,6 +56,7 @@ grafana:
 ```
 
 Or via environment variable:
+
 ```bash
 DEPHEALTH_GRAFANA_TOKEN=glsa_xxxxxxxxxxxxxxxxxxxx
 ```
@@ -70,6 +71,7 @@ grafana:
 ```
 
 Or via environment variables:
+
 ```bash
 DEPHEALTH_GRAFANA_USERNAME=api-user
 DEPHEALTH_GRAFANA_PASSWORD=api-password

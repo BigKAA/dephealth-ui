@@ -35,6 +35,7 @@ global:
 ```
 
 Будут созданы:
+
 - Ресурс `HTTPRoute`, указывающий на сконфигурированный Gateway
 - Ресурс `Certificate` (при `tls.enabled: true`), управляемый cert-manager
 
