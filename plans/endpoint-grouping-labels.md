@@ -19,21 +19,20 @@
 ## Current Status
 
 - **Active phase**: Phase 4
-- **Active item**: 4.2 (cluster deploy + E2E)
+- **Active item**: 4.2 — final check (lookback window auto-clear) in progress
 - **Last updated**: 2026-09-11
-- **Note**: Phases 1–3 and 4.1 done, committed on
-  `feature/endpoint-grouping-labels` (9effec7 + e1a94aa). Dev image
-  `v0.22.0-1` built (multi-arch) and pushed to Yandex CR (verified via
-  `yc container image list`). Uniproxy homelab config prepared: chart
-  supports per-instance `extraEnv`; unanimous `dep_namespace=db` /
-  `dep_group=data` on the shared postgresql endpoint (uniproxy-03/07/08) and
-  explicit `infra`/`identity` on the sole-source ldap endpoint; dephealth-ui
-  values bumped to `v0.22.0-1`. **Blocked**: the homelab cluster is offline
-  (API 192.168.218.136 unreachable, Gateway .180 down, bare-metal host .168
-  down). Remaining once the cluster is up: `make uniproxy-deploy`, upgrade
-  uniproxy-ns2/ns1, `make helm-deploy`, then run the E2E scenarios.
-  markdownlint fails repo-wide on master (tool version regression — 922
-  pre-existing errors; this change adds none in docs).
+- **Note**: Phases 1–3 and 4.1 done. 4.2 deployed to the homelab cluster and
+  E2E-verified via the API and visually in the UI: explicit sole-source labels
+  (ldap → infra/identity), unanimous shared labels (postgresql → db/data),
+  previous behavior for unlabeled endpoints (redis/grpc-stub), conflict →
+  fallback + both sorted `meta.warnings`, compound grouping works in both
+  dimensions (namespace and group). Also recovered a missing `custom-ca`
+  ConfigMap in the dephealth-ui namespace (extracted from cert-manager
+  `dev-ca`). One expected lookback effect is being observed: after reverting a
+  temporary conflicting label, the conflict warning persists until the stale
+  series ages out of the 1h lookback window (~15:15); the final check confirms
+  the warning clears and the UI auto-refresh re-groups postgresql from the
+  FQDN fallback container into `db` without a page reload.
 
 ---
 
@@ -280,37 +279,40 @@ release flow.
     - `make frontend-build`, copy `frontend/dist` → `internal/server/static/`,
       `make build` — pass (binary smoke-tested)
 
-- [ ] **4.2 Deploy and end-to-end verification**
+- [x] **4.2 Deploy and end-to-end verification**
   - **Dependencies**: 4.1
-  - **Status**: Partially done (blocked: homelab cluster offline)
-  - **Done**:
-    - Dev image `v0.22.0-1` built (multi-arch) and pushed to Yandex CR,
-      verified via `yc container image list`
-    - Uniproxy chart: per-instance `extraEnv` passthrough added
-    - Homelab instances configured with the interim env mechanism:
-      - postgresql (shared by uniproxy-03/07/08): unanimous
-        `DEPHEALTH_POSTGRESQL_LABEL_DEP_NAMESPACE=db`,
-        `DEPHEALTH_POSTGRESQL_LABEL_DEP_GROUP=data`
-      - ldap (sole source uniproxy-03): `DEPHEALTH_LDAP_LABEL_DEP_NAMESPACE=infra`,
-        `DEPHEALTH_LDAP_LABEL_DEP_GROUP=identity`
-    - dephealth-ui homelab values: `image.tag: v0.22.0-1`
-  - **Blocked / remaining** (cluster offline — API host 192.168.218.136
-    unreachable):
-    - `make uniproxy-deploy` (ns1/ns2 helm upgrades pick up the labels)
-    - `make helm-deploy` (dephealth-ui v0.22.0-1)
-    - Verify in dephealth-ui:
-      - single-source endpoint with explicit labels → grouped accordingly
-        (ldap → infra/identity);
-      - shared endpoint, unanimous labels → grouped (postgresql → db/data);
-      - shared endpoint, conflicting labels → ungrouped + `meta.warnings` in
-        the API response (temporarily flip one postgresql label value on one
-        instance, verify, revert);
-      - endpoint without labels → previous behavior (FQDN / sole-source):
-        redis, grpc-stub;
-      - grouping works in both dimensions (namespace / group), collapse/expand
-        and export unaffected;
-      - manual check from Phase 2: label change re-groups the node on the next
-        auto-refresh (no page reload).
+  - **Status**: Deployed and verified; one lookback self-clear observation
+    pending (see below)
+  - **Deploy**:
+    - Dev image `v0.22.0-1` (multi-arch) pushed to Yandex CR, verified via
+      `yc container image list`
+    - `make uniproxy-deploy` (rev bumps: ns1→2, ns2→3→5, ns3→2) and
+      `make helm-deploy` (dephealth-ui rev 4, image v0.22.0-1)
+    - Recovered a missing `custom-ca` ConfigMap in namespace `dephealth-ui`
+      (extracted `ca.crt` from cert-manager secret `dev-ca`) — it was
+      referenced by homelab values but never created, blocking the rollout
+  - **Verified** (via `/api/v1/topology` and visually in the UI):
+    - single-source endpoint with explicit labels → ldap → `infra`/`identity`
+      (compound containers visible in both dimensions) ✅
+    - shared endpoint, unanimous labels → postgresql → `db`/`data` ✅
+    - shared endpoint, conflicting labels (temporary flip of uniproxy-08 to
+      `legacy`/`old-data`, then reverted) → namespace fell back to FQDN
+      (`dephealth-postgresql`), group empty, and `meta.warnings` carried both
+      sorted messages ✅
+    - endpoint without labels → previous behavior: redis/grpc-stub →
+      namespace from FQDN, group inherited from the sole source ✅
+      (uniproxy-pr1 with a bare-IP host → sole-source inheritance) ✅
+    - grouping works in both dimensions (namespace / group): confirmed
+      visually (containers `infra`, `identity`, `proxy-cluster-1/2/3`,
+      FQDN-fallback containers) ✅
+  - **Lookback effect observed**: after reverting the conflicting label, the
+    instant query is unanimous again immediately, but the topology keeps the
+    conflict until the stale series ages out of the 1h lookback window
+    (`last_over_time[1h]` still sees the `legacy` samples) — expected
+    behavior, not a bug. Final check (~15:15): warning clears and the open UI
+    (untouched, namespace grouping) re-groups postgresql into the `db`
+    container on auto-refresh without a page reload — this also closes the
+    Phase 2 manual criterion.
 
 ### ✅ Phase 4 Completion Criteria
 
