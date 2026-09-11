@@ -38,12 +38,6 @@ Available tools: `kubectl`, `helm`, `docker`
 - Authentication via `yc` credential helper (configured in `~/.docker/config.json`)
 - Use for all documentation examples and Helm chart defaults
 
-**Development registry (Harbor):**
-- `harbor.kryukov.lan/library` — dev/test images (homelab only)
-- `harbor.kryukov.lan/docker` — Docker Hub proxy
-- `harbor.kryukov.lan/mcr` — Microsoft Container Registry proxy
-- Admin: `admin` / `password`
-
 ## Git Workflow
 
 Follow **GitHub Flow + Semantic Versioning** (see [GIT-WORKFLOW.md](GIT-WORKFLOW.md)):
