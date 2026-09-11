@@ -5,9 +5,9 @@
        env-deploy env-undeploy env-status
 
 # --- Variables ---
-REGISTRY         ?= harbor.kryukov.lan/library
+REGISTRY         ?= container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst
 RELEASE_REGISTRY ?= container-registry.cloud.yandex.net/crpklna5l8v5m7c0ipst
-DOCKER_PROXY     ?= harbor.kryukov.lan/docker
+DOCKER_PROXY     ?= docker.io
 IMAGE_NAME    ?= dephealth-ui
 TAG           ?= latest
 PLATFORMS     ?= linux/amd64,linux/arm64
