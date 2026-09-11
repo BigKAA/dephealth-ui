@@ -172,6 +172,9 @@ spec:
               value: {{ .serverAuth.statusMethod | quote }}
             {{- end }}
             {{- end }}
+            {{- if .extraEnv }}
+            {{- toYaml .extraEnv | nindent 12 }}
+            {{- end }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:

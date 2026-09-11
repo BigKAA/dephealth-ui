@@ -85,6 +85,13 @@ instances:
   - name: uniproxy-07
     group: proxy-cluster-2
     replicas: 1
+    # Reserved dep_* labels for the shared postgresql endpoint — keep in sync
+    # with uniproxy-03 (ns1) and uniproxy-08 (ns2): unanimous values required.
+    extraEnv:
+      - name: DEPHEALTH_POSTGRESQL_LABEL_DEP_NAMESPACE
+        value: "db"
+      - name: DEPHEALTH_POSTGRESQL_LABEL_DEP_GROUP
+        value: "data"
     connections:
       - name: postgresql
         type: postgres
@@ -99,6 +106,13 @@ instances:
       username: "monitor"
       password: "monitor-pass-08"
       metricsMethod: "none"
+    # Reserved dep_* labels for the shared postgresql endpoint — keep in sync
+    # with uniproxy-03 (ns1) and uniproxy-07 (ns2): unanimous values required.
+    extraEnv:
+      - name: DEPHEALTH_POSTGRESQL_LABEL_DEP_NAMESPACE
+        value: "db"
+      - name: DEPHEALTH_POSTGRESQL_LABEL_DEP_GROUP
+        value: "data"
     connections:
       - name: postgresql
         type: postgres

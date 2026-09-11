@@ -43,6 +43,19 @@ instances:
   - name: uniproxy-03
     group: proxy-cluster-1
     replicas: 3
+    # Reserved dep_* labels (interim env mechanism): the ldap endpoint has a
+    # sole source and gets explicit placement. The postgresql labels must stay
+    # in sync with uniproxy-07/uniproxy-08 in ns2 — the endpoint is shared by
+    # all three sources and dephealth-ui requires unanimous values.
+    extraEnv:
+      - name: DEPHEALTH_POSTGRESQL_LABEL_DEP_NAMESPACE
+        value: "db"
+      - name: DEPHEALTH_POSTGRESQL_LABEL_DEP_GROUP
+        value: "data"
+      - name: DEPHEALTH_LDAP_LABEL_DEP_NAMESPACE
+        value: "infra"
+      - name: DEPHEALTH_LDAP_LABEL_DEP_GROUP
+        value: "identity"
     connections:
       - name: postgresql
         type: postgres
