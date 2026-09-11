@@ -19,18 +19,21 @@
 ## Current Status
 
 - **Active phase**: Phase 4
-- **Active item**: 4.2
+- **Active item**: 4.2 (cluster deploy + E2E)
 - **Last updated**: 2026-09-11
-- **Note**: Phases 1–3 and 4.1 done: backend ingests `dep_namespace`/`dep_group`
-  with the agreed resolution precedence and `meta.warnings`; frontend render
-  signature includes namespace/group; docs (EN+RU) and CHANGELOG updated;
-  `go test -race` and `golangci-lint` pass; frontend and Go binary build.
+- **Note**: Phases 1–3 and 4.1 done, committed on
+  `feature/endpoint-grouping-labels` (9effec7 + e1a94aa). Dev image
+  `v0.22.0-1` built (multi-arch) and pushed to Yandex CR (verified via
+  `yc container image list`). Uniproxy homelab config prepared: chart
+  supports per-instance `extraEnv`; unanimous `dep_namespace=db` /
+  `dep_group=data` on the shared postgresql endpoint (uniproxy-03/07/08) and
+  explicit `infra`/`identity` on the sole-source ldap endpoint; dephealth-ui
+  values bumped to `v0.22.0-1`. **Blocked**: the homelab cluster is offline
+  (API 192.168.218.136 unreachable, Gateway .180 down, bare-metal host .168
+  down). Remaining once the cluster is up: `make uniproxy-deploy`, upgrade
+  uniproxy-ns2/ns1, `make helm-deploy`, then run the E2E scenarios.
   markdownlint fails repo-wide on master (tool version regression — 922
-  pre-existing errors; this change adds none in docs, only the CHANGELOG's
-  standard Keep-a-Changelog MD024 pattern). Item 4.2 (homelab deploy + E2E)
-  is pending. Design agreed (Variant A: reserved metric labels). External work
-  tracked via GitHub issues drafted in `tmp/issue-topologymetrics.md` and
-  `tmp/issue-uniproxy.md`.
+  pre-existing errors; this change adds none in docs).
 
 ---
 
@@ -279,20 +282,35 @@ release flow.
 
 - [ ] **4.2 Deploy and end-to-end verification**
   - **Dependencies**: 4.1
-  - **Description**: Build and deploy the dev image
-    (`make docker-build TAG=v0.22.0-N`) to the homelab cluster. Configure test
-    uniproxy instances with the interim env mechanism (no uniproxy update
-    required):
-    - `DEPHEALTH_<NAME>_LABEL_DEP_NAMESPACE=<ns>`
-    - `DEPHEALTH_<NAME>_LABEL_DEP_GROUP=<group>`
-    Verify in dephealth-ui:
-    - single-source endpoint with explicit labels → grouped accordingly;
-    - shared endpoint, unanimous labels → grouped;
-    - shared endpoint, conflicting labels → ungrouped + `meta.warnings` in the
-      API response;
-    - endpoint without labels → previous behavior (FQDN / sole-source);
-    - grouping works in both dimensions (namespace / group), collapse/expand
-      and export unaffected.
+  - **Status**: Partially done (blocked: homelab cluster offline)
+  - **Done**:
+    - Dev image `v0.22.0-1` built (multi-arch) and pushed to Yandex CR,
+      verified via `yc container image list`
+    - Uniproxy chart: per-instance `extraEnv` passthrough added
+    - Homelab instances configured with the interim env mechanism:
+      - postgresql (shared by uniproxy-03/07/08): unanimous
+        `DEPHEALTH_POSTGRESQL_LABEL_DEP_NAMESPACE=db`,
+        `DEPHEALTH_POSTGRESQL_LABEL_DEP_GROUP=data`
+      - ldap (sole source uniproxy-03): `DEPHEALTH_LDAP_LABEL_DEP_NAMESPACE=infra`,
+        `DEPHEALTH_LDAP_LABEL_DEP_GROUP=identity`
+    - dephealth-ui homelab values: `image.tag: v0.22.0-1`
+  - **Blocked / remaining** (cluster offline — API host 192.168.218.136
+    unreachable):
+    - `make uniproxy-deploy` (ns1/ns2 helm upgrades pick up the labels)
+    - `make helm-deploy` (dephealth-ui v0.22.0-1)
+    - Verify in dephealth-ui:
+      - single-source endpoint with explicit labels → grouped accordingly
+        (ldap → infra/identity);
+      - shared endpoint, unanimous labels → grouped (postgresql → db/data);
+      - shared endpoint, conflicting labels → ungrouped + `meta.warnings` in
+        the API response (temporarily flip one postgresql label value on one
+        instance, verify, revert);
+      - endpoint without labels → previous behavior (FQDN / sole-source):
+        redis, grpc-stub;
+      - grouping works in both dimensions (namespace / group), collapse/expand
+        and export unaffected;
+      - manual check from Phase 2: label change re-groups the node on the next
+        auto-refresh (no page reload).
 
 ### ✅ Phase 4 Completion Criteria
 
